@@ -1,5 +1,5 @@
 from enum import IntEnum
-from math import ceil, floor, log, pi
+from math import ceil, floor, log, pi, sin
 from typing import assert_never
 
 from sonolus.script.easing import ease_in_sine
@@ -138,6 +138,23 @@ def transformed_vec_at(lane: float, travel: float = 1.0) -> Vec2:
     return transform_vec(Vec2(lane * travel, travel))
 
 
+def elevate_vec(v: Vec2, elevation: float = 1.0) -> Vec2:
+    return Vec2(v.x, lerp(v.y, Layout.t, elevation * 0.25))
+
+
+def elevate_quad(q: QuadLike, elevation: float = 1.0) -> Quad:
+    return Quad(
+        bl=elevate_vec(q.bl, elevation),
+        br=elevate_vec(q.br, elevation),
+        tl=elevate_vec(q.tl, elevation),
+        tr=elevate_vec(q.tr, elevation),
+    )
+
+
+def travel_to_elevation(travel: float) -> float:
+    return (sin(2 * travel * 2 * pi - pi / 2) + 1) / 2
+
+
 def touch_x_to_lane(x: float) -> float:
     return x / Layout.w_scale
 
@@ -202,6 +219,7 @@ def layout_fallback_judge_line() -> Quad:
 
 
 def layout_note_body_by_edges(l: float, r: float, h: float, travel: float):
+    e = travel_to_elevation(travel)
     if Options.alternative_approach_curve:
         offset = 80
         test_offset = 0.5
@@ -212,7 +230,7 @@ def layout_note_body_by_edges(l: float, r: float, h: float, travel: float):
         reference_d_offset = reference_d + test_offset
         reference_h = 1 / reference_d - 1 / reference_d_offset
         h *= current_h / reference_h
-    return perspective_rect(l=l, r=r, t=1 - h, b=1 + h, travel=travel)
+    return elevate_quad(perspective_rect(l=l, r=r, t=1 - h, b=1 + h, travel=travel), e)
 
 
 def layout_note_body_slices_by_edges(
