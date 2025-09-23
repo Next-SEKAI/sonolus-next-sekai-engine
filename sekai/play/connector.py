@@ -31,6 +31,7 @@ from sekai.lib.ease import EaseType
 from sekai.lib.note import draw_slide_note_head, get_attach_params
 from sekai.lib.options import Options
 from sekai.lib.streams import Streams
+from sekai.lib.timescale import group_hide_notes
 from sekai.play import note
 
 CONNECTOR_LENIENCY = 1
@@ -138,6 +139,8 @@ class Connector(PlayArchetype):
                 self.active_connector_info.visual_lane = visual_lane
                 self.active_connector_info.visual_size = visual_size
                 self.active_connector_info.connector_kind = self.kind
+            if group_hide_notes(self.head.timescale_group):
+                self.active_connector_info.connector_kind = ConnectorKind.NONE
 
     def update_parallel(self):
         if time() < self.visual_active_interval.end:
@@ -161,6 +164,8 @@ class Connector(PlayArchetype):
             if visual_state != self.last_visual_state:
                 self.last_visual_state = visual_state
                 Streams.connector_visual_states[self.index][offset_adjusted_time()] = visual_state
+            if group_hide_notes(head.timescale_group):
+                return
             draw_connector(
                 kind=self.kind,
                 visual_state=visual_state,
@@ -256,12 +261,6 @@ class SlideManager(PlayArchetype):
         if time() < self.active_head.target_time:
             return
         info = self.active_head.active_connector_info
-        draw_slide_note_head(
-            self.active_head.kind,
-            info.visual_lane,
-            info.visual_size,
-            self.active_head.target_time,
-        )
         match info.connector_kind:
             case (
                 ConnectorKind.ACTIVE_NORMAL
@@ -301,6 +300,12 @@ class SlideManager(PlayArchetype):
                     spawn_connector_slot_particles(info.connector_kind, info.visual_lane, info.visual_size)
                 draw_connector_slot_glow_effect(
                     info.connector_kind, info.active_start_time, info.visual_lane, info.visual_size
+                )
+                draw_slide_note_head(
+                    self.active_head.kind,
+                    info.visual_lane,
+                    info.visual_size,
+                    self.active_head.target_time,
                 )
             case _:
                 destroy_looped_sfx(self.sfx)

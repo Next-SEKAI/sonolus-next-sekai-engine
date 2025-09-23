@@ -45,7 +45,7 @@ from sekai.lib.note import (
     schedule_note_auto_sfx,
 )
 from sekai.lib.options import Options
-from sekai.lib.timescale import group_scaled_time, group_time_to_scaled_time
+from sekai.lib.timescale import group_hide_notes, group_scaled_time, group_time_to_scaled_time
 from sekai.play import input_manager
 
 DEFAULT_BEST_TOUCH_TIME = -1e8
@@ -241,6 +241,8 @@ class BaseNote(PlayArchetype):
             self.handle_late_miss()
             return
         if is_head(self.kind) and time() > self.target_time:
+            return
+        if group_hide_notes(self.timescale_group):
             return
         draw_note(self.kind, self.lane, self.size, self.progress, self.direction, self.target_time)
 

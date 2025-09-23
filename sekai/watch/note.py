@@ -33,7 +33,7 @@ from sekai.lib.note import (
     schedule_note_slot_effects,
 )
 from sekai.lib.options import Options
-from sekai.lib.timescale import group_scaled_time, group_time_to_scaled_time
+from sekai.lib.timescale import group_hide_notes, group_scaled_time, group_time_to_scaled_time
 from sekai.play.note import derive_note_archetypes
 
 
@@ -141,6 +141,8 @@ class WatchBaseNote(WatchArchetype):
         if time() < self.visual_start_time:
             return
         if is_head(self.kind) and time() > self.target_time:
+            return
+        if group_hide_notes(self.timescale_group):
             return
         draw_note(self.kind, self.lane, self.size, self.progress, self.direction, self.target_time)
 
