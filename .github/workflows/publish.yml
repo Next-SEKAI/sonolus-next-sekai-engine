@@ -24,7 +24,6 @@ jobs:
       - name: Build engine
         run: uv run sonolus-py build
 
-      - run: cd js
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -33,6 +32,10 @@ jobs:
       - name: Update npm
         run: npm install -g npm@latest
       - run: npm ci
+        working-directory: ./js
       - run: npm run version --- ${{ github.ref_name }}
+        working-directory: ./js
       - run: npm run build
+        working-directory: ./js
       - run: npm publish
+        working-directory: ./js
