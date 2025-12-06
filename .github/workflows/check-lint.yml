@@ -12,10 +12,10 @@ jobs:
 
         steps:
             - uses: actions/checkout@v4
+            - run: cd js
             - uses: actions/setup-node@v3
               with:
                   node-version: 'lts/*'
                   cache: 'npm'
-            - run: cd js
             - run: npm ci
             - run: npm run check-lint
