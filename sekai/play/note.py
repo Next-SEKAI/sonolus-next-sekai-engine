@@ -15,7 +15,7 @@ from sonolus.script.archetype import (
     shared_memory,
 )
 from sonolus.script.array import Dim
-from sonolus.script.bucket import Judgment
+from sonolus.script.bucket import Judgment, Bucket
 from sonolus.script.containers import VarArray
 from sonolus.script.globals import level_memory
 from sonolus.script.interval import Interval, remap_clamped, unlerp_clamped
@@ -574,8 +574,7 @@ class BaseNote(PlayArchetype):
             accuracy = self.judgment_window.good.end
         self.result.judgment = Judgment.MISS
         self.result.accuracy = accuracy
-        if self.result.bucket.id != -1:
-            self.result.bucket_value = self.judgment_window.good.end * WINDOW_SCALE
+        self.result.bucket = Bucket(-1)
         self.despawn = True
 
     def fail_damage(self):
