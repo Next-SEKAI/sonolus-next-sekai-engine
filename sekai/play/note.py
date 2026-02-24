@@ -15,7 +15,7 @@ from sonolus.script.archetype import (
     shared_memory,
 )
 from sonolus.script.array import Dim
-from sonolus.script.bucket import Bucket, Judgment
+from sonolus.script.bucket import Judgment, Bucket
 from sonolus.script.containers import VarArray
 from sonolus.script.globals import level_memory
 from sonolus.script.interval import Interval, remap_clamped, unlerp_clamped
@@ -154,7 +154,7 @@ class BaseNote(PlayArchetype):
             self.active_connector_info.input_lane = self.lane
             self.active_connector_info.input_size = self.size
 
-        if self.is_scored and self.kind != NoteKind.DAMAGE:
+        if self.is_scored:
             schedule_note_auto_sfx(self.effect_kind, self.target_time)
 
     def spawn_order(self) -> float:
