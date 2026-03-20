@@ -1,4 +1,4 @@
-from sonolus.script.runtime import HorizontalAlign, runtime_ui, screen
+from sonolus.script.runtime import HorizontalAlign, runtime_ui, safe_area
 from sonolus.script.ui import (
     EaseType,
     UiAnimation,
@@ -64,7 +64,7 @@ def init_ui():
     ui = runtime_ui()
 
     gap = 0.05
-    box = screen().shrink(Vec2(gap, gap))
+    box = safe_area().shrink(Vec2(gap, gap))
     show_ui = not Options.hide_ui
 
     ui.menu.update(
