@@ -45,6 +45,7 @@ class TimescaleGroup(PlayArchetype):
     current_scaled_time: CompositeTime = shared_memory()
     last_change: EntityRef[TimescaleChange] = shared_memory()
     hide_notes: bool = shared_memory()
+    last_updated: float = shared_memory()
 
     time_to_scaled_time: TimeToScaledTime = shared_memory()
     time_to_last_change_index: TimeToLastChangeIndex = shared_memory()
@@ -63,9 +64,12 @@ class TimescaleGroup(PlayArchetype):
         self.time_to_last_change_index.init(self.first_ref.index)
         self.scaled_time_to_first_time.init(self.first_ref.index)
         self.scaled_time_to_first_time_2.init(self.first_ref.index)
+        self.last_updated = -1e8
 
-    @callback(order=-2)
-    def update_sequential(self):
+    def update(self):
+        if self.last_updated == time():
+            return
+        self.last_updated = time()
         self.current_scaled_time = self.time_to_scaled_time.get(time())
         self.last_change.index = self.time_to_last_change_index.get(time())
         if self.last_change.index > 0:

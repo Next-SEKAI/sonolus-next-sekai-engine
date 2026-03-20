@@ -52,6 +52,8 @@ class TimescaleGroupLike(Protocol):
     @classmethod
     def at(cls, index: int) -> TimescaleGroupLike: ...
 
+    def update(self) -> None: ...
+
 
 class TimeToScaledTime(Record):
     last_timescale: float
@@ -329,3 +331,11 @@ def group_scaled_time_to_first_time_2(
     if isinstance(group, EntityRef):
         group = group.index
     return timescale_group_archetype().at(group).scaled_time_to_first_time_2.get(scaled_time)
+
+
+def update_timescale_group(group: int | EntityRef) -> None:
+    if isinstance(group, EntityRef):
+        group = group.index
+    if group <= 0:
+        return
+    timescale_group_archetype().at(group).update()

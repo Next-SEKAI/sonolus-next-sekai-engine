@@ -48,7 +48,13 @@ from sekai.lib.note import (
     schedule_note_auto_sfx,
 )
 from sekai.lib.options import Options
-from sekai.lib.timescale import CompositeTime, group_hide_notes, group_scaled_time, group_time_to_scaled_time
+from sekai.lib.timescale import (
+    CompositeTime,
+    group_hide_notes,
+    group_scaled_time,
+    group_time_to_scaled_time,
+    update_timescale_group,
+)
 from sekai.play import input_manager
 from sekai.play.common import PlayLevelMemory
 
@@ -170,6 +176,9 @@ class BaseNote(PlayArchetype):
     def update_sequential(self):
         if self.despawn:
             return
+
+        update_timescale_group(self.timescale_group)
+
         if self.should_do_delayed_trigger():
             if self.best_touch_matches_direction:
                 self.judge(self.best_touch_time)

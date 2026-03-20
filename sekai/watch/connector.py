@@ -27,7 +27,7 @@ from sekai.lib.ease import EaseType
 from sekai.lib.note import draw_slide_note_head, get_attach_params
 from sekai.lib.options import Options
 from sekai.lib.streams import Streams
-from sekai.lib.timescale import group_hide_notes
+from sekai.lib.timescale import group_hide_notes, update_timescale_group
 from sekai.watch import note
 
 
@@ -76,6 +76,10 @@ class WatchConnector(WatchArchetype):
 
     @callback(order=-1)
     def update_sequential(self):
+        update_timescale_group(self.head.timescale_group)
+        update_timescale_group(self.tail.timescale_group)
+        update_timescale_group(self.segment_head.timescale_group)
+
         if self.active_head_ref.index > 0 and time() in self.visual_active_interval:
             visual_lane, visual_size = self.get_attached_params(time())
             self.active_connector_info.visual_lane = visual_lane

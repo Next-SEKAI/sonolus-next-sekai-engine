@@ -35,7 +35,13 @@ from sekai.lib.note import (
     schedule_note_slot_effects,
 )
 from sekai.lib.options import Options
-from sekai.lib.timescale import CompositeTime, group_hide_notes, group_scaled_time, group_time_to_scaled_time
+from sekai.lib.timescale import (
+    CompositeTime,
+    group_hide_notes,
+    group_scaled_time,
+    group_time_to_scaled_time,
+    update_timescale_group,
+)
 from sekai.play.note import derive_note_archetypes
 
 
@@ -145,6 +151,9 @@ class WatchBaseNote(WatchArchetype):
             return self.end_time
         else:
             return self.target_time
+
+    def update_sequential(self):
+        update_timescale_group(self.timescale_group)
 
     def update_parallel(self):
         if time() < self.visual_start_time:

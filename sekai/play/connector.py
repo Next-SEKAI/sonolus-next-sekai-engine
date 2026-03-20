@@ -31,7 +31,7 @@ from sekai.lib.ease import EaseType
 from sekai.lib.note import draw_slide_note_head, get_attach_params
 from sekai.lib.options import Options
 from sekai.lib.streams import Streams
-from sekai.lib.timescale import group_hide_notes
+from sekai.lib.timescale import group_hide_notes, update_timescale_group
 from sekai.play import input_manager, note
 
 CONNECTOR_LENIENCY = 1
@@ -121,6 +121,10 @@ class Connector(PlayArchetype):
         if time() >= self.end_time:
             self.despawn = True
             return
+
+        update_timescale_group(self.head.timescale_group)
+        update_timescale_group(self.tail.timescale_group)
+        update_timescale_group(self.segment_head.timescale_group)
 
         if self.active_head_ref.index > 0:
             if time() in self.input_active_interval:
