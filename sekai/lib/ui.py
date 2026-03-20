@@ -65,6 +65,9 @@ def init_ui():
 
     gap = 0.05
     box = safe_area().shrink(Vec2(gap, gap))
+    min_x_extent = min(box.r, -box.l)
+    box.r = min_x_extent
+    box.l = -min_x_extent
     show_ui = not Options.hide_ui
 
     ui.menu.update(
