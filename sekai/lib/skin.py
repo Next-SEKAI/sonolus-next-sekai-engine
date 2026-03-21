@@ -16,9 +16,16 @@ class BaseSkin:
     cover: StandardSprite.STAGE_COVER
 
     lane: StandardSprite.LANE
+    stage_middle: StandardSprite.STAGE_MIDDLE
     judgment_line: StandardSprite.JUDGMENT_LINE
     stage_left_border: StandardSprite.STAGE_LEFT_BORDER
     stage_right_border: StandardSprite.STAGE_RIGHT_BORDER
+
+    lane_divider: Sprite = sprite("Sekai Lane Divider")
+
+    judgment_gradient: Sprite = sprite("Sekai Judgment Gradient")
+    judgment_edge: Sprite = sprite("Sekai Judgment Edge")
+    judgment_center: Sprite = sprite("Sekai Judgment Center")
 
     sekai_stage: Sprite = sprite("Sekai Stage")
 
@@ -282,6 +289,20 @@ def first_available_sprite_group(*groups: SpriteGroup) -> SpriteGroup:
     return result
 
 
+class StageSpriteSet(Record):
+    middle: Sprite
+    lane_divider: Sprite
+    left_border: Sprite
+    right_border: Sprite
+    judgment_gradient: Sprite
+    judgment_edge: Sprite
+    judgment_center: Sprite
+
+    @property
+    def available(self):
+        return self.judgment_gradient.is_available
+
+
 class BodyRenderType(IntEnum):
     NORMAL = 0
     SLIM = 1
@@ -501,6 +522,15 @@ class ActiveConnectorSpriteSet(Record):
     connection: ActiveConnectionSpriteSet
     slot_glow: Sprite
 
+primary_stage_sprites = StageSpriteSet(
+    middle=BaseSkin.stage_middle,
+    lane_divider=BaseSkin.lane_divider,
+    left_border=BaseSkin.stage_left_border,
+    right_border=BaseSkin.stage_right_border,
+    judgment_gradient=BaseSkin.judgment_gradient,
+    judgment_edge=BaseSkin.judgment_edge,
+    judgment_center=BaseSkin.judgment_center,
+)
 
 note_cyan_body_sprites = BodySpriteSet.of_normal(
     left=BaseSkin.note_cyan_left,
@@ -707,6 +737,8 @@ class ActiveSkin:
     stage_left_border: Sprite
     stage_right_border: Sprite
 
+    dynamic_stage_primary: StageSpriteSet
+
     sekai_stage: Sprite
 
     sim_line: Sprite
@@ -754,6 +786,8 @@ def init_skin():
     ActiveSkin.judgment_line = BaseSkin.judgment_line
     ActiveSkin.stage_left_border = BaseSkin.stage_left_border
     ActiveSkin.stage_right_border = BaseSkin.stage_right_border
+
+    ActiveSkin.dynamic_stage_primary = primary_stage_sprites
 
     ActiveSkin.sekai_stage = BaseSkin.sekai_stage
 
