@@ -1,7 +1,8 @@
-from sonolus.script.archetype import WatchArchetype, entity_memory
+from sonolus.script.archetype import WatchArchetype, callback, entity_memory
 from sonolus.script.runtime import is_skip
 
 from sekai.lib import archetype_names
+from sekai.lib.layout import refresh_layout
 from sekai.lib.stage import draw_stage_and_accessories, play_lane_particle
 
 
@@ -13,6 +14,10 @@ class WatchStage(WatchArchetype):
 
     def despawn_time(self) -> float:
         return 1e8
+
+    @callback(order=-2)
+    def update_sequential(self):
+        refresh_layout()
 
     def update_parallel(self):
         draw_stage_and_accessories()
