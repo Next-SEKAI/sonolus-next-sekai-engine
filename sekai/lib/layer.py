@@ -36,3 +36,10 @@ def get_z(layer: int, time: float = 0.0, lane: float = 0.0, etc: int = 0, *, inv
         quantize_to_step(abs(lane) + (1 / 20) * (lane > 0), start=0, stop=20, step=1 / 20),
         quantize_to_step(etc, start=0, stop=12, step=1),
     )
+
+
+def get_z_alt(layer: int, sublayer: int) -> float:
+    return make_comparable_float(
+        quantize_to_step(layer, start=-1, stop=26, step=1),
+        quantize_to_step(sublayer, start=0, stop=73728000, step=1),
+    )
