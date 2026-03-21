@@ -25,6 +25,7 @@ from sekai.lib.layer import (
     get_z,
 )
 from sekai.lib.layout import (
+    DynamicLayout,
     Layout,
     approach,
     get_alpha,
@@ -381,7 +382,7 @@ def draw_connector(
                     abs((start_lane - start_size) - (end_lane - end_size)),
                     abs((start_lane + start_size) - (end_lane + end_size)),
                 )
-                * Layout.w_scale
+                * DynamicLayout.w_scale
             )
             y_diff = abs(start_pos_y - end_pos_y)
             travel_adj = clamp(2 - max(start_travel, end_travel), 1, 2)

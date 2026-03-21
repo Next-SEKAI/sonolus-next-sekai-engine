@@ -522,6 +522,7 @@ class ActiveConnectorSpriteSet(Record):
     connection: ActiveConnectionSpriteSet
     slot_glow: Sprite
 
+
 primary_stage_sprites = StageSpriteSet(
     middle=BaseSkin.stage_middle,
     lane_divider=BaseSkin.lane_divider,

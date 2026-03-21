@@ -3,7 +3,7 @@ from math import atan, ceil, floor, log, pi
 from typing import assert_never
 
 from sonolus.script.debug import static_error
-from sonolus.script.globals import level_data
+from sonolus.script.globals import level_data, level_memory
 from sonolus.script.interval import clamp, lerp, remap, unlerp
 from sonolus.script.num import Num
 from sonolus.script.quad import Quad, QuadLike, Rect
@@ -48,15 +48,20 @@ class FlickDirection(IntEnum):
 
 @level_data
 class Layout:
-    t: float
     field_w: float
     field_h: float
-    w_scale: float
-    h_scale: float
-    scaled_note_h: float
     progress_start: float
     progress_cutoff: float
     flick_speed_threshold: float
+
+
+@level_memory
+class DynamicLayout:
+    t: float
+    w_scale: float
+    h_scale: float
+    note_h: float
+    scaled_note_h: float
 
 
 def init_layout():
@@ -74,14 +79,7 @@ def init_layout():
     Layout.field_w = field_w
     Layout.field_h = field_h
 
-    t = field_h * (0.5 + 1.15875 * (47 / 1176))
-    b = field_h * (0.5 - 1.15875 * (803 / 1176))
-    w = field_w * ((1.15875 * (1420 / 1176)) / TARGET_ASPECT_RATIO / 12)
-
-    Layout.t = t
-    Layout.w_scale = w
-    Layout.h_scale = b - t
-    Layout.scaled_note_h = NOTE_H * Layout.h_scale
+    refresh_layout()
 
     if Options.stage_cover:
         Layout.progress_start = inverse_approach(lerp(approach(0), 1.0, Options.stage_cover))
@@ -93,7 +91,21 @@ def init_layout():
     else:
         Layout.progress_cutoff = DEFAULT_PROGRESS_CUTOFF
 
-    Layout.flick_speed_threshold = 2 * Layout.w_scale
+    Layout.flick_speed_threshold = 2 * DynamicLayout.w_scale
+
+
+def refresh_layout():
+    zoom = 1
+
+    t = Layout.field_h * (0.5 + 1.15875 * (47 / 1176))
+    b = Layout.field_h * (0.5 - 1.15875 * (803 / 1176))
+    w = Layout.field_w * ((1.15875 * (1420 / 1176)) / TARGET_ASPECT_RATIO / 12) * zoom
+
+    DynamicLayout.t = t
+    DynamicLayout.w_scale = w
+    DynamicLayout.h_scale = b - t
+    DynamicLayout.note_h = NOTE_H * (0.6 * zoom + 0.4)
+    DynamicLayout.scaled_note_h = DynamicLayout.note_h * DynamicLayout.h_scale
 
 
 def approach(progress: float) -> float:
@@ -140,8 +152,8 @@ def get_alpha(target_time: float, now: float | None = None) -> float:
 
 def transform_vec(v: Vec2) -> Vec2:
     return Vec2(
-        v.x * Layout.w_scale,
-        v.y * Layout.h_scale + Layout.t,
+        v.x * DynamicLayout.w_scale,
+        v.y * DynamicLayout.h_scale + DynamicLayout.t,
     )
 
 
@@ -159,7 +171,7 @@ def transformed_vec_at(lane: float, travel: float = 1.0) -> Vec2:
 
 
 def touch_x_to_lane(x: float) -> float:
-    return x / Layout.w_scale
+    return x / DynamicLayout.w_scale
 
 
 def perspective_vec(x: float, y: float, travel: float = 1.0) -> Vec2:
@@ -229,7 +241,7 @@ def layout_full_width_stage_cover() -> Rect:
 
 
 def layout_hidden_cover() -> Quad:
-    b = 1 - NOTE_H
+    b = 1 - DynamicLayout.note_h
     t = min(b, max(lerp(1.0, approach(0), Options.hidden), lerp(approach(0), 1.0, Options.stage_cover)))
     return perspective_rect(
         l=-6,
@@ -240,7 +252,7 @@ def layout_hidden_cover() -> Quad:
 
 
 def layout_fallback_judge_line() -> Quad:
-    return perspective_rect(l=-6, r=6, t=1 - NOTE_H, b=1 + NOTE_H)
+    return perspective_rect(l=-6, r=6, t=1 - DynamicLayout.note_h, b=1 + DynamicLayout.note_h)
 
 
 def layout_note_body_by_edges(l: float, r: float, h: float, travel: float):
@@ -277,7 +289,7 @@ def layout_regular_note_body(lane: float, size: float, travel: float) -> tuple[Q
     return layout_note_body_slices_by_edges(
         l=lane - size + Options.note_margin,
         r=lane + size - Options.note_margin,
-        h=NOTE_H,
+        h=DynamicLayout.note_h,
         edge_w=NOTE_EDGE_W,
         travel=travel,
     )
@@ -287,7 +299,7 @@ def layout_regular_note_body_fallback(lane: float, size: float, travel: float) -
     return layout_note_body_by_edges(
         l=lane - size + Options.note_margin,
         r=lane + size - Options.note_margin,
-        h=NOTE_H,
+        h=DynamicLayout.note_h,
         travel=travel,
     )
 
@@ -296,7 +308,7 @@ def layout_slim_note_body(lane: float, size: float, travel: float) -> tuple[Quad
     return layout_note_body_slices_by_edges(
         l=lane - size + Options.note_margin,
         r=lane + size - Options.note_margin,
-        h=NOTE_H,  # Height is handled by the sprite rather than being changed here
+        h=DynamicLayout.note_h,  # Height is handled by the sprite rather than being changed here
         edge_w=NOTE_SLIM_EDGE_W,
         travel=travel,
     )
@@ -306,14 +318,14 @@ def layout_slim_note_body_fallback(lane: float, size: float, travel: float) -> Q
     return layout_note_body_by_edges(
         l=lane - size + Options.note_margin,
         r=lane + size - Options.note_margin,
-        h=NOTE_H / 2,  # For fallback, we need to halve the height manually engine-side
+        h=DynamicLayout.note_h / 2,  # For fallback, we need to halve the height manually engine-side
         travel=travel,
     )
 
 
 def layout_tick(lane: float, travel: float) -> Rect:
     center = transform_vec(Vec2(lane, 1) * travel)
-    return Rect.from_center(center, Vec2(Layout.scaled_note_h, Layout.scaled_note_h) * -2 * travel)
+    return Rect.from_center(center, Vec2(DynamicLayout.scaled_note_h, DynamicLayout.scaled_note_h) * -2 * travel)
 
 
 def layout_flick_arrow(
@@ -353,7 +365,7 @@ def layout_flick_arrow(
     base_tl = base_bl + up
     base_tr = base_br + up
     offset_scale = animation_progress if not is_down else 1 - animation_progress
-    offset = Vec2(animation_top_x_offset * Layout.w_scale, 2 * Layout.w_scale) * offset_scale * travel
+    offset = Vec2(animation_top_x_offset * DynamicLayout.w_scale, 2 * DynamicLayout.w_scale) * offset_scale * travel
     result = Quad(
         bl=base_bl,
         br=base_br,
@@ -401,12 +413,12 @@ def layout_flick_arrow_fallback(
 
     w = clamp(size / 2, 1, 2)
     offset_scale = animation_progress if not is_down else 1 - animation_progress
-    offset = Vec2(animation_top_x_offset * Layout.w_scale, 2 * Layout.w_scale) * offset_scale * travel
+    offset = Vec2(animation_top_x_offset * DynamicLayout.w_scale, 2 * DynamicLayout.w_scale) * offset_scale * travel
     return (
         Rect(l=-1, r=1, t=1, b=-1)
         .as_quad()
         .rotate(rotation)
-        .scale(Vec2(w, w) * Layout.w_scale * travel)
+        .scale(Vec2(w, w) * DynamicLayout.w_scale * travel)
         .translate(transform_vec(Vec2(lane, 1) * travel))
         .translate(offset)
     )
@@ -416,14 +428,14 @@ def layout_slot_effect(lane: float) -> Quad:
     return perspective_rect(
         l=lane - 0.5,
         r=lane + 0.5,
-        b=1 + NOTE_H,
-        t=1 - NOTE_H,
+        b=1 + DynamicLayout.note_h,
+        t=1 - DynamicLayout.note_h,
     )
 
 
 def layout_slot_glow_effect(lane: float, size: float, height: float) -> Quad:
     s = 1 + 0.25 * Options.slot_effect_size
-    h = 4.25 * Layout.w_scale * Options.slot_effect_size
+    h = 4.25 * DynamicLayout.w_scale * Options.slot_effect_size
     l_min = transform_vec(Vec2(lane - size, 1))
     r_min = transform_vec(Vec2(lane + size, 1))
     l_max = (l_min + Vec2(0, h)) * Vec2(s, 1)
@@ -464,7 +476,7 @@ def layout_rotated_linear_effect(lane: float, shear: float) -> Quad:
 
 def layout_circular_effect(lane: float, w: float, h: float) -> Quad:
     w *= Options.note_effect_size
-    h *= Options.note_effect_size * Layout.w_scale / Layout.h_scale
+    h *= Options.note_effect_size * DynamicLayout.w_scale / DynamicLayout.h_scale
     t = 1 + h
     b = 1 - h
     return transform_quad(
@@ -478,7 +490,7 @@ def layout_circular_effect(lane: float, w: float, h: float) -> Quad:
 
 
 def layout_tick_effect(lane: float) -> Rect:
-    w = 4 * Layout.w_scale * Options.note_effect_size
+    w = 4 * DynamicLayout.w_scale * Options.note_effect_size
     h = w
     center = transform_vec(Vec2(lane, 1))
     return Rect(
@@ -524,10 +536,10 @@ def layout_sim_line(
     mr = perspective_vec(right_lane, 1, right_travel)
     ort = (mr - ml).orthogonal().normalize()
     return Quad(
-        bl=ml + ort * NOTE_H * Layout.h_scale * left_travel,
-        br=mr + ort * NOTE_H * Layout.h_scale * right_travel,
-        tl=ml - ort * NOTE_H * Layout.h_scale * left_travel,
-        tr=mr - ort * NOTE_H * Layout.h_scale * right_travel,
+        bl=ml + ort * DynamicLayout.note_h * DynamicLayout.h_scale * left_travel,
+        br=mr + ort * DynamicLayout.note_h * DynamicLayout.h_scale * right_travel,
+        tl=ml - ort * DynamicLayout.note_h * DynamicLayout.h_scale * left_travel,
+        tr=mr - ort * DynamicLayout.note_h * DynamicLayout.h_scale * right_travel,
     )
 
 
