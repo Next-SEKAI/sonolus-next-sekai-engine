@@ -5,7 +5,7 @@ from sonolus.script.interval import clamp
 from sonolus.script.runtime import offset_adjusted_time, time, touches
 
 from sekai.lib import archetype_names
-from sekai.lib.layout import layout_hitbox
+from sekai.lib.layout import layout_hitbox, refresh_layout
 from sekai.lib.stage import draw_stage_and_accessories, play_lane_hit_effects
 from sekai.lib.streams import Streams
 from sekai.play.common import PlayLevelMemory
@@ -20,6 +20,10 @@ class Stage(PlayArchetype):
 
     def should_spawn(self) -> bool:
         return True
+
+    @callback(order=-2)
+    def update_sequential(self):
+        refresh_layout()
 
     @callback(order=2)
     def touch(self):
