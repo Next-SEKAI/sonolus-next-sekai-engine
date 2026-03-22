@@ -73,11 +73,11 @@ def draw_dynamic_stage(
     z1 = get_z_alt(LAYER_STAGE, z * 4 + 1)
     z2 = get_z_alt(LAYER_STAGE, z * 4 + 2)
     z3 = get_z_alt(LAYER_STAGE, z * 4 + 3)
-    layout_b = layout_lane_by_edges(l - 0.05, l)  # Artificially thicken the top so it renders better
-    layout_t = layout_lane_by_edges(l - 0.2, l)
+    layout_b = layout_lane_by_edges(l - 0.08, l)  # Artificially thicken the top so it renders better
+    layout_t = layout_lane_by_edges(l - 0.4, l)
     sprites.stage_border.draw(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br), z=z2, a=a)
-    layout_b = layout_lane_by_edges(r + 0.05, r)  # Flip horizontally
-    layout_t = layout_lane_by_edges(r + 0.2, r)
+    layout_b = layout_lane_by_edges(r + 0.08, r)  # Flip horizontally
+    layout_t = layout_lane_by_edges(r + 0.4, r)
     sprites.stage_border.draw(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br), z=z2, a=a)
 
     lane_w = 2 * width / divisions
@@ -87,7 +87,7 @@ def draw_dynamic_stage(
     for i in range(divisions):
         lane_l = l + i * lane_w
         if i > 0:
-            div_layout_b = layout_lane_by_edges(lane_l - 0.025, lane_l + 0.025)
+            div_layout_b = layout_lane_by_edges(lane_l - 0.015, lane_l + 0.015)
             div_layout_t = layout_lane_by_edges(lane_l - 0.1, lane_l + 0.1)
             sprites.lane_divider.draw(
                 Quad(bl=div_layout_b.bl, tl=div_layout_t.tl, tr=div_layout_t.tr, br=div_layout_b.br), z=z2, a=a
@@ -98,7 +98,7 @@ def draw_dynamic_stage(
                 pass
             else:
                 div_layout = perspective_rect(
-                    subdiv_l - 0.015, subdiv_l + 0.015, 1 - DynamicLayout.note_h, 1 + DynamicLayout.note_h
+                    subdiv_l - 0.01, subdiv_l + 0.01, 1 - DynamicLayout.note_h, 1 + DynamicLayout.note_h
                 )
                 edge_weight = abs(half_subdivs - (i * subdivisions + j)) / half_subdivs
                 sprites.judgment_center.draw(div_layout, z=z2, a=a)
@@ -109,26 +109,17 @@ def draw_dynamic_stage(
     layout = perspective_rect(l, r, 1 - DynamicLayout.note_h, 1 + DynamicLayout.note_h)
     sprites.judgment_background.draw(layout, z=z1, a=a)
 
-    p = 0.02
     f = 5
-    layout = perspective_rect(
-        l + p, lane, 1 + DynamicLayout.note_h - DynamicLayout.note_h / f, 1 + DynamicLayout.note_h
-    )
+    layout = perspective_rect(l, lane, 1 + DynamicLayout.note_h - DynamicLayout.note_h / f, 1 + DynamicLayout.note_h)
+    sprites.judgment_gradient.draw(layout, z=z2, a=a)
+    layout = perspective_rect(r, lane, 1 + DynamicLayout.note_h - DynamicLayout.note_h / f, 1 + DynamicLayout.note_h)
+    sprites.judgment_gradient.draw(layout, z=z2, a=a)
+    layout = perspective_rect(l, lane, 1 - DynamicLayout.note_h, 1 - DynamicLayout.note_h + DynamicLayout.note_h / f)
+    sprites.judgment_gradient.draw(layout, z=z2, a=a)
+    layout = perspective_rect(r, lane, 1 - DynamicLayout.note_h, 1 - DynamicLayout.note_h + DynamicLayout.note_h / f)
     sprites.judgment_gradient.draw(layout, z=z2, a=a)
     layout = perspective_rect(
-        r - p, lane, 1 + DynamicLayout.note_h - DynamicLayout.note_h / f, 1 + DynamicLayout.note_h
-    )
-    sprites.judgment_gradient.draw(layout, z=z2, a=a)
-    layout = perspective_rect(
-        l + p, lane, 1 - DynamicLayout.note_h, 1 - DynamicLayout.note_h + DynamicLayout.note_h / f
-    )
-    sprites.judgment_gradient.draw(layout, z=z2, a=a)
-    layout = perspective_rect(
-        r - p, lane, 1 - DynamicLayout.note_h, 1 - DynamicLayout.note_h + DynamicLayout.note_h / f
-    )
-    sprites.judgment_gradient.draw(layout, z=z2, a=a)
-    layout = perspective_rect(
-        l + p,
+        l,
         l + 1 / f / 2,
         1 - DynamicLayout.note_h + DynamicLayout.note_h / f,
         1 + DynamicLayout.note_h - DynamicLayout.note_h / f,
@@ -136,7 +127,7 @@ def draw_dynamic_stage(
     sprites.judgment_edge.draw(layout, z=z2, a=a)
     layout = perspective_rect(
         r - 1 / f / 2,
-        r - p,
+        r,
         1 - DynamicLayout.note_h + DynamicLayout.note_h / f,
         1 + DynamicLayout.note_h - DynamicLayout.note_h / f,
     )
