@@ -74,10 +74,10 @@ def draw_dynamic_stage(
     z2 = get_z_alt(LAYER_STAGE, z * 4 + 2)
     z3 = get_z_alt(LAYER_STAGE, z * 4 + 3)
     layout_b = layout_lane_by_edges(l - 0.08, l)  # Artificially thicken the top so it renders better
-    layout_t = layout_lane_by_edges(l - 0.4, l)
+    layout_t = layout_lane_by_edges(l - 0.64, l)
     sprites.stage_border.draw(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br), z=z2, a=a)
     layout_b = layout_lane_by_edges(r + 0.08, r)  # Flip horizontally
-    layout_t = layout_lane_by_edges(r + 0.4, r)
+    layout_t = layout_lane_by_edges(r + 0.64, r)
     sprites.stage_border.draw(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br), z=z2, a=a)
 
     lane_w = 2 * width / divisions
@@ -87,7 +87,7 @@ def draw_dynamic_stage(
     for i in range(divisions):
         lane_l = l + i * lane_w
         if i > 0:
-            div_layout_b = layout_lane_by_edges(lane_l - 0.015, lane_l + 0.015)
+            div_layout_b = layout_lane_by_edges(lane_l - 0.0125, lane_l + 0.0125)
             div_layout_t = layout_lane_by_edges(lane_l - 0.1, lane_l + 0.1)
             sprites.lane_divider.draw(
                 Quad(bl=div_layout_b.bl, tl=div_layout_t.tl, tr=div_layout_t.tr, br=div_layout_b.br), z=z2, a=a
