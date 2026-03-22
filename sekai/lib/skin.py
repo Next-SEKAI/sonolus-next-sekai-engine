@@ -6,13 +6,15 @@ from typing import Self, assert_never
 from sonolus.script.globals import level_data
 from sonolus.script.interval import clamp
 from sonolus.script.record import Record
-from sonolus.script.sprite import Sprite, SpriteGroup, StandardSprite, skin, sprite, sprite_group
+from sonolus.script.sprite import Sprite, SpriteGroup, StandardSprite, skin, sprite, sprite_group, RenderMode
 
 from sekai.lib.layout import FlickDirection
 
 
 @skin
 class BaseSkin:
+    render_mode: RenderMode = RenderMode.LIGHTWEIGHT
+
     cover: StandardSprite.STAGE_COVER
 
     lane: StandardSprite.LANE
