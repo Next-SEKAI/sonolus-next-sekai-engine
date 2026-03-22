@@ -21,11 +21,13 @@ class BaseSkin:
     stage_left_border: StandardSprite.STAGE_LEFT_BORDER
     stage_right_border: StandardSprite.STAGE_RIGHT_BORDER
 
+    lane_background: Sprite = sprite("Sekai Lane Background")
     lane_divider: Sprite = sprite("Sekai Lane Divider")
-
+    stage_border: Sprite = sprite("Sekai Stage Border")
     judgment_gradient: Sprite = sprite("Sekai Judgment Gradient")
     judgment_edge: Sprite = sprite("Sekai Judgment Edge")
     judgment_center: Sprite = sprite("Sekai Judgment Center")
+    judgment_background: Sprite = sprite("Sekai Judgment Background")
 
     sekai_stage: Sprite = sprite("Sekai Stage")
 
@@ -290,13 +292,13 @@ def first_available_sprite_group(*groups: SpriteGroup) -> SpriteGroup:
 
 
 class StageSpriteSet(Record):
-    middle: Sprite
+    lane_background: Sprite
     lane_divider: Sprite
-    left_border: Sprite
-    right_border: Sprite
+    stage_border: Sprite
     judgment_gradient: Sprite
     judgment_edge: Sprite
     judgment_center: Sprite
+    judgment_background: Sprite
 
     @property
     def available(self):
@@ -524,13 +526,13 @@ class ActiveConnectorSpriteSet(Record):
 
 
 primary_stage_sprites = StageSpriteSet(
-    middle=BaseSkin.stage_middle,
+    lane_background=BaseSkin.lane_background,
     lane_divider=BaseSkin.lane_divider,
-    left_border=BaseSkin.stage_left_border,
-    right_border=BaseSkin.stage_right_border,
+    stage_border=BaseSkin.stage_border,
     judgment_gradient=BaseSkin.judgment_gradient,
     judgment_edge=BaseSkin.judgment_edge,
     judgment_center=BaseSkin.judgment_center,
+    judgment_background=BaseSkin.judgment_background,
 )
 
 note_cyan_body_sprites = BodySpriteSet.of_normal(

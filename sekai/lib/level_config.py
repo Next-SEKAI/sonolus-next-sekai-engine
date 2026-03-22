@@ -16,6 +16,7 @@ class EngineRevision(IntEnum):
 class LevelConfig:
     revision: EngineRevision
     score_mode: ScoreMode
+    dynamic_stages: bool
 
 
 def init_level_config(
@@ -26,3 +27,4 @@ def init_level_config(
         LevelConfig.score_mode = Options.score_mode
     else:
         LevelConfig.score_mode = ScoreMode.UNWEIGHTED_COMBO
+    LevelConfig.dynamic_stages = True
