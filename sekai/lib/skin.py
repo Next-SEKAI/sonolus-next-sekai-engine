@@ -26,10 +26,19 @@ class BaseSkin:
     lane_background: Sprite = sprite("Sekai Lane Background")
     lane_divider: Sprite = sprite("Sekai Lane Divider")
     stage_border: Sprite = sprite("Sekai Stage Border")
+    judgment_background: Sprite = sprite("Sekai Judgment Background")
+
     judgment_gradient: Sprite = sprite("Sekai Judgment Gradient")
     judgment_edge: Sprite = sprite("Sekai Judgment Edge")
     judgment_center: Sprite = sprite("Sekai Judgment Center")
-    judgment_background: Sprite = sprite("Sekai Judgment Background")
+
+    judgment_gradient_secondary: Sprite = sprite("Sekai Judgment Gradient Secondary")
+    judgment_edge_secondary: Sprite = sprite("Sekai Judgment Edge Secondary")
+    judgment_center_secondary: Sprite = sprite("Sekai Judgment Center Secondary")
+
+    judgment_gradient_accent: Sprite = sprite("Sekai Judgment Gradient Accent")
+    judgment_edge_accent: Sprite = sprite("Sekai Judgment Edge Accent")
+    judgment_center_accent: Sprite = sprite("Sekai Judgment Center Accent")
 
     sekai_stage: Sprite = sprite("Sekai Stage")
 
@@ -527,13 +536,31 @@ class ActiveConnectorSpriteSet(Record):
     slot_glow: Sprite
 
 
-primary_stage_sprites = StageSpriteSet(
+stage_primary_sprites = StageSpriteSet(
     lane_background=BaseSkin.lane_background,
     lane_divider=BaseSkin.lane_divider,
     stage_border=BaseSkin.stage_border,
     judgment_gradient=BaseSkin.judgment_gradient,
     judgment_edge=BaseSkin.judgment_edge,
     judgment_center=BaseSkin.judgment_center,
+    judgment_background=BaseSkin.judgment_background,
+)
+stage_secondary_sprites = StageSpriteSet(
+    lane_background=BaseSkin.lane_background,
+    lane_divider=BaseSkin.lane_divider,
+    stage_border=BaseSkin.stage_border,
+    judgment_gradient=BaseSkin.judgment_gradient_secondary,
+    judgment_edge=BaseSkin.judgment_edge_secondary,
+    judgment_center=BaseSkin.judgment_center_secondary,
+    judgment_background=BaseSkin.judgment_background,
+)
+stage_accent_sprites = StageSpriteSet(
+    lane_background=BaseSkin.lane_background,
+    lane_divider=BaseSkin.lane_divider,
+    stage_border=BaseSkin.stage_border,
+    judgment_gradient=BaseSkin.judgment_gradient_accent,
+    judgment_edge=BaseSkin.judgment_edge_accent,
+    judgment_center=BaseSkin.judgment_center_accent,
     judgment_background=BaseSkin.judgment_background,
 )
 
@@ -742,7 +769,9 @@ class ActiveSkin:
     stage_left_border: Sprite
     stage_right_border: Sprite
 
-    dynamic_stage_primary: StageSpriteSet
+    stage_primary: StageSpriteSet
+    stage_secondary: StageSpriteSet
+    stage_accent: StageSpriteSet
 
     sekai_stage: Sprite
 
@@ -792,7 +821,9 @@ def init_skin():
     ActiveSkin.stage_left_border = BaseSkin.stage_left_border
     ActiveSkin.stage_right_border = BaseSkin.stage_right_border
 
-    ActiveSkin.dynamic_stage_primary = primary_stage_sprites
+    ActiveSkin.stage_primary = stage_primary_sprites
+    ActiveSkin.stage_secondary = stage_secondary_sprites
+    ActiveSkin.stage_accent = stage_accent_sprites
 
     ActiveSkin.sekai_stage = BaseSkin.sekai_stage
 

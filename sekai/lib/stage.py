@@ -48,18 +48,6 @@ def draw_sekai_stage():
     ActiveSkin.sekai_stage.draw(layout, z=get_z(LAYER_STAGE))
 
 
-def draw_standard_dynamic_stage():
-    draw_dynamic_stage(
-        ActiveSkin.dynamic_stage_primary,
-        lane=0,
-        width=6,
-        divisions=6,
-        subdivisions=2,
-        z=0,
-        a=1,
-    )
-
-
 def draw_dynamic_stage(
     sprites: StageSpriteSet, lane: float, width: float, divisions: int, subdivisions: int, z: int, a: float
 ):
