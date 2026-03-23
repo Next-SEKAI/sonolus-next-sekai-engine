@@ -6,7 +6,7 @@ from typing import Self, assert_never
 from sonolus.script.globals import level_data
 from sonolus.script.interval import clamp
 from sonolus.script.record import Record
-from sonolus.script.sprite import Sprite, SpriteGroup, StandardSprite, skin, sprite, sprite_group, RenderMode
+from sonolus.script.sprite import RenderMode, Sprite, SpriteGroup, StandardSprite, skin, sprite, sprite_group
 
 from sekai.lib.layout import FlickDirection
 
