@@ -42,7 +42,7 @@ from sekai.lib.note import (
     get_note_effect_kind,
     play_note_hit_effects,
 )
-from sekai.lib.stage import draw_stage
+from sekai.lib.stage import draw_basic_stage
 from sekai.tutorial.painting import paint_hold_motion
 
 
@@ -64,7 +64,7 @@ class SlideEffectHandles(Record):
 def update_start():
     PhaseState.slide_is_active = False
     clear_instruction()
-    draw_stage()
+    draw_basic_stage()
     reset_zoom()
 
 
