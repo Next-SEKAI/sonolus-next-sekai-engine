@@ -29,6 +29,11 @@ class JudgeLineStyle(IntEnum):
     ACCENT = 2
 
 
+class DivisionParity(IntEnum):
+    EVEN = 0
+    ODD = 1
+
+
 class StageBorderStyle(IntEnum):
     STANDARD = 0
     LIGHT = 1
@@ -60,6 +65,7 @@ def draw_basic_stage():
             width=6,
             anchor_lane=0,
             division_size=2,
+            division_parity=DivisionParity.EVEN,
             judge_line_style=JudgeLineStyle.PRIMARY,
             left_border_style=StageBorderStyle.STANDARD,
             right_border_style=StageBorderStyle.STANDARD,
@@ -93,6 +99,7 @@ def draw_dynamic_stage(
     width: float,
     anchor_lane: float,
     division_size: Transition[int],
+    division_parity: Transition[DivisionParity],
     judge_line_style: Transition[JudgeLineStyle],
     left_border_style: Transition[StageBorderStyle],
     right_border_style: Transition[StageBorderStyle],
@@ -101,6 +108,7 @@ def draw_dynamic_stage(
     a: float,
 ):
     division_size_a, division_size_b = normalize_transition(division_size)
+    division_parity_a, division_parity_b = normalize_transition(division_parity)
     judge_line_style_a, judge_line_style_b = normalize_transition(judge_line_style)
     left_border_style_a, left_border_style_b = normalize_transition(left_border_style)
     right_border_style_a, right_border_style_b = normalize_transition(right_border_style)
@@ -110,7 +118,7 @@ def draw_dynamic_stage(
     sprites_b = get_stage_sprites(judge_line_style_b)
 
     if not sprites_b.available:
-        draw_fallback_stage(lane, width, division_size_b, anchor_lane, order, a)
+        draw_fallback_stage(lane, width, division_size_b, division_parity_b, anchor_lane, order, a)
         return
 
     l = lane - width
@@ -162,15 +170,17 @@ def draw_dynamic_stage(
             case _:
                 assert_never(style)
 
-    def draw_dividers(sprites: StageSpriteSet, division_size: int, anchor: float, z_lo: float, z_hi: float, a: float):
+    def draw_dividers(sprites: StageSpriteSet, division_size: int, parity: DivisionParity, anchor: float, z_lo: float, z_hi: float, a: float):
         eps = 0.001
+        parity_offset = division_size / 2 if parity == DivisionParity.ODD else 0
+        shifted_anchor = anchor + parity_offset
 
-        # Subdivision lines: every 1 unit aligned to anchor
-        k_start = floor(l - anchor + eps) + 1
-        k_end = ceil(r - anchor - eps) - 1
+        # Subdivision lines: every 1 unit aligned to shifted anchor
+        k_start = floor(l - shifted_anchor + eps) + 1
+        k_end = ceil(r - shifted_anchor - eps) - 1
 
         for k in range(k_start, k_end + 1):
-            pos = anchor + k
+            pos = shifted_anchor + k
 
             # Draw division line if division_size > 0 and position aligns
             if division_size > 0 and k % division_size == 0:
@@ -259,11 +269,11 @@ def draw_dynamic_stage(
         draw_right_border(sprites_a, right_border_style_a, z_a0, a * (1 - progress))
         draw_right_border(sprites_b, right_border_style_b, z_b0, a * progress)
 
-    if division_size_a == division_size_b and sprites_same:
-        draw_dividers(sprites_a, division_size_a, anchor_lane, z_a0, z_a1, a)
+    if division_size_a == division_size_b and division_parity_a == division_parity_b and sprites_same:
+        draw_dividers(sprites_a, division_size_a, division_parity_a, anchor_lane, z_a0, z_a1, a)
     else:
-        draw_dividers(sprites_a, division_size_a, anchor_lane, z_a0, z_a1, a * (1 - progress))
-        draw_dividers(sprites_b, division_size_b, anchor_lane, z_b0, z_b1, a * progress)
+        draw_dividers(sprites_a, division_size_a, division_parity_a, anchor_lane, z_a0, z_a1, a * (1 - progress))
+        draw_dividers(sprites_b, division_size_b, division_parity_b, anchor_lane, z_b0, z_b1, a * progress)
 
     if sprites_same:
         draw_gradient(sprites_a, z_a0, a)
@@ -284,7 +294,7 @@ def draw_dynamic_stage(
         draw_right_judgment_border(sprites_b, right_border_style_b, z_b0, a * progress)
 
 
-def draw_fallback_stage(lane: float, width: float, division_size: int, anchor: float, z: int, a: float):
+def draw_fallback_stage(lane: float, width: float, division_size: int, parity: DivisionParity, anchor: float, z: int, a: float):
     l = lane - width
     r = lane + width
     z_lo = get_z_alt(LAYER_STAGE, z * 3)
@@ -298,12 +308,14 @@ def draw_fallback_stage(lane: float, width: float, division_size: int, anchor: f
     ActiveSkin.stage_right_border.draw(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br), z=z_mid)
 
     eps = 0.001
+    parity_offset = division_size / 2 if parity == DivisionParity.ODD else 0
+    shifted_anchor = anchor + parity_offset
     prev = l
     if division_size > 0:
-        k_start = floor((l - anchor + eps) / division_size) + 1
-        k_end = ceil((r - anchor - eps) / division_size) - 1
+        k_start = floor((l - shifted_anchor + eps) / division_size) + 1
+        k_end = ceil((r - shifted_anchor - eps) / division_size) - 1
         for k in range(k_start, k_end + 1):
-            pos = anchor + k * division_size
+            pos = shifted_anchor + k * division_size
             ActiveSkin.lane.draw(layout_lane_by_edges(prev, pos), a=a, z=z_lo)
             prev = pos
     ActiveSkin.lane.draw(layout_lane_by_edges(prev, r), a=a, z=z_lo)
