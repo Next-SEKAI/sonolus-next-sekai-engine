@@ -1,4 +1,5 @@
 from enum import IntEnum
+from math import ceil, floor
 from typing import assert_never
 
 from sonolus.script.quad import Quad
@@ -57,8 +58,8 @@ def draw_basic_stage():
         draw_dynamic_stage(
             lane=0,
             width=6,
-            divisions=6,
-            subdivisions=2,
+            anchor_lane=0,
+            division_size=2,
             judge_line_style=JudgeLineStyle.PRIMARY,
             left_border_style=StageBorderStyle.STANDARD,
             right_border_style=StageBorderStyle.STANDARD,
@@ -90,8 +91,8 @@ def get_stage_sprites(judge_line_style: JudgeLineStyle) -> StageSpriteSet:
 def draw_dynamic_stage(
     lane: float,
     width: float,
-    divisions: Transition[int],
-    subdivisions: Transition[int],
+    anchor_lane: float,
+    division_size: Transition[int],
     judge_line_style: Transition[JudgeLineStyle],
     left_border_style: Transition[StageBorderStyle],
     right_border_style: Transition[StageBorderStyle],
@@ -99,8 +100,7 @@ def draw_dynamic_stage(
     order: int,
     a: float,
 ):
-    divisions_a, divisions_b = normalize_transition(divisions)
-    subdivisions_a, subdivisions_b = normalize_transition(subdivisions)
+    division_size_a, division_size_b = normalize_transition(division_size)
     judge_line_style_a, judge_line_style_b = normalize_transition(judge_line_style)
     left_border_style_a, left_border_style_b = normalize_transition(left_border_style)
     right_border_style_a, right_border_style_b = normalize_transition(right_border_style)
@@ -110,7 +110,7 @@ def draw_dynamic_stage(
     sprites_b = get_stage_sprites(judge_line_style_b)
 
     if not sprites_b.available:
-        draw_fallback_stage(lane, width, divisions_b, order, a)
+        draw_fallback_stage(lane, width, division_size_b, anchor_lane, order, a)
         return
 
     l = lane - width
@@ -162,31 +162,31 @@ def draw_dynamic_stage(
             case _:
                 assert_never(style)
 
-    def draw_dividers(sprites: StageSpriteSet, divisions: int, subdivisions: int, z_lo: float, z_hi: float, a: float):
-        lane_w = 2 * width / divisions
-        subdiv_w = lane_w / subdivisions
-        total_subdivs = divisions * subdivisions
-        half_subdivs = total_subdivs / 2
+    def draw_dividers(sprites: StageSpriteSet, division_size: int, anchor: float, z_lo: float, z_hi: float, a: float):
+        eps = 0.001
 
-        for i in range(divisions):
-            lane_l = l + i * lane_w
-            if i > 0:
-                div_layout_b = layout_lane_by_edges(lane_l - 0.0125, lane_l + 0.0125)
-                div_layout_t = layout_lane_by_edges(lane_l - 0.1, lane_l + 0.1)
+        # Subdivision lines: every 1 unit aligned to anchor
+        k_start = floor(l - anchor + eps) + 1
+        k_end = ceil(r - anchor - eps) - 1
+
+        for k in range(k_start, k_end + 1):
+            pos = anchor + k
+
+            # Draw division line if division_size > 0 and position aligns
+            if division_size > 0 and k % division_size == 0:
+                div_layout_b = layout_lane_by_edges(pos - 0.0125, pos + 0.0125)
+                div_layout_t = layout_lane_by_edges(pos - 0.1, pos + 0.1)
                 sprites.lane_divider.draw(
                     Quad(bl=div_layout_b.bl, tl=div_layout_t.tl, tr=div_layout_t.tr, br=div_layout_b.br), z=z_lo, a=a
                 )
-            for j in range(subdivisions):
-                subdiv_l = lane_l + j * subdiv_w
-                if i == 0 and j == 0:
-                    pass
-                else:
-                    div_layout = perspective_rect(
-                        subdiv_l - 0.01, subdiv_l + 0.01, 1 - DynamicLayout.note_h, 1 + DynamicLayout.note_h
-                    )
-                    edge_weight = abs(half_subdivs - (i * subdivisions + j)) / half_subdivs
-                    sprites.judgment_center.draw(div_layout, z=z_lo, a=a)
-                    sprites.judgment_edge.draw(div_layout, z=z_hi, a=a * edge_weight)
+
+            # Draw subdivision tick on judgment line
+            div_layout = perspective_rect(
+                pos - 0.01, pos + 0.01, 1 - DynamicLayout.note_h, 1 + DynamicLayout.note_h
+            )
+            edge_weight = abs(pos - lane) / width if width > 0 else 0
+            sprites.judgment_center.draw(div_layout, z=z_lo, a=a)
+            sprites.judgment_edge.draw(div_layout, z=z_hi, a=a * edge_weight)
 
     def draw_left_judgment_border(sprites: StageSpriteSet, style: StageBorderStyle, z: float, a: float):
         match style:
@@ -259,11 +259,11 @@ def draw_dynamic_stage(
         draw_right_border(sprites_a, right_border_style_a, z_a0, a * (1 - progress))
         draw_right_border(sprites_b, right_border_style_b, z_b0, a * progress)
 
-    if divisions_a == divisions_b and subdivisions_a == subdivisions_b and sprites_same:
-        draw_dividers(sprites_a, divisions_a, subdivisions_a, z_a0, z_a1, a)
+    if division_size_a == division_size_b and sprites_same:
+        draw_dividers(sprites_a, division_size_a, anchor_lane, z_a0, z_a1, a)
     else:
-        draw_dividers(sprites_a, divisions_a, subdivisions_a, z_a0, z_a1, a * (1 - progress))
-        draw_dividers(sprites_b, divisions_b, subdivisions_b, z_b0, z_b1, a * progress)
+        draw_dividers(sprites_a, division_size_a, anchor_lane, z_a0, z_a1, a * (1 - progress))
+        draw_dividers(sprites_b, division_size_b, anchor_lane, z_b0, z_b1, a * progress)
 
     if sprites_same:
         draw_gradient(sprites_a, z_a0, a)
@@ -284,7 +284,7 @@ def draw_dynamic_stage(
         draw_right_judgment_border(sprites_b, right_border_style_b, z_b0, a * progress)
 
 
-def draw_fallback_stage(lane: float, width: float, divisions: int, z: int, a: float):
+def draw_fallback_stage(lane: float, width: float, division_size: int, anchor: float, z: int, a: float):
     l = lane - width
     r = lane + width
     z_lo = get_z_alt(LAYER_STAGE, z * 3)
@@ -297,12 +297,16 @@ def draw_fallback_stage(lane: float, width: float, divisions: int, z: int, a: fl
     layout_t = layout_lane_by_edges(r, r + 1)
     ActiveSkin.stage_right_border.draw(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br), z=z_mid)
 
-    lane_w = 2 * width / divisions
-    for i in range(divisions):
-        lane_l = l + i * lane_w
-        lane_r = lane_l + lane_w
-        lane_layout = layout_lane_by_edges(lane_l, lane_r)
-        ActiveSkin.lane.draw(lane_layout, a=a, z=z_lo)
+    eps = 0.001
+    prev = l
+    if division_size > 0:
+        k_start = floor((l - anchor + eps) / division_size) + 1
+        k_end = ceil((r - anchor - eps) / division_size) - 1
+        for k in range(k_start, k_end + 1):
+            pos = anchor + k * division_size
+            ActiveSkin.lane.draw(layout_lane_by_edges(prev, pos), a=a, z=z_lo)
+            prev = pos
+    ActiveSkin.lane.draw(layout_lane_by_edges(prev, r), a=a, z=z_lo)
 
     layout = perspective_rect(l, r, t=1 - DynamicLayout.note_h, b=1 + DynamicLayout.note_h)
     ActiveSkin.judgment_line.draw(layout, z=z_hi, a=a)
