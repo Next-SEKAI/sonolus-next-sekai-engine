@@ -302,14 +302,10 @@ def first_available_sprite_group(*groups: SpriteGroup) -> SpriteGroup:
     return result
 
 
-class StageSpriteSet(Record):
-    lane_background: Sprite
-    lane_divider: Sprite
-    stage_border: Sprite
+class JudgmentSpriteSet(Record):
     judgment_gradient: Sprite
     judgment_edge: Sprite
     judgment_center: Sprite
-    judgment_background: Sprite
 
     @property
     def available(self):
@@ -536,32 +532,20 @@ class ActiveConnectorSpriteSet(Record):
     slot_glow: Sprite
 
 
-stage_primary_sprites = StageSpriteSet(
-    lane_background=BaseSkin.lane_background,
-    lane_divider=BaseSkin.lane_divider,
-    stage_border=BaseSkin.stage_border,
+judgment_primary_sprites = JudgmentSpriteSet(
     judgment_gradient=BaseSkin.judgment_gradient,
     judgment_edge=BaseSkin.judgment_edge,
     judgment_center=BaseSkin.judgment_center,
-    judgment_background=BaseSkin.judgment_background,
 )
-stage_secondary_sprites = StageSpriteSet(
-    lane_background=BaseSkin.lane_background,
-    lane_divider=BaseSkin.lane_divider,
-    stage_border=BaseSkin.stage_border,
+judgment_secondary_sprites = JudgmentSpriteSet(
     judgment_gradient=BaseSkin.judgment_gradient_secondary,
     judgment_edge=BaseSkin.judgment_edge_secondary,
     judgment_center=BaseSkin.judgment_center_secondary,
-    judgment_background=BaseSkin.judgment_background,
 )
-stage_accent_sprites = StageSpriteSet(
-    lane_background=BaseSkin.lane_background,
-    lane_divider=BaseSkin.lane_divider,
-    stage_border=BaseSkin.stage_border,
+judgment_accent_sprites = JudgmentSpriteSet(
     judgment_gradient=BaseSkin.judgment_gradient_accent,
     judgment_edge=BaseSkin.judgment_edge_accent,
     judgment_center=BaseSkin.judgment_center_accent,
-    judgment_background=BaseSkin.judgment_background,
 )
 
 note_cyan_body_sprites = BodySpriteSet.of_normal(
@@ -769,9 +753,14 @@ class ActiveSkin:
     stage_left_border: Sprite
     stage_right_border: Sprite
 
-    stage_primary: StageSpriteSet
-    stage_secondary: StageSpriteSet
-    stage_accent: StageSpriteSet
+    lane_background: Sprite
+    lane_divider: Sprite
+    stage_border: Sprite
+    judgment_background: Sprite
+
+    judgment_primary: JudgmentSpriteSet
+    judgment_secondary: JudgmentSpriteSet
+    judgment_accent: JudgmentSpriteSet
 
     sekai_stage: Sprite
 
@@ -821,9 +810,14 @@ def init_skin():
     ActiveSkin.stage_left_border = BaseSkin.stage_left_border
     ActiveSkin.stage_right_border = BaseSkin.stage_right_border
 
-    ActiveSkin.stage_primary = stage_primary_sprites
-    ActiveSkin.stage_secondary = stage_secondary_sprites
-    ActiveSkin.stage_accent = stage_accent_sprites
+    ActiveSkin.lane_background = BaseSkin.lane_background
+    ActiveSkin.lane_divider = BaseSkin.lane_divider
+    ActiveSkin.stage_border = BaseSkin.stage_border
+    ActiveSkin.judgment_background = BaseSkin.judgment_background
+
+    ActiveSkin.judgment_primary = judgment_primary_sprites
+    ActiveSkin.judgment_secondary = judgment_secondary_sprites
+    ActiveSkin.judgment_accent = judgment_accent_sprites
 
     ActiveSkin.sekai_stage = BaseSkin.sekai_stage
 
