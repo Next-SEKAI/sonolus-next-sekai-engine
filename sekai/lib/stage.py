@@ -179,27 +179,34 @@ def draw_dynamic_stage(
             case _:
                 assert_never(style)
 
-    def draw_dividers(sprites: JudgmentSpriteSet, division_size: int, parity: DivisionParity, pivot: float, z_lo: float, z_hi: float, a: float):
+    def draw_dividers(division_size: int, parity: DivisionParity, pivot: float, z: float, a: float):
         eps = 0.001
         parity_offset = division_size / 2 if parity == DivisionParity.ODD else 0
         shifted_pivot = pivot + parity_offset
 
-        # Subdivision lines: every 1 unit aligned to shifted pivot
+        if division_size <= 0:
+            return
+
+        k_start = floor((l - shifted_pivot + eps) / division_size) + 1
+        k_end = ceil((r - shifted_pivot - eps) / division_size) - 1
+
+        for k in range(k_start, k_end + 1):
+            pos = shifted_pivot + k * division_size
+            div_layout_b = layout_lane_by_edges(pos - 0.0125, pos + 0.0125)
+            div_layout_t = layout_lane_by_edges(pos - 0.1, pos + 0.1)
+            ActiveSkin.lane_divider.draw(
+                Quad(bl=div_layout_b.bl, tl=div_layout_t.tl, tr=div_layout_t.tr, br=div_layout_b.br), z=z, a=a
+            )
+
+    def draw_judgment_dividers(sprites: JudgmentSpriteSet, half_offset: bool, pivot: float, z_lo: float, z_hi: float, a: float):
+        eps = 0.001
+        shifted_pivot = pivot + (0.5 if half_offset else 0)
+
         k_start = floor(l - shifted_pivot + eps) + 1
         k_end = ceil(r - shifted_pivot - eps) - 1
 
         for k in range(k_start, k_end + 1):
             pos = shifted_pivot + k
-
-            # Draw division line if division_size > 0 and position aligns
-            if division_size > 0 and k % division_size == 0:
-                div_layout_b = layout_lane_by_edges(pos - 0.0125, pos + 0.0125)
-                div_layout_t = layout_lane_by_edges(pos - 0.1, pos + 0.1)
-                ActiveSkin.lane_divider.draw(
-                    Quad(bl=div_layout_b.bl, tl=div_layout_t.tl, tr=div_layout_t.tr, br=div_layout_b.br), z=z_lo, a=a
-                )
-
-            # Draw subdivision tick on judgment line
             div_layout = perspective_rect(
                 pos - 0.01, pos + 0.01, 1 - DynamicLayout.note_h, 1 + DynamicLayout.note_h
             )
@@ -281,21 +288,39 @@ def draw_dynamic_stage(
         draw_right_border(right_border_style.end, z_a2, a * p_right)
 
     p_div = division.progress
-    if division.start == division.end and sprites_same:
-        draw_dividers(sprites_a, division.start.size, division.start.parity, pivot_lane, z_a0, z_a1, a)
+    if division.start == division.end:
+        draw_dividers(division.start.size, division.start.parity, pivot_lane, z_a0, a)
+    else:
+        if 1 - p_div > 0:
+            draw_dividers(division.start.size, division.start.parity, pivot_lane, z_a0, a * (1 - p_div))
+        if p_div > 0:
+            draw_dividers(division.end.size, division.end.parity, pivot_lane, z_a2, a * p_div)
+
+    start_has_half_offset = division.start.parity == DivisionParity.ODD and division.start.size % 2 == 1
+    end_has_half_offset = division.end.parity == DivisionParity.ODD and division.end.size % 2 == 1
+    judgment_dividers_same = start_has_half_offset == end_has_half_offset
+
+    if judgment_dividers_same and sprites_same:
+        draw_judgment_dividers(sprites_a, start_has_half_offset, pivot_lane, z_a0, z_a1, a)
+    elif judgment_dividers_same:
+        draw_judgment_dividers(sprites_a, start_has_half_offset, pivot_lane, z_a0, z_a1, a * (1 - p_sprites))
+        draw_judgment_dividers(sprites_b, start_has_half_offset, pivot_lane, z_b0, z_b1, a * p_sprites)
+    elif sprites_same:
+        draw_judgment_dividers(sprites_a, start_has_half_offset, pivot_lane, z_a0, z_a1, a * (1 - p_div))
+        draw_judgment_dividers(sprites_a, end_has_half_offset, pivot_lane, z_a2, z_a3, a * p_div)
     else:
         alpha_aa = (1 - p_sprites) * (1 - p_div)
         alpha_ab = (1 - p_sprites) * p_div
         alpha_ba = p_sprites * (1 - p_div)
         alpha_bb = p_sprites * p_div
         if alpha_aa > 0:
-            draw_dividers(sprites_a, division.start.size, division.start.parity, pivot_lane, z_a0, z_a1, a * alpha_aa)
+            draw_judgment_dividers(sprites_a, start_has_half_offset, pivot_lane, z_a0, z_a1, a * alpha_aa)
         if alpha_ab > 0:
-            draw_dividers(sprites_a, division.end.size, division.end.parity, pivot_lane, z_a2, z_a3, a * alpha_ab)
+            draw_judgment_dividers(sprites_a, end_has_half_offset, pivot_lane, z_a2, z_a3, a * alpha_ab)
         if alpha_ba > 0:
-            draw_dividers(sprites_b, division.start.size, division.start.parity, pivot_lane, z_b0, z_b1, a * alpha_ba)
+            draw_judgment_dividers(sprites_b, start_has_half_offset, pivot_lane, z_b0, z_b1, a * alpha_ba)
         if alpha_bb > 0:
-            draw_dividers(sprites_b, division.end.size, division.end.parity, pivot_lane, z_b2, z_b3, a * alpha_bb)
+            draw_judgment_dividers(sprites_b, end_has_half_offset, pivot_lane, z_b2, z_b3, a * alpha_bb)
 
     if sprites_same:
         draw_gradient(sprites_a, z_a0, a)
