@@ -35,6 +35,11 @@ class DivisionParity(IntEnum):
     ODD = 1
 
 
+class DivisionProps(Record):
+    size: int
+    parity: DivisionParity
+
+
 class StageBorderStyle(IntEnum):
     STANDARD = 0
     LIGHT = 1
@@ -68,8 +73,7 @@ def draw_basic_stage():
             lane=0,
             width=6,
             pivot_lane=0,
-            division_size=2,
-            division_parity=DivisionParity.EVEN,
+            division=DivisionProps(size=2, parity=DivisionParity.EVEN),
             judge_line_style=JudgeLineStyle.PRIMARY,
             left_border_style=StageBorderStyle.STANDARD,
             right_border_style=StageBorderStyle.STANDARD,
@@ -101,16 +105,14 @@ def draw_dynamic_stage(
     lane: float,
     width: float,
     pivot_lane: float,
-    division_size: Transition[int] | int,
-    division_parity: Transition[DivisionParity] | DivisionParity,
+    division: Transition[DivisionProps] | DivisionProps,
     judge_line_style: Transition[JudgeLineStyle] | JudgeLineStyle,
     left_border_style: Transition[StageBorderStyle] | StageBorderStyle,
     right_border_style: Transition[StageBorderStyle] | StageBorderStyle,
     order: int,
     a: float,
 ):
-    division_size = normalize_transition(division_size)
-    division_parity = normalize_transition(division_parity)
+    division = normalize_transition(division)
     judge_line_style = normalize_transition(judge_line_style)
     left_border_style = normalize_transition(left_border_style)
     right_border_style = normalize_transition(right_border_style)
@@ -121,7 +123,7 @@ def draw_dynamic_stage(
     p_sprites = judge_line_style.progress
 
     if not sprites_b.available:
-        draw_fallback_stage(lane, width, division_size.end, division_parity.end, pivot_lane, order, a)
+        draw_fallback_stage(lane, width, division.end.size, division.end.parity, pivot_lane, order, a)
         return
 
     l = lane - width
@@ -278,22 +280,22 @@ def draw_dynamic_stage(
         draw_right_border(right_border_style.start, z_a0, a * (1 - p_right))
         draw_right_border(right_border_style.end, z_a2, a * p_right)
 
-    p_div = division_size.progress
-    if division_size.start == division_size.end and division_parity.start == division_parity.end and sprites_same:
-        draw_dividers(sprites_a, division_size.start, division_parity.start, pivot_lane, z_a0, z_a1, a)
+    p_div = division.progress
+    if division.start == division.end and sprites_same:
+        draw_dividers(sprites_a, division.start.size, division.start.parity, pivot_lane, z_a0, z_a1, a)
     else:
         alpha_aa = (1 - p_sprites) * (1 - p_div)
         alpha_ab = (1 - p_sprites) * p_div
         alpha_ba = p_sprites * (1 - p_div)
         alpha_bb = p_sprites * p_div
         if alpha_aa > 0:
-            draw_dividers(sprites_a, division_size.start, division_parity.start, pivot_lane, z_a0, z_a1, a * alpha_aa)
+            draw_dividers(sprites_a, division.start.size, division.start.parity, pivot_lane, z_a0, z_a1, a * alpha_aa)
         if alpha_ab > 0:
-            draw_dividers(sprites_a, division_size.end, division_parity.end, pivot_lane, z_a2, z_a3, a * alpha_ab)
+            draw_dividers(sprites_a, division.end.size, division.end.parity, pivot_lane, z_a2, z_a3, a * alpha_ab)
         if alpha_ba > 0:
-            draw_dividers(sprites_b, division_size.start, division_parity.start, pivot_lane, z_b0, z_b1, a * alpha_ba)
+            draw_dividers(sprites_b, division.start.size, division.start.parity, pivot_lane, z_b0, z_b1, a * alpha_ba)
         if alpha_bb > 0:
-            draw_dividers(sprites_b, division_size.end, division_parity.end, pivot_lane, z_b2, z_b3, a * alpha_bb)
+            draw_dividers(sprites_b, division.end.size, division.end.parity, pivot_lane, z_b2, z_b3, a * alpha_bb)
 
     if sprites_same:
         draw_gradient(sprites_a, z_a0, a)
