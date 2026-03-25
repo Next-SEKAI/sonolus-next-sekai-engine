@@ -177,17 +177,17 @@ def draw_dynamic_stage(
             case _:
                 assert_never(style)
 
-    def draw_dividers(sprites: JudgmentSpriteSet, division_size: int, parity: DivisionParity, anchor: float, z_lo: float, z_hi: float, a: float):
+    def draw_dividers(sprites: JudgmentSpriteSet, division_size: int, parity: DivisionParity, pivot: float, z_lo: float, z_hi: float, a: float):
         eps = 0.001
         parity_offset = division_size / 2 if parity == DivisionParity.ODD else 0
-        shifted_anchor = anchor + parity_offset
+        shifted_pivot = pivot + parity_offset
 
-        # Subdivision lines: every 1 unit aligned to shifted anchor
-        k_start = floor(l - shifted_anchor + eps) + 1
-        k_end = ceil(r - shifted_anchor - eps) - 1
+        # Subdivision lines: every 1 unit aligned to shifted pivot
+        k_start = floor(l - shifted_pivot + eps) + 1
+        k_end = ceil(r - shifted_pivot - eps) - 1
 
         for k in range(k_start, k_end + 1):
-            pos = shifted_anchor + k
+            pos = shifted_pivot + k
 
             # Draw division line if division_size > 0 and position aligns
             if division_size > 0 and k % division_size == 0:
@@ -334,7 +334,7 @@ def draw_dynamic_stage(
             draw_right_judgment_border(sprites_b, right_border_style.end, z_b2, a * alpha_bb)
 
 
-def draw_fallback_stage(lane: float, width: float, division_size: int, parity: DivisionParity, anchor: float, z: int, a: float):
+def draw_fallback_stage(lane: float, width: float, division_size: int, parity: DivisionParity, pivot: float, z: int, a: float):
     l = lane - width
     r = lane + width
     z_lo = get_z_alt(LAYER_STAGE, z * 3)
@@ -349,13 +349,13 @@ def draw_fallback_stage(lane: float, width: float, division_size: int, parity: D
 
     eps = 0.001
     parity_offset = division_size / 2 if parity == DivisionParity.ODD else 0
-    shifted_anchor = anchor + parity_offset
+    shifted_pivot = pivot + parity_offset
     prev = l
     if division_size > 0:
-        k_start = floor((l - shifted_anchor + eps) / division_size) + 1
-        k_end = ceil((r - shifted_anchor - eps) / division_size) - 1
+        k_start = floor((l - shifted_pivot + eps) / division_size) + 1
+        k_end = ceil((r - shifted_pivot - eps) / division_size) - 1
         for k in range(k_start, k_end + 1):
-            pos = shifted_anchor + k * division_size
+            pos = shifted_pivot + k * division_size
             ActiveSkin.lane.draw(layout_lane_by_edges(prev, pos), a=a, z=z_lo)
             prev = pos
     ActiveSkin.lane.draw(layout_lane_by_edges(prev, r), a=a, z=z_lo)
