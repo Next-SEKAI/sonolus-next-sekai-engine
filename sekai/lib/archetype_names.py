@@ -6,7 +6,7 @@ TIMESCALE_CHANGE = StandardArchetypeName.TIMESCALE_CHANGE
 TIMESCALE_GROUP = StandardArchetypeName.TIMESCALE_GROUP
 
 INITIALIZATION = "Initialization"
-STAGE = "Stage"
+STATIC_STAGE = "StaticStage"
 SCHEDULED_LANE_EFFECT = "ScheduledLaneEffect"
 INPUT_MANAGER = "_InputManager"
 SIM_LINE = "SimLine"

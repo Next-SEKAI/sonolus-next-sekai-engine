@@ -12,8 +12,8 @@ from sekai.play.common import PlayLevelMemory
 from sekai.play.input_manager import is_allowed_empty
 
 
-class Stage(PlayArchetype):
-    name = archetype_names.STAGE
+class StaticStage(PlayArchetype):
+    name = archetype_names.STATIC_STAGE
 
     def spawn_order(self) -> float:
         return -1e8
