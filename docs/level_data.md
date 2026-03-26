@@ -10,6 +10,87 @@ Handles common initialization logic for the engine. Must appear exactly once as 
   * BASE = 0
   * SONOLUS_1_1_0 = 1
 * **initialLife (int)**: The initial life value for the level. Defaults to 1000.
+* **firstZoom (ref?[Zoom])**: An optional reference to the first **Zoom** entity.
+
+## Zoom
+
+A zoom event. The presence of at least one **Zoom** entity enables dynamic stages.
+
+### Fields
+
+* **#BEAT (float)**
+* **zoom (float)**
+* **ease (EaseType)**
+* **next (ref?[Zoom])**: A reference to the next **Zoom** event.
+
+## Stage
+
+Represents a dynamic stage. The presence of at least one **Stage** enables dynamic stages.
+
+### Fields
+
+* **fromStart (bool)**: If true, show the stage from the level start, even before the first **StageMaskChange** event.
+* **firstMaskChange (ref?[StageMaskChange])**: A reference to the first **StageMaskChange** event.
+* **firstPivotChange (ref?[StagePivotChange])**: A reference to the first **StagePivotChange** event.
+* **firstStyleChange (ref?[StageStyleChange])**: A reference to the first **StageStyleChange** event.
+
+## StageMaskChange
+
+An event that controls the lane and size of a stage's mask.
+
+### Fields
+
+* **stage (ref[Stage])**: A reference to the **Stage** entity this event belongs to.
+* **#BEAT (float)**
+* **lane (float)**
+* **size (float)**
+* **ease (EaseType)**
+* **next (ref?[StageMaskChange])**: A reference to the next **StageMaskChange** event.
+
+## StagePivotChange
+
+An event that controls the reference point for note and lane movement.
+
+### Fields
+
+* **stage (ref[Stage])**: A reference to the **Stage** entity this event belongs to.
+* **#BEAT (float)**
+* **lane (float)**
+* **divisionSize (float)**: The number of lanes between dividers
+* **divisionParity (DivisionParity)**: Whether the pivot falls on a divider (even) or between dividers (odd). Takes on one of the following values:
+  * EVEN = 0
+  * ODD = 1
+* **ease (EaseType)**
+* **next (ref?[StagePivotChange])**: A reference to the next **StagePivotChange** event.
+
+## StageStyleChange
+
+An event that controls the visual style of a stage.
+
+### Fields
+
+* **stage (ref[Stage])**: A reference to the **Stage** entity this event belongs to.
+* **#BEAT (float)**
+* **judgeLineColor (JudgeLineColor)**
+  * NEUTRAL = 0
+  * RED = 1
+  * GREEN = 2
+  * BLUE = 3
+  * YELLOW = 4
+  * PURPLE = 5
+  * CYAN = 6
+  * BLACK = 7
+* **leftBorderStyle (StageBorderStyle)**:
+  * DEFAULT = 0
+  * LIGHT = 1
+  * DISABLED = 2
+* **rightBorderStyle (StageBorderStyle)**:
+  * DEFAULT = 0
+  * LIGHT = 1
+  * DISABLED = 2
+* **alpha (float)**
+* **ease (EaseType)**
+* **next (ref?[StageStyleChange])**: A reference to the next **StageStyleChange** event.
 
 ## #BPM_CHANGE
 
@@ -54,7 +135,9 @@ Comprised of many archetypes according to the following naming scheme:
 
 * **#BEAT (float)**
 * **#TIMESCALE_GROUP (ref[#TIMESCALE_GROUP])**: The timescale group of the note.
+* **stage (ref?[Stage])**: An optional reference to the **Stage** entity this note belongs to.
 * **lane (float)**: The lane for the center of the note, centered at 0. Typical values range from -5.5 to 5.5 since the edges of the stage are at lane -6 and 6 (a note with a lane of 6 would be centered on the stage edge).
+* **relLane (float)**: The lane of this note, relative to the pivot's lane at this note's beat. Positive if the note is to the right of the pivot. Ignored if the note does not reference a stage.
 * **size (float)**: The size in lanes of *half* the note. E.g. a note of size 1 would take up two lanes and have an extent of (lane - size) to (lane + size). Typically ranges from 0.5 to 6.
 * **direction (Direction)**: The direction of the note, for flicks. Has no effect on other notes. Takes on one of the following values:
   * UP_OMNI = 0

@@ -24,7 +24,7 @@ from sekai.lib.particle import ActiveParticles
 from sekai.lib.skin import ActiveSkin, JudgmentSpriteSet
 
 
-class JudgeLineStyle(IntEnum):
+class JudgeLineColor(IntEnum):
     PRIMARY = 0
     SECONDARY = 1
     ACCENT = 2
@@ -41,7 +41,7 @@ class DivisionProps(Record):
 
 
 class StageBorderStyle(IntEnum):
-    STANDARD = 0
+    DEFAULT = 0
     LIGHT = 1
     DISABLED = 2
 
@@ -74,9 +74,9 @@ def draw_basic_stage():
             width=6,
             pivot_lane=0,
             division=DivisionProps(size=2, parity=DivisionParity.EVEN),
-            judge_line_style=JudgeLineStyle.PRIMARY,
-            left_border_style=StageBorderStyle.STANDARD,
-            right_border_style=StageBorderStyle.STANDARD,
+            judge_line_color=JudgeLineColor.PRIMARY,
+            left_border_style=StageBorderStyle.DEFAULT,
+            right_border_style=StageBorderStyle.DEFAULT,
             order=0,
             a=1,
         )
@@ -87,17 +87,17 @@ def draw_sekai_stage():
     ActiveSkin.sekai_stage.draw(layout, z=get_z(LAYER_STAGE))
 
 
-def get_judgment_sprites(judge_line_style: JudgeLineStyle) -> JudgmentSpriteSet:
+def get_judgment_sprites(judge_line_color: JudgeLineColor) -> JudgmentSpriteSet:
     result = +JudgmentSpriteSet
-    match judge_line_style:
-        case JudgeLineStyle.PRIMARY:
+    match judge_line_color:
+        case JudgeLineColor.PRIMARY:
             result @= ActiveSkin.judgment_primary
-        case JudgeLineStyle.SECONDARY:
+        case JudgeLineColor.SECONDARY:
             result @= ActiveSkin.judgment_secondary
-        case JudgeLineStyle.ACCENT:
+        case JudgeLineColor.ACCENT:
             result @= ActiveSkin.judgment_accent
         case _:
-            assert_never(judge_line_style)
+            assert_never(judge_line_color)
     return result
 
 
@@ -106,21 +106,21 @@ def draw_dynamic_stage(
     width: float,
     pivot_lane: float,
     division: Transition[DivisionProps] | DivisionProps,
-    judge_line_style: Transition[JudgeLineStyle] | JudgeLineStyle,
+    judge_line_color: Transition[JudgeLineColor] | JudgeLineColor,
     left_border_style: Transition[StageBorderStyle] | StageBorderStyle,
     right_border_style: Transition[StageBorderStyle] | StageBorderStyle,
     order: int,
     a: float,
 ):
     division = normalize_transition(division)
-    judge_line_style = normalize_transition(judge_line_style)
+    judge_line_color = normalize_transition(judge_line_color)
     left_border_style = normalize_transition(left_border_style)
     right_border_style = normalize_transition(right_border_style)
 
-    sprites_same = judge_line_style.start == judge_line_style.end
-    sprites_a = get_judgment_sprites(judge_line_style.start)
-    sprites_b = get_judgment_sprites(judge_line_style.end)
-    p_sprites = judge_line_style.progress
+    sprites_same = judge_line_color.start == judge_line_color.end
+    sprites_a = get_judgment_sprites(judge_line_color.start)
+    sprites_b = get_judgment_sprites(judge_line_color.end)
+    p_sprites = judge_line_color.progress
 
     if not sprites_b.available:
         draw_fallback_stage(lane, width, division.end.size, division.end.parity, pivot_lane, order, a)
@@ -143,7 +143,7 @@ def draw_dynamic_stage(
 
     def draw_left_border(style: StageBorderStyle, z: float, a: float):
         match style:
-            case StageBorderStyle.STANDARD:
+            case StageBorderStyle.DEFAULT:
                 layout_b = layout_lane_by_edges(l - 0.08, l)  # Artificially thicken the top so it renders better
                 layout_t = layout_lane_by_edges(l - 0.64, l)
                 ActiveSkin.stage_border.draw(
@@ -162,7 +162,7 @@ def draw_dynamic_stage(
 
     def draw_right_border(style: StageBorderStyle, z: float, a: float):
         match style:
-            case StageBorderStyle.STANDARD:
+            case StageBorderStyle.DEFAULT:
                 layout_b = layout_lane_by_edges(r + 0.08, r)  # Flip horizontally
                 layout_t = layout_lane_by_edges(r + 0.64, r)
                 ActiveSkin.stage_border.draw(
@@ -216,7 +216,7 @@ def draw_dynamic_stage(
 
     def draw_left_judgment_border(sprites: JudgmentSpriteSet, style: StageBorderStyle, z: float, a: float):
         match style:
-            case StageBorderStyle.STANDARD:
+            case StageBorderStyle.DEFAULT:
                 layout = perspective_rect(
                     l,
                     l + 1 / f / 2,
@@ -234,7 +234,7 @@ def draw_dynamic_stage(
 
     def draw_right_judgment_border(sprites: JudgmentSpriteSet, style: StageBorderStyle, z: float, a: float):
         match style:
-            case StageBorderStyle.STANDARD:
+            case StageBorderStyle.DEFAULT:
                 layout = perspective_rect(
                     r - 1 / f / 2,
                     r,
