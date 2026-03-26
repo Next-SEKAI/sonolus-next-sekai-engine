@@ -11,7 +11,7 @@ from sekai.lib.ui import init_ui
 from sekai.play.common import init_play_common
 from sekai.play.input_manager import InputManager
 from sekai.play.note import NOTE_ARCHETYPES
-from sekai.play.stage import Stage
+from sekai.play.stage import StaticStage
 
 
 class Initialization(PlayArchetype):
@@ -35,7 +35,7 @@ class Initialization(PlayArchetype):
         init_play_common()
 
     def initialize(self):
-        Stage.spawn()
+        StaticStage.spawn()
         InputManager.spawn()
         self.replay_revision = self.revision
 

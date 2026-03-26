@@ -6,8 +6,8 @@ from sekai.lib.layout import refresh_layout
 from sekai.lib.stage import draw_stage_and_accessories, play_lane_particle
 
 
-class WatchStage(WatchArchetype):
-    name = archetype_names.STAGE
+class WatchStaticStage(WatchArchetype):
+    name = archetype_names.STATIC_STAGE
 
     def spawn_time(self) -> float:
         return -1e8

@@ -12,7 +12,7 @@ from sekai.lib.stage import schedule_lane_sfx
 from sekai.lib.streams import Streams
 from sekai.lib.ui import init_ui
 from sekai.watch.note import WATCH_NOTE_ARCHETYPES
-from sekai.watch.stage import WatchScheduledLaneEffect, WatchStage
+from sekai.watch.stage import WatchScheduledLaneEffect, WatchStaticStage
 
 
 class WatchInitialization(WatchArchetype):
@@ -35,7 +35,7 @@ class WatchInitialization(WatchArchetype):
         init_score(WATCH_NOTE_ARCHETYPES)
         init_life(WATCH_NOTE_ARCHETYPES, self.initial_life)
 
-        WatchStage.spawn()
+        WatchStaticStage.spawn()
 
         for input_time, lanes in Streams.empty_input_lanes.iter_items_from(-2):
             for lane in lanes:
