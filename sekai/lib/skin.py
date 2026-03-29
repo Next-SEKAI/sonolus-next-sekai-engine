@@ -28,17 +28,37 @@ class BaseSkin:
     stage_border: Sprite = sprite("Sekai Stage Border")
     judgment_background: Sprite = sprite("Sekai Judgment Background")
 
-    judgment_gradient: Sprite = sprite("Sekai Judgment Gradient")
-    judgment_edge: Sprite = sprite("Sekai Judgment Edge")
-    judgment_center: Sprite = sprite("Sekai Judgment Center")
+    judgment_gradient_neutral: Sprite = sprite("Sekai Judgment Gradient Neutral")
+    judgment_edge_neutral: Sprite = sprite("Sekai Judgment Edge Neutral")
+    judgment_center_neutral: Sprite = sprite("Sekai Judgment Center Neutral")
 
-    judgment_gradient_secondary: Sprite = sprite("Sekai Judgment Gradient Secondary")
-    judgment_edge_secondary: Sprite = sprite("Sekai Judgment Edge Secondary")
-    judgment_center_secondary: Sprite = sprite("Sekai Judgment Center Secondary")
+    judgment_gradient_red: Sprite = sprite("Sekai Judgment Gradient Red")
+    judgment_edge_red: Sprite = sprite("Sekai Judgment Edge Red")
+    judgment_center_red: Sprite = sprite("Sekai Judgment Center Red")
 
-    judgment_gradient_accent: Sprite = sprite("Sekai Judgment Gradient Accent")
-    judgment_edge_accent: Sprite = sprite("Sekai Judgment Edge Accent")
-    judgment_center_accent: Sprite = sprite("Sekai Judgment Center Accent")
+    judgment_gradient_green: Sprite = sprite("Sekai Judgment Gradient Green")
+    judgment_edge_green: Sprite = sprite("Sekai Judgment Edge Green")
+    judgment_center_green: Sprite = sprite("Sekai Judgment Center Green")
+
+    judgment_gradient_blue: Sprite = sprite("Sekai Judgment Gradient Blue")
+    judgment_edge_blue: Sprite = sprite("Sekai Judgment Edge Blue")
+    judgment_center_blue: Sprite = sprite("Sekai Judgment Center Blue")
+
+    judgment_gradient_yellow: Sprite = sprite("Sekai Judgment Gradient Yellow")
+    judgment_edge_yellow: Sprite = sprite("Sekai Judgment Edge Yellow")
+    judgment_center_yellow: Sprite = sprite("Sekai Judgment Center Yellow")
+
+    judgment_gradient_purple: Sprite = sprite("Sekai Judgment Gradient Purple")
+    judgment_edge_purple: Sprite = sprite("Sekai Judgment Edge Purple")
+    judgment_center_purple: Sprite = sprite("Sekai Judgment Center Purple")
+
+    judgment_gradient_cyan: Sprite = sprite("Sekai Judgment Gradient Cyan")
+    judgment_edge_cyan: Sprite = sprite("Sekai Judgment Edge Cyan")
+    judgment_center_cyan: Sprite = sprite("Sekai Judgment Center Cyan")
+
+    judgment_gradient_black: Sprite = sprite("Sekai Judgment Gradient Black")
+    judgment_edge_black: Sprite = sprite("Sekai Judgment Edge Black")
+    judgment_center_black: Sprite = sprite("Sekai Judgment Center Black")
 
     sekai_stage: Sprite = sprite("Sekai Stage")
 
@@ -532,20 +552,45 @@ class ActiveConnectorSpriteSet(Record):
     slot_glow: Sprite
 
 
-judgment_primary_sprites = JudgmentSpriteSet(
-    judgment_gradient=BaseSkin.judgment_gradient,
-    judgment_edge=BaseSkin.judgment_edge,
-    judgment_center=BaseSkin.judgment_center,
+judgment_neutral_sprites = JudgmentSpriteSet(
+    judgment_gradient=BaseSkin.judgment_gradient_neutral,
+    judgment_edge=BaseSkin.judgment_edge_neutral,
+    judgment_center=BaseSkin.judgment_center_neutral,
 )
-judgment_secondary_sprites = JudgmentSpriteSet(
-    judgment_gradient=BaseSkin.judgment_gradient_secondary,
-    judgment_edge=BaseSkin.judgment_edge_secondary,
-    judgment_center=BaseSkin.judgment_center_secondary,
+judgment_red_sprites = JudgmentSpriteSet(
+    judgment_gradient=BaseSkin.judgment_gradient_red,
+    judgment_edge=BaseSkin.judgment_edge_red,
+    judgment_center=BaseSkin.judgment_center_red,
 )
-judgment_accent_sprites = JudgmentSpriteSet(
-    judgment_gradient=BaseSkin.judgment_gradient_accent,
-    judgment_edge=BaseSkin.judgment_edge_accent,
-    judgment_center=BaseSkin.judgment_center_accent,
+judgment_green_sprites = JudgmentSpriteSet(
+    judgment_gradient=BaseSkin.judgment_gradient_green,
+    judgment_edge=BaseSkin.judgment_edge_green,
+    judgment_center=BaseSkin.judgment_center_green,
+)
+judgment_blue_sprites = JudgmentSpriteSet(
+    judgment_gradient=BaseSkin.judgment_gradient_blue,
+    judgment_edge=BaseSkin.judgment_edge_blue,
+    judgment_center=BaseSkin.judgment_center_blue,
+)
+judgment_yellow_sprites = JudgmentSpriteSet(
+    judgment_gradient=BaseSkin.judgment_gradient_yellow,
+    judgment_edge=BaseSkin.judgment_edge_yellow,
+    judgment_center=BaseSkin.judgment_center_yellow,
+)
+judgment_purple_sprites = JudgmentSpriteSet(
+    judgment_gradient=BaseSkin.judgment_gradient_purple,
+    judgment_edge=BaseSkin.judgment_edge_purple,
+    judgment_center=BaseSkin.judgment_center_purple,
+)
+judgment_cyan_sprites = JudgmentSpriteSet(
+    judgment_gradient=BaseSkin.judgment_gradient_cyan,
+    judgment_edge=BaseSkin.judgment_edge_cyan,
+    judgment_center=BaseSkin.judgment_center_cyan,
+)
+judgment_black_sprites = JudgmentSpriteSet(
+    judgment_gradient=BaseSkin.judgment_gradient_black,
+    judgment_edge=BaseSkin.judgment_edge_black,
+    judgment_center=BaseSkin.judgment_center_black,
 )
 
 note_cyan_body_sprites = BodySpriteSet.of_normal(
@@ -758,9 +803,14 @@ class ActiveSkin:
     stage_border: Sprite
     judgment_background: Sprite
 
-    judgment_primary: JudgmentSpriteSet
-    judgment_secondary: JudgmentSpriteSet
-    judgment_accent: JudgmentSpriteSet
+    judgment_neutral: JudgmentSpriteSet
+    judgment_red: JudgmentSpriteSet
+    judgment_green: JudgmentSpriteSet
+    judgment_blue: JudgmentSpriteSet
+    judgment_yellow: JudgmentSpriteSet
+    judgment_purple: JudgmentSpriteSet
+    judgment_cyan: JudgmentSpriteSet
+    judgment_black: JudgmentSpriteSet
 
     sekai_stage: Sprite
 
@@ -815,9 +865,14 @@ def init_skin():
     ActiveSkin.stage_border = BaseSkin.stage_border
     ActiveSkin.judgment_background = BaseSkin.judgment_background
 
-    ActiveSkin.judgment_primary = judgment_primary_sprites
-    ActiveSkin.judgment_secondary = judgment_secondary_sprites
-    ActiveSkin.judgment_accent = judgment_accent_sprites
+    ActiveSkin.judgment_neutral = judgment_neutral_sprites
+    ActiveSkin.judgment_red = judgment_red_sprites
+    ActiveSkin.judgment_green = judgment_green_sprites
+    ActiveSkin.judgment_blue = judgment_blue_sprites
+    ActiveSkin.judgment_yellow = judgment_yellow_sprites
+    ActiveSkin.judgment_purple = judgment_purple_sprites
+    ActiveSkin.judgment_cyan = judgment_cyan_sprites
+    ActiveSkin.judgment_black = judgment_black_sprites
 
     ActiveSkin.sekai_stage = BaseSkin.sekai_stage
 

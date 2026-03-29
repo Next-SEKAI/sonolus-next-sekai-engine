@@ -25,9 +25,14 @@ from sekai.lib.skin import ActiveSkin, JudgmentSpriteSet
 
 
 class JudgeLineColor(IntEnum):
-    PRIMARY = 0
-    SECONDARY = 1
-    ACCENT = 2
+    NEUTRAL = 0
+    RED = 1
+    GREEN = 2
+    BLUE = 3
+    YELLOW = 4
+    PURPLE = 5
+    CYAN = 6
+    BLACK = 7
 
 
 class DivisionParity(IntEnum):
@@ -74,7 +79,7 @@ def draw_basic_stage():
             width=6,
             pivot_lane=0,
             division=DivisionProps(size=2, parity=DivisionParity.EVEN),
-            judge_line_color=JudgeLineColor.PRIMARY,
+            judge_line_color=JudgeLineColor.PURPLE,
             left_border_style=StageBorderStyle.DEFAULT,
             right_border_style=StageBorderStyle.DEFAULT,
             order=0,
@@ -90,12 +95,22 @@ def draw_sekai_stage():
 def get_judgment_sprites(judge_line_color: JudgeLineColor) -> JudgmentSpriteSet:
     result = +JudgmentSpriteSet
     match judge_line_color:
-        case JudgeLineColor.PRIMARY:
-            result @= ActiveSkin.judgment_primary
-        case JudgeLineColor.SECONDARY:
-            result @= ActiveSkin.judgment_secondary
-        case JudgeLineColor.ACCENT:
-            result @= ActiveSkin.judgment_accent
+        case JudgeLineColor.NEUTRAL:
+            result @= ActiveSkin.judgment_neutral
+        case JudgeLineColor.RED:
+            result @= ActiveSkin.judgment_red
+        case JudgeLineColor.GREEN:
+            result @= ActiveSkin.judgment_green
+        case JudgeLineColor.BLUE:
+            result @= ActiveSkin.judgment_blue
+        case JudgeLineColor.YELLOW:
+            result @= ActiveSkin.judgment_yellow
+        case JudgeLineColor.PURPLE:
+            result @= ActiveSkin.judgment_purple
+        case JudgeLineColor.CYAN:
+            result @= ActiveSkin.judgment_cyan
+        case JudgeLineColor.BLACK:
+            result @= ActiveSkin.judgment_black
         case _:
             assert_never(judge_line_color)
     return result
