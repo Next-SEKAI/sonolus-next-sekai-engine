@@ -128,6 +128,7 @@ def draw_dynamic_stage(
     right_border_style: Transition[StageBorderStyle] | StageBorderStyle,
     order: int,
     a: float,
+    lane_alpha: float = 1,
 ):
     division = normalize_transition(division)
     judge_line_color = normalize_transition(judge_line_color)
@@ -301,33 +302,40 @@ def draw_dynamic_stage(
         )
         sprites.judgment_gradient.draw(layout, z=z, a=a)
 
-    ActiveSkin.lane_background.draw(layout_lane_by_edges(l, r), z=z_bg0, a=a)
+    if lane_alpha > 0:
+        la = a * lane_alpha
+        ActiveSkin.lane_background.draw(layout_lane_by_edges(l, r), z=z_bg0, a=la)
+
+        p_left = left_border_style.progress
+        if left_border_style.start == left_border_style.end:
+            draw_left_border(left_border_style.start, z_lane0, la)
+        else:
+            draw_left_border(left_border_style.start, z_lane0, la * (1 - p_left))
+            draw_left_border(left_border_style.end, z_lane1, la * p_left)
+
+        p_right = right_border_style.progress
+        if right_border_style.start == right_border_style.end:
+            draw_right_border(right_border_style.start, z_lane0, la)
+        else:
+            draw_right_border(right_border_style.start, z_lane0, la * (1 - p_right))
+            draw_right_border(right_border_style.end, z_lane1, la * p_right)
+
+        p_div = division.progress
+        if division.start == division.end:
+            draw_dividers(division.start.size, division.start.parity, pivot_lane, z_lane0, la)
+        else:
+            if 1 - p_div > 0:
+                draw_dividers(division.start.size, division.start.parity, pivot_lane, z_lane0, la * (1 - p_div))
+            if p_div > 0:
+                draw_dividers(division.end.size, division.end.parity, pivot_lane, z_lane1, la * p_div)
+
     ActiveSkin.judgment_background.draw(
         perspective_rect(l, r, 1 - DynamicLayout.note_h, 1 + DynamicLayout.note_h), z=z_bg1, a=a
     )
 
     p_left = left_border_style.progress
-    if left_border_style.start == left_border_style.end:
-        draw_left_border(left_border_style.start, z_lane0, a)
-    else:
-        draw_left_border(left_border_style.start, z_lane0, a * (1 - p_left))
-        draw_left_border(left_border_style.end, z_lane1, a * p_left)
-
     p_right = right_border_style.progress
-    if right_border_style.start == right_border_style.end:
-        draw_right_border(right_border_style.start, z_lane0, a)
-    else:
-        draw_right_border(right_border_style.start, z_lane0, a * (1 - p_right))
-        draw_right_border(right_border_style.end, z_lane1, a * p_right)
-
     p_div = division.progress
-    if division.start == division.end:
-        draw_dividers(division.start.size, division.start.parity, pivot_lane, z_lane0, a)
-    else:
-        if 1 - p_div > 0:
-            draw_dividers(division.start.size, division.start.parity, pivot_lane, z_lane0, a * (1 - p_div))
-        if p_div > 0:
-            draw_dividers(division.end.size, division.end.parity, pivot_lane, z_lane1, a * p_div)
 
     start_has_half_offset = division.start.parity == DivisionParity.ODD and division.start.size % 2 == 1
     end_has_half_offset = division.end.parity == DivisionParity.ODD and division.end.size % 2 == 1
