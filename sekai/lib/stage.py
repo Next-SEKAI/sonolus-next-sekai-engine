@@ -143,16 +143,20 @@ def draw_dynamic_stage(
 
     l = lane - width
     r = lane + width
-    z_bg0 = get_z_alt(LAYER_STAGE, order * 10)
-    z_bg1 = get_z_alt(LAYER_STAGE, order * 10 + 1)
-    z_a0 = get_z_alt(LAYER_STAGE, order * 10 + 2)
-    z_a1 = get_z_alt(LAYER_STAGE, order * 10 + 3)
-    z_a2 = get_z_alt(LAYER_STAGE, order * 10 + 4)
-    z_a3 = get_z_alt(LAYER_STAGE, order * 10 + 5)
-    z_b0 = get_z_alt(LAYER_STAGE, order * 10 + 6)
-    z_b1 = get_z_alt(LAYER_STAGE, order * 10 + 7)
-    z_b2 = get_z_alt(LAYER_STAGE, order * 10 + 8)
-    z_b3 = get_z_alt(LAYER_STAGE, order * 10 + 9)
+    z_bg0 = get_z_alt(LAYER_STAGE, order * 14)
+    z_bg1 = get_z_alt(LAYER_STAGE, order * 14 + 1)
+    z_lane0 = get_z_alt(LAYER_STAGE, order * 14 + 2)
+    z_lane1 = get_z_alt(LAYER_STAGE, order * 14 + 3)
+    z_a0 = get_z_alt(LAYER_STAGE, order * 14 + 4)
+    z_a1 = get_z_alt(LAYER_STAGE, order * 14 + 5)
+    z_a2 = get_z_alt(LAYER_STAGE, order * 14 + 6)
+    z_a3 = get_z_alt(LAYER_STAGE, order * 14 + 7)
+    z_b0 = get_z_alt(LAYER_STAGE, order * 14 + 8)
+    z_b1 = get_z_alt(LAYER_STAGE, order * 14 + 9)
+    z_b2 = get_z_alt(LAYER_STAGE, order * 14 + 10)
+    z_b3 = get_z_alt(LAYER_STAGE, order * 14 + 11)
+    z_a4 = get_z_alt(LAYER_STAGE, order * 14 + 12)
+    z_b4 = get_z_alt(LAYER_STAGE, order * 14 + 13)
 
     f = 5  # sizing factor for judge line border
 
@@ -213,7 +217,9 @@ def draw_dynamic_stage(
                 Quad(bl=div_layout_b.bl, tl=div_layout_t.tl, tr=div_layout_t.tr, br=div_layout_b.br), z=z, a=a
             )
 
-    def draw_judgment_dividers(sprites: JudgmentSpriteSet, half_offset: bool, pivot: float, z_lo: float, z_hi: float, a: float):
+    def draw_judgment_dividers(
+        sprites: JudgmentSpriteSet, half_offset: bool, pivot: float, z_lo: float, z_hi: float, a: float
+    ):
         eps = 0.001
         shifted_pivot = pivot + (0.5 if half_offset else 0)
 
@@ -222,9 +228,7 @@ def draw_dynamic_stage(
 
         for k in range(k_start, k_end + 1):
             pos = shifted_pivot + k
-            div_layout = perspective_rect(
-                pos - 0.01, pos + 0.01, 1 - DynamicLayout.note_h, 1 + DynamicLayout.note_h
-            )
+            div_layout = perspective_rect(pos - 0.012, pos + 0.012, 1 - DynamicLayout.note_h, 1 + DynamicLayout.note_h)
             edge_weight = abs(pos - lane) / width if width > 0 else 0
             sprites.judgment_center.draw(div_layout, z=z_lo, a=a)
             sprites.judgment_edge.draw(div_layout, z=z_hi, a=a * edge_weight)
@@ -240,7 +244,7 @@ def draw_dynamic_stage(
                 )
                 sprites.judgment_edge.draw(layout, z=z, a=a)
             case StageBorderStyle.LIGHT:
-                layout = perspective_rect(l - 0.01, l + 0.01, 1 - DynamicLayout.note_h, 1 + DynamicLayout.note_h)
+                layout = perspective_rect(l - 0.012, l + 0.012, 1 - DynamicLayout.note_h, 1 + DynamicLayout.note_h)
                 sprites.judgment_edge.draw(layout, z=z, a=a)
             case StageBorderStyle.DISABLED:
                 pass
@@ -258,7 +262,7 @@ def draw_dynamic_stage(
                 )
                 sprites.judgment_edge.draw(layout, z=z, a=a)
             case StageBorderStyle.LIGHT:
-                layout = perspective_rect(r - 0.01, r + 0.01, 1 - DynamicLayout.note_h, 1 + DynamicLayout.note_h)
+                layout = perspective_rect(r - 0.012, r + 0.012, 1 - DynamicLayout.note_h, 1 + DynamicLayout.note_h)
                 sprites.judgment_edge.draw(layout, z=z, a=a)
             case StageBorderStyle.DISABLED:
                 pass
@@ -290,26 +294,26 @@ def draw_dynamic_stage(
 
     p_left = left_border_style.progress
     if left_border_style.start == left_border_style.end:
-        draw_left_border(left_border_style.start, z_a0, a)
+        draw_left_border(left_border_style.start, z_lane0, a)
     else:
-        draw_left_border(left_border_style.start, z_a0, a * (1 - p_left))
-        draw_left_border(left_border_style.end, z_a2, a * p_left)
+        draw_left_border(left_border_style.start, z_lane0, a * (1 - p_left))
+        draw_left_border(left_border_style.end, z_lane1, a * p_left)
 
     p_right = right_border_style.progress
     if right_border_style.start == right_border_style.end:
-        draw_right_border(right_border_style.start, z_a0, a)
+        draw_right_border(right_border_style.start, z_lane0, a)
     else:
-        draw_right_border(right_border_style.start, z_a0, a * (1 - p_right))
-        draw_right_border(right_border_style.end, z_a2, a * p_right)
+        draw_right_border(right_border_style.start, z_lane0, a * (1 - p_right))
+        draw_right_border(right_border_style.end, z_lane1, a * p_right)
 
     p_div = division.progress
     if division.start == division.end:
-        draw_dividers(division.start.size, division.start.parity, pivot_lane, z_a0, a)
+        draw_dividers(division.start.size, division.start.parity, pivot_lane, z_lane0, a)
     else:
         if 1 - p_div > 0:
-            draw_dividers(division.start.size, division.start.parity, pivot_lane, z_a0, a * (1 - p_div))
+            draw_dividers(division.start.size, division.start.parity, pivot_lane, z_lane0, a * (1 - p_div))
         if p_div > 0:
-            draw_dividers(division.end.size, division.end.parity, pivot_lane, z_a2, a * p_div)
+            draw_dividers(division.end.size, division.end.parity, pivot_lane, z_lane1, a * p_div)
 
     start_has_half_offset = division.start.parity == DivisionParity.ODD and division.start.size % 2 == 1
     end_has_half_offset = division.end.parity == DivisionParity.ODD and division.end.size % 2 == 1
@@ -338,10 +342,10 @@ def draw_dynamic_stage(
             draw_judgment_dividers(sprites_b, end_has_half_offset, pivot_lane, z_b2, z_b3, a * alpha_bb)
 
     if sprites_same:
-        draw_gradient(sprites_a, z_a0, a)
+        draw_gradient(sprites_a, z_a4, a)
     else:
-        draw_gradient(sprites_a, z_a0, a * (1 - p_sprites))
-        draw_gradient(sprites_b, z_b0, a * p_sprites)
+        draw_gradient(sprites_a, z_a4, a * (1 - p_sprites))
+        draw_gradient(sprites_b, z_b4, a * p_sprites)
 
     if sprites_same and left_border_style.start == left_border_style.end:
         draw_left_judgment_border(sprites_a, left_border_style.start, z_a0, a)
@@ -376,7 +380,9 @@ def draw_dynamic_stage(
             draw_right_judgment_border(sprites_b, right_border_style.end, z_b2, a * alpha_bb)
 
 
-def draw_fallback_stage(lane: float, width: float, division_size: int, parity: DivisionParity, pivot: float, z: int, a: float):
+def draw_fallback_stage(
+    lane: float, width: float, division_size: int, parity: DivisionParity, pivot: float, z: int, a: float
+):
     l = lane - width
     r = lane + width
     z_lo = get_z_alt(LAYER_STAGE, z * 3)
