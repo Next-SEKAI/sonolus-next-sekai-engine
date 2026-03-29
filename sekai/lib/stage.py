@@ -4,6 +4,7 @@ from typing import assert_never
 
 from sonolus.script.quad import Quad
 from sonolus.script.record import Record
+from sonolus.script.vec import Vec2
 
 from sekai.lib.effect import SFX_DISTANCE, Effects
 from sekai.lib.layer import LAYER_COVER, LAYER_STAGE, get_z, get_z_alt
@@ -17,6 +18,7 @@ from sekai.lib.layout import (
     layout_stage_cover,
     layout_stage_cover_and_line,
     perspective_rect,
+    transformed_vec_at,
 )
 from sekai.lib.level_config import LevelConfig
 from sekai.lib.options import Options, StageCoverMode
@@ -217,6 +219,18 @@ def draw_dynamic_stage(
                 Quad(bl=div_layout_b.bl, tl=div_layout_t.tl, tr=div_layout_t.tr, br=div_layout_b.br), z=z, a=a
             )
 
+    judgment_divider_size = transformed_vec_at(0.014).x
+
+    def layout_judgment_divider(lane: float):
+        b = transformed_vec_at(lane, 1 + DynamicLayout.note_h - DynamicLayout.note_h / f + 0.001)
+        t = transformed_vec_at(lane, 1 - DynamicLayout.note_h + DynamicLayout.note_h / f - 0.001)
+        return Quad(
+            bl=b - Vec2(judgment_divider_size, 0),
+            tl=t - Vec2(judgment_divider_size, 0),
+            tr=t + Vec2(judgment_divider_size, 0),
+            br=b + Vec2(judgment_divider_size, 0),
+        )
+
     def draw_judgment_dividers(
         sprites: JudgmentSpriteSet, half_offset: bool, pivot: float, z_lo: float, z_hi: float, a: float
     ):
@@ -228,7 +242,7 @@ def draw_dynamic_stage(
 
         for k in range(k_start, k_end + 1):
             pos = shifted_pivot + k
-            div_layout = perspective_rect(pos - 0.012, pos + 0.012, 1 - DynamicLayout.note_h, 1 + DynamicLayout.note_h)
+            div_layout = layout_judgment_divider(pos)
             edge_weight = abs(pos - lane) / width if width > 0 else 0
             sprites.judgment_center.draw(div_layout, z=z_lo, a=a)
             sprites.judgment_edge.draw(div_layout, z=z_hi, a=a * edge_weight)
@@ -244,7 +258,7 @@ def draw_dynamic_stage(
                 )
                 sprites.judgment_edge.draw(layout, z=z, a=a)
             case StageBorderStyle.LIGHT:
-                layout = perspective_rect(l - 0.012, l + 0.012, 1 - DynamicLayout.note_h, 1 + DynamicLayout.note_h)
+                layout = layout_judgment_divider(l)
                 sprites.judgment_edge.draw(layout, z=z, a=a)
             case StageBorderStyle.DISABLED:
                 pass
@@ -262,7 +276,7 @@ def draw_dynamic_stage(
                 )
                 sprites.judgment_edge.draw(layout, z=z, a=a)
             case StageBorderStyle.LIGHT:
-                layout = perspective_rect(r - 0.012, r + 0.012, 1 - DynamicLayout.note_h, 1 + DynamicLayout.note_h)
+                layout = layout_judgment_divider(r)
                 sprites.judgment_edge.draw(layout, z=z, a=a)
             case StageBorderStyle.DISABLED:
                 pass
