@@ -1,4 +1,4 @@
-from sonolus.script.archetype import WatchArchetype, callback, imported
+from sonolus.script.archetype import EntityRef, WatchArchetype, callback, imported
 from sonolus.script.runtime import is_replay
 
 from sekai.lib import archetype_names
@@ -12,7 +12,8 @@ from sekai.lib.stage import schedule_lane_sfx
 from sekai.lib.streams import Streams
 from sekai.lib.ui import init_ui
 from sekai.watch.note import WATCH_NOTE_ARCHETYPES
-from sekai.watch.stage import WatchScheduledLaneEffect, WatchStaticStage
+from sekai.watch.dynamic_stage import WatchZoom
+from sekai.watch.static_stage import WatchScheduledLaneEffect, WatchStaticStage
 
 
 class WatchInitialization(WatchArchetype):
@@ -21,6 +22,7 @@ class WatchInitialization(WatchArchetype):
     revision: EngineRevision = imported(name="revision", default=EngineRevision.LATEST)
     replay_revision: EngineRevision = imported(name="replayRevision", default=EngineRevision.BASE)
     initial_life: int = imported(name="initialLife", default=1000)
+    first_zoom_ref: EntityRef[WatchZoom] = imported(name="firstZoom")
 
     @callback(order=-1)
     def preprocess(self):

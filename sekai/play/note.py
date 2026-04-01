@@ -58,6 +58,7 @@ from sekai.lib.timescale import (
 )
 from sekai.play import input_manager
 from sekai.play.common import PlayLevelMemory
+from sekai.play.dynamic_stage import DynamicStage
 
 DEFAULT_BEST_TOUCH_TIME = -1e8
 
@@ -65,7 +66,9 @@ DEFAULT_BEST_TOUCH_TIME = -1e8
 class BaseNote(PlayArchetype):
     beat: StandardImport.BEAT
     timescale_group: StandardImport.TIMESCALE_GROUP
+    stage_ref: EntityRef[DynamicStage] = imported(name="stage")
     lane: float = imported()
+    rel_lane: float = imported(name="relLane")
     size: float = imported()
     direction: FlickDirection = imported()
     active_head_ref: EntityRef[BaseNote] = imported(name="activeHead")

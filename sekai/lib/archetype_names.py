@@ -7,6 +7,11 @@ TIMESCALE_GROUP = StandardArchetypeName.TIMESCALE_GROUP
 
 INITIALIZATION = "Initialization"
 STATIC_STAGE = "StaticStage"
+ZOOM = "Zoom"
+STAGE = "Stage"
+STAGE_MASK_CHANGE = "StageMaskChange"
+STAGE_PIVOT_CHANGE = "StagePivotChange"
+STAGE_STYLE_CHANGE = "StageStyleChange"
 SCHEDULED_LANE_EFFECT = "ScheduledLaneEffect"
 INPUT_MANAGER = "_InputManager"
 SIM_LINE = "SimLine"

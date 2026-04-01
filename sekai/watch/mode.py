@@ -10,13 +10,25 @@ from sekai.watch.initialization import WatchInitialization
 from sekai.watch.note import WATCH_NOTE_ARCHETYPES
 from sekai.watch.sim_line import WatchSimLine
 from sekai.watch.slot_effect import WATCH_SLOT_EFFECT_ARCHETYPES
-from sekai.watch.stage import WatchScheduledLaneEffect, WatchStaticStage
+from sekai.watch.dynamic_stage import (
+    WatchDynamicStage,
+    WatchStageMaskChange,
+    WatchStagePivotChange,
+    WatchStageStyleChange,
+    WatchZoom,
+)
+from sekai.watch.static_stage import WatchScheduledLaneEffect, WatchStaticStage
 from sekai.watch.timescale import WatchTimescaleChange, WatchTimescaleGroup
 from sekai.watch.update_spawn import update_spawn
 
 watch_mode = WatchMode(
     archetypes=[
         WatchInitialization,
+        WatchZoom,
+        WatchDynamicStage,
+        WatchStageMaskChange,
+        WatchStagePivotChange,
+        WatchStageStyleChange,
         WatchStaticStage,
         WatchScheduledLaneEffect,
         WatchBpmChange,
