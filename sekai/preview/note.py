@@ -27,6 +27,7 @@ from sekai.lib.note import (
 from sekai.lib.options import Options
 from sekai.lib.skin import ArrowRenderType, ArrowSpriteSet, BodyRenderType, BodySpriteSet
 from sekai.play.note import derive_note_archetypes
+from sekai.preview.dynamic_stage import PreviewDynamicStage
 from sekai.preview.layout import (
     PreviewData,
     get_adjusted_time,
@@ -44,7 +45,9 @@ from sekai.preview.layout import (
 
 class PreviewBaseNote(PreviewArchetype):
     beat: StandardImport.BEAT
+    stage_ref: EntityRef[PreviewDynamicStage] = imported(name="stage")
     lane: float = imported()
+    rel_lane: float = imported(name="relLane")
     size: float = imported()
     direction: FlickDirection = imported()
     active_head_ref: EntityRef[PreviewBaseNote] = imported(name="activeHead")

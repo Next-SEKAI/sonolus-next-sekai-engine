@@ -47,12 +47,15 @@ from sekai.lib.timescale import (
     update_timescale_group,
 )
 from sekai.play.note import derive_note_archetypes
+from sekai.watch.dynamic_stage import WatchDynamicStage
 
 
 class WatchBaseNote(WatchArchetype):
     beat: StandardImport.BEAT
     timescale_group: StandardImport.TIMESCALE_GROUP
+    stage_ref: EntityRef[WatchDynamicStage] = imported(name="stage")
     lane: float = imported()
+    rel_lane: float = imported(name="relLane")
     size: float = imported()
     direction: FlickDirection = imported()
     active_head_ref: EntityRef[WatchBaseNote] = imported(name="activeHead")

@@ -1,4 +1,4 @@
-from sonolus.script.archetype import PreviewArchetype, callback, imported
+from sonolus.script.archetype import EntityRef, PreviewArchetype, callback, imported
 from sonolus.script.printing import PrintColor, PrintFormat
 from sonolus.script.timing import beat_to_time
 
@@ -16,13 +16,15 @@ from sekai.preview.layout import (
     layout_preview_bar_line,
     print_at_col_top,
 )
-from sekai.preview.stage import draw_preview_cover, draw_preview_stage
+from sekai.preview.dynamic_stage import PreviewZoom
+from sekai.preview.static_stage import draw_preview_cover, draw_preview_stage
 
 
 class PreviewInitialization(PreviewArchetype):
     name = archetype_names.INITIALIZATION
 
     revision: EngineRevision = imported(name="revision", default=EngineRevision.LATEST)
+    first_zoom_ref: EntityRef[PreviewZoom] = imported(name="firstZoom")
 
     @callback(order=1)
     def preprocess(self):

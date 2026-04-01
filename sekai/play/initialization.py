@@ -1,4 +1,4 @@
-from sonolus.script.archetype import PlayArchetype, callback, exported, imported
+from sonolus.script.archetype import EntityRef, PlayArchetype, callback, exported, imported
 
 from sekai.lib import archetype_names
 from sekai.lib.buckets import init_buckets
@@ -11,7 +11,8 @@ from sekai.lib.ui import init_ui
 from sekai.play.common import init_play_common
 from sekai.play.input_manager import InputManager
 from sekai.play.note import NOTE_ARCHETYPES
-from sekai.play.stage import StaticStage
+from sekai.play.dynamic_stage import Zoom
+from sekai.play.static_stage import StaticStage
 
 
 class Initialization(PlayArchetype):
@@ -19,6 +20,7 @@ class Initialization(PlayArchetype):
 
     revision: EngineRevision = imported(name="revision", default=EngineRevision.SONOLUS_1_1_0)
     initial_life: int = imported(name="initialLife", default=1000)
+    first_zoom_ref: EntityRef[Zoom] = imported(name="firstZoom")
 
     replay_revision: EngineRevision = exported(name="replayRevision")
 
