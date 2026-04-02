@@ -3,17 +3,18 @@ from __future__ import annotations
 from sonolus.script.archetype import EntityRef, StandardImport, WatchArchetype, imported
 
 from sekai.lib import archetype_names
+from sekai.lib.baseevent import BaseEvent
 from sekai.lib.ease import EaseType
 from sekai.lib.stage import DivisionParity, JudgeLineColor, StageBorderStyle
 
 
-class WatchZoom(WatchArchetype):
-    name = archetype_names.ZOOM
+class WatchZoomChange(WatchArchetype, BaseEvent):
+    name = archetype_names.ZOOM_CHANGE
 
     beat: StandardImport.BEAT
     zoom: float = imported()
     ease: EaseType = imported()
-    next_ref: EntityRef[WatchZoom] = imported(name="next")
+    next_ref: EntityRef[WatchZoomChange] = imported(name="next")
 
 
 class WatchDynamicStage(WatchArchetype):
@@ -31,7 +32,7 @@ class WatchDynamicStage(WatchArchetype):
         return 1e8
 
 
-class WatchStageMaskChange(WatchArchetype):
+class WatchStageMaskChange(WatchArchetype, BaseEvent):
     name = archetype_names.STAGE_MASK_CHANGE
 
     stage_ref: EntityRef[WatchDynamicStage] = imported(name="stage")
@@ -42,7 +43,7 @@ class WatchStageMaskChange(WatchArchetype):
     next_ref: EntityRef[WatchStageMaskChange] = imported(name="next")
 
 
-class WatchStagePivotChange(WatchArchetype):
+class WatchStagePivotChange(WatchArchetype, BaseEvent):
     name = archetype_names.STAGE_PIVOT_CHANGE
 
     stage_ref: EntityRef[WatchDynamicStage] = imported(name="stage")
@@ -54,7 +55,7 @@ class WatchStagePivotChange(WatchArchetype):
     next_ref: EntityRef[WatchStagePivotChange] = imported(name="next")
 
 
-class WatchStageStyleChange(WatchArchetype):
+class WatchStageStyleChange(WatchArchetype, BaseEvent):
     name = archetype_names.STAGE_STYLE_CHANGE
 
     stage_ref: EntityRef[WatchDynamicStage] = imported(name="stage")

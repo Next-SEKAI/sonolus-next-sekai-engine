@@ -11,14 +11,14 @@ from sekai.play.input_manager import InputManager
 from sekai.play.note import NOTE_ARCHETYPES
 from sekai.play.sim_line import SimLine
 from sekai.play.slot_effect import SLOT_EFFECT_ARCHETYPES
-from sekai.play.dynamic_stage import DynamicStage, StageMaskChange, StagePivotChange, StageStyleChange, Zoom
+from sekai.play.dynamic_stage import DynamicStage, StageMaskChange, StagePivotChange, StageStyleChange, ZoomChange
 from sekai.play.static_stage import StaticStage
 from sekai.play.timescale import TimescaleChange, TimescaleGroup
 
 play_mode = PlayMode(
     archetypes=[
         Initialization,
-        Zoom,
+        ZoomChange,
         DynamicStage,
         StageMaskChange,
         StagePivotChange,

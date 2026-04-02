@@ -15,7 +15,7 @@ from sekai.watch.dynamic_stage import (
     WatchStageMaskChange,
     WatchStagePivotChange,
     WatchStageStyleChange,
-    WatchZoom,
+    WatchZoomChange,
 )
 from sekai.watch.static_stage import WatchScheduledLaneEffect, WatchStaticStage
 from sekai.watch.timescale import WatchTimescaleChange, WatchTimescaleGroup
@@ -24,7 +24,7 @@ from sekai.watch.update_spawn import update_spawn
 watch_mode = WatchMode(
     archetypes=[
         WatchInitialization,
-        WatchZoom,
+        WatchZoomChange,
         WatchDynamicStage,
         WatchStageMaskChange,
         WatchStagePivotChange,

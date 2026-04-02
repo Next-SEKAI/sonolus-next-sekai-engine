@@ -7,7 +7,7 @@ TIMESCALE_GROUP = StandardArchetypeName.TIMESCALE_GROUP
 
 INITIALIZATION = "Initialization"
 STATIC_STAGE = "StaticStage"
-ZOOM = "Zoom"
+ZOOM_CHANGE = "ZoomChange"
 STAGE = "Stage"
 STAGE_MASK_CHANGE = "StageMaskChange"
 STAGE_PIVOT_CHANGE = "StagePivotChange"

@@ -3,17 +3,18 @@ from __future__ import annotations
 from sonolus.script.archetype import EntityRef, PreviewArchetype, StandardImport, imported
 
 from sekai.lib import archetype_names
+from sekai.lib.baseevent import BaseEvent
 from sekai.lib.ease import EaseType
 from sekai.lib.stage import DivisionParity, JudgeLineColor, StageBorderStyle
 
 
-class PreviewZoom(PreviewArchetype):
-    name = archetype_names.ZOOM
+class PreviewZoomChange(PreviewArchetype, BaseEvent):
+    name = archetype_names.ZOOM_CHANGE
 
     beat: StandardImport.BEAT
     zoom: float = imported()
     ease: EaseType = imported()
-    next_ref: EntityRef[PreviewZoom] = imported(name="next")
+    next_ref: EntityRef[PreviewZoomChange] = imported(name="next")
 
 
 class PreviewDynamicStage(PreviewArchetype):
@@ -25,7 +26,7 @@ class PreviewDynamicStage(PreviewArchetype):
     first_style_change_ref: EntityRef[PreviewStageStyleChange] = imported(name="firstStyleChange")
 
 
-class PreviewStageMaskChange(PreviewArchetype):
+class PreviewStageMaskChange(PreviewArchetype, BaseEvent):
     name = archetype_names.STAGE_MASK_CHANGE
 
     stage_ref: EntityRef[PreviewDynamicStage] = imported(name="stage")
@@ -36,7 +37,7 @@ class PreviewStageMaskChange(PreviewArchetype):
     next_ref: EntityRef[PreviewStageMaskChange] = imported(name="next")
 
 
-class PreviewStagePivotChange(PreviewArchetype):
+class PreviewStagePivotChange(PreviewArchetype, BaseEvent):
     name = archetype_names.STAGE_PIVOT_CHANGE
 
     stage_ref: EntityRef[PreviewDynamicStage] = imported(name="stage")
@@ -48,7 +49,7 @@ class PreviewStagePivotChange(PreviewArchetype):
     next_ref: EntityRef[PreviewStagePivotChange] = imported(name="next")
 
 
-class PreviewStageStyleChange(PreviewArchetype):
+class PreviewStageStyleChange(PreviewArchetype, BaseEvent):
     name = archetype_names.STAGE_STYLE_CHANGE
 
     stage_ref: EntityRef[PreviewDynamicStage] = imported(name="stage")

@@ -10,18 +10,18 @@ Handles common initialization logic for the engine. Must appear exactly once as 
   * BASE = 0
   * SONOLUS_1_1_0 = 1
 * **initialLife (int)**: The initial life value for the level. Defaults to 1000.
-* **firstZoom (ref?[Zoom])**: An optional reference to the first **Zoom** entity.
+* **firstZoom (ref?[ZoomChange])**: An optional reference to the first **ZoomChange** entity.
 
-## Zoom
+## ZoomChange
 
-A zoom event. The presence of at least one **Zoom** entity enables dynamic stages.
+A zoom event. The presence of at least one **ZoomChange** entity enables dynamic stages.
 
 ### Fields
 
 * **#BEAT (float)**
 * **zoom (float)**
 * **ease (EaseType)**
-* **next (ref?[Zoom])**: A reference to the next **Zoom** event.
+* **next (ref?[ZoomChange])**: A reference to the next **ZoomChange** event.
 
 ## Stage
 
