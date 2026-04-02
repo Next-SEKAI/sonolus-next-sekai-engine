@@ -5,7 +5,7 @@ from sekai.lib import archetype_names
 from sekai.lib.baseevent import init_event_list
 from sekai.lib.buckets import init_buckets
 from sekai.lib.layout import init_layout
-from sekai.lib.level_config import EngineRevision, init_level_config
+from sekai.lib.level_config import EngineRevision, LevelConfig, init_level_config
 from sekai.lib.note import init_life, init_score
 from sekai.lib.particle import init_particles
 from sekai.lib.skin import init_skin
@@ -39,7 +39,8 @@ class WatchInitialization(WatchArchetype):
         init_life(WATCH_NOTE_ARCHETYPES, self.initial_life)
 
         init_event_list(self.first_zoom_ref)
-        WatchStaticStage.spawn()
+        if not LevelConfig.skip_default_stage:
+            WatchStaticStage.spawn()
 
         for input_time, lanes in Streams.empty_input_lanes.iter_items_from(-2):
             for lane in lanes:
