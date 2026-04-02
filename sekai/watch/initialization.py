@@ -2,6 +2,7 @@ from sonolus.script.archetype import EntityRef, WatchArchetype, callback, import
 from sonolus.script.runtime import is_replay
 
 from sekai.lib import archetype_names
+from sekai.lib.baseevent import init_event_list
 from sekai.lib.buckets import init_buckets
 from sekai.lib.layout import init_layout
 from sekai.lib.level_config import EngineRevision, init_level_config
@@ -37,6 +38,7 @@ class WatchInitialization(WatchArchetype):
         init_score(WATCH_NOTE_ARCHETYPES)
         init_life(WATCH_NOTE_ARCHETYPES, self.initial_life)
 
+        init_event_list(self.first_zoom_ref)
         WatchStaticStage.spawn()
 
         for input_time, lanes in Streams.empty_input_lanes.iter_items_from(-2):

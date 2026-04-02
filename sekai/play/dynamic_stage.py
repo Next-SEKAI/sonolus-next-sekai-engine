@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from sonolus.script.archetype import EntityRef, PlayArchetype, StandardImport, imported
+from sonolus.script.archetype import EntityRef, PlayArchetype, StandardImport, callback, imported
 
 from sekai.lib import archetype_names
-from sekai.lib.baseevent import BaseEvent
+from sekai.lib.baseevent import BaseEvent, init_event_list
 from sekai.lib.ease import EaseType
 from sekai.lib.stage import DivisionParity, JudgeLineColor, StageBorderStyle
 
@@ -30,6 +30,12 @@ class DynamicStage(PlayArchetype):
     first_mask_change_ref: EntityRef[StageMaskChange] = imported(name="firstMaskChange")
     first_pivot_change_ref: EntityRef[StagePivotChange] = imported(name="firstPivotChange")
     first_style_change_ref: EntityRef[StageStyleChange] = imported(name="firstStyleChange")
+
+    @callback(order=-1)
+    def preprocess(self):
+        init_event_list(self.first_mask_change_ref)
+        init_event_list(self.first_pivot_change_ref)
+        init_event_list(self.first_style_change_ref)
 
     def spawn_order(self) -> float:
         return -1e8

@@ -1,6 +1,7 @@
 from sonolus.script.archetype import EntityRef, PlayArchetype, callback, exported, imported
 
 from sekai.lib import archetype_names
+from sekai.lib.baseevent import init_event_list
 from sekai.lib.buckets import init_buckets
 from sekai.lib.layout import init_layout
 from sekai.lib.level_config import EngineRevision, init_level_config
@@ -35,6 +36,7 @@ class Initialization(PlayArchetype):
         init_score(NOTE_ARCHETYPES)
         init_life(NOTE_ARCHETYPES, self.initial_life)
         init_play_common()
+        init_event_list(self.first_zoom_ref)
 
     def initialize(self):
         StaticStage.spawn()
