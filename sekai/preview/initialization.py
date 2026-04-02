@@ -4,6 +4,7 @@ from sonolus.script.timing import beat_to_time
 
 from sekai.lib import archetype_names
 from sekai.lib.layer import LAYER_BEAT_LINE, get_z
+from sekai.lib.baseevent import init_event_list
 from sekai.lib.level_config import EngineRevision, init_level_config
 from sekai.lib.particle import init_particles
 from sekai.lib.skin import ActiveSkin, init_skin
@@ -33,6 +34,7 @@ class PreviewInitialization(PreviewArchetype):
         init_skin()
         init_particles()
         init_preview_layout()
+        init_event_list(self.first_zoom_ref)
 
     def render(self):
         draw_preview_stage()

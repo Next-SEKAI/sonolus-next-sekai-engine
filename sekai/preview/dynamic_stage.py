@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from sonolus.script.archetype import EntityRef, PreviewArchetype, StandardImport, imported
+from sonolus.script.archetype import EntityRef, PreviewArchetype, StandardImport, callback, imported
 
 from sekai.lib import archetype_names
-from sekai.lib.baseevent import BaseEvent
+from sekai.lib.baseevent import BaseEvent, init_event_list
 from sekai.lib.ease import EaseType
 from sekai.lib.stage import DivisionParity, JudgeLineColor, StageBorderStyle
 
@@ -24,6 +24,12 @@ class PreviewDynamicStage(PreviewArchetype):
     first_mask_change_ref: EntityRef[PreviewStageMaskChange] = imported(name="firstMaskChange")
     first_pivot_change_ref: EntityRef[PreviewStagePivotChange] = imported(name="firstPivotChange")
     first_style_change_ref: EntityRef[PreviewStageStyleChange] = imported(name="firstStyleChange")
+
+    @callback(order=-1)
+    def preprocess(self):
+        init_event_list(self.first_mask_change_ref)
+        init_event_list(self.first_pivot_change_ref)
+        init_event_list(self.first_style_change_ref)
 
 
 class PreviewStageMaskChange(PreviewArchetype, BaseEvent):
