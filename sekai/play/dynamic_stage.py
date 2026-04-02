@@ -5,6 +5,7 @@ from sonolus.script.archetype import EntityRef, PlayArchetype, StandardImport, c
 from sekai.lib import archetype_names
 from sekai.lib.baseevent import BaseEvent, init_event_list
 from sekai.lib.ease import EaseType
+from sekai.lib.level_config import LevelConfig
 from sekai.lib.stage import DivisionParity, JudgeLineColor, StageBorderStyle
 
 
@@ -15,6 +16,10 @@ class ZoomChange(PlayArchetype, BaseEvent):
     zoom: float = imported()
     ease: EaseType = imported()
     next_ref: EntityRef[ZoomChange] = imported(name="next")
+
+    @callback(order=-1)
+    def preprocess(self):
+        LevelConfig.dynamic_stages = True
 
     def spawn_order(self) -> float:
         return 1e8
@@ -33,6 +38,8 @@ class DynamicStage(PlayArchetype):
 
     @callback(order=-1)
     def preprocess(self):
+        LevelConfig.dynamic_stages = True
+        LevelConfig.skip_default_stage = True
         init_event_list(self.first_mask_change_ref)
         init_event_list(self.first_pivot_change_ref)
         init_event_list(self.first_style_change_ref)
