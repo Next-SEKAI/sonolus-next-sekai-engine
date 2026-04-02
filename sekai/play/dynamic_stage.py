@@ -3,17 +3,18 @@ from __future__ import annotations
 from sonolus.script.archetype import EntityRef, PlayArchetype, StandardImport, imported
 
 from sekai.lib import archetype_names
+from sekai.lib.baseevent import BaseEvent
 from sekai.lib.ease import EaseType
 from sekai.lib.stage import DivisionParity, JudgeLineColor, StageBorderStyle
 
 
-class Zoom(PlayArchetype):
-    name = archetype_names.ZOOM
+class ZoomChange(PlayArchetype, BaseEvent):
+    name = archetype_names.ZOOM_CHANGE
 
     beat: StandardImport.BEAT
     zoom: float = imported()
     ease: EaseType = imported()
-    next_ref: EntityRef[Zoom] = imported(name="next")
+    next_ref: EntityRef[ZoomChange] = imported(name="next")
 
     def spawn_order(self) -> float:
         return 1e8
@@ -37,7 +38,7 @@ class DynamicStage(PlayArchetype):
         return True
 
 
-class StageMaskChange(PlayArchetype):
+class StageMaskChange(PlayArchetype, BaseEvent):
     name = archetype_names.STAGE_MASK_CHANGE
 
     stage_ref: EntityRef[DynamicStage] = imported(name="stage")
@@ -54,7 +55,7 @@ class StageMaskChange(PlayArchetype):
         return False
 
 
-class StagePivotChange(PlayArchetype):
+class StagePivotChange(PlayArchetype, BaseEvent):
     name = archetype_names.STAGE_PIVOT_CHANGE
 
     stage_ref: EntityRef[DynamicStage] = imported(name="stage")
@@ -72,7 +73,7 @@ class StagePivotChange(PlayArchetype):
         return False
 
 
-class StageStyleChange(PlayArchetype):
+class StageStyleChange(PlayArchetype, BaseEvent):
     name = archetype_names.STAGE_STYLE_CHANGE
 
     stage_ref: EntityRef[DynamicStage] = imported(name="stage")
