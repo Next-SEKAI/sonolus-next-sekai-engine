@@ -1,7 +1,7 @@
 from collections.abc import Callable
-from typing import Any, Self
+from typing import Any
 
-from sonolus.script.archetype import EntityRef, entity_data, StandardImport
+from sonolus.script.archetype import EntityRef, entity_data
 from sonolus.script.array import Array, Dim
 from sonolus.script.containers import VarArray
 
@@ -11,7 +11,6 @@ class BaseEvent:
     prev_ref: EntityRef[Any] = entity_data()
     skip_refs: VarArray[EntityRef[Any], Dim[16]] = entity_data()
     skip_levels: int = entity_data()
-
 
 
 def init_event_list[T: BaseEvent](first_ref: EntityRef[T]):
@@ -28,7 +27,7 @@ def init_event_list[T: BaseEvent](first_ref: EntityRef[T]):
         current = current_ref.get()
         current.prev_ref.index = last_refs[0].index
         for j in range(len(last_refs)):
-            if i % (2 ** j) == 0:
+            if i % (2**j) == 0:
                 last_refs[j].get_as(first_ref.archetype()).skip_refs[j].index = current_ref.index
                 last_refs[j].index = current_ref.index
         current_ref.index = current.next_ref.index
@@ -42,7 +41,10 @@ def init_event_list[T: BaseEvent](first_ref: EntityRef[T]):
     else:
         first.skip_levels = len(last_refs)
 
-def query_event_list[T: BaseEvent, K](first_ref: EntityRef[T], key: K, accessor: Callable[[T], K]) -> tuple[EntityRef[T], EntityRef[T]]:
+
+def query_event_list[T: BaseEvent, K](
+    first_ref: EntityRef[T], key: K, accessor: Callable[[T], K]
+) -> tuple[EntityRef[T], EntityRef[T]]:
     a = type(first_ref)(0)
     b = type(first_ref)(0)
     if first_ref.index <= 0:

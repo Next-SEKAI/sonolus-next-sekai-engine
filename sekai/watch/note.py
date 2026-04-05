@@ -113,6 +113,7 @@ class WatchBaseNote(WatchArchetype):
 
     def preprocess(self):
         if DISABLE_NOTES:
+            self.result.target_time = 1e8
             return
         self.init_data()
 
