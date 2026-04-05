@@ -1,6 +1,7 @@
 from sonolus.script.archetype import EntityRef, PlayArchetype, callback, entity_data, imported
 from sonolus.script.runtime import time
 
+from sekai.debug import DISABLE_NOTES
 from sekai.lib import archetype_names
 from sekai.lib.sim_line import draw_sim_line
 from sekai.lib.timescale import group_hide_notes
@@ -17,12 +18,18 @@ class SimLine(PlayArchetype):
 
     @callback(order=1)
     def preprocess(self):
+        if DISABLE_NOTES:
+            return
         self.spawn_time = min(self.left.start_time, self.right.start_time)
 
     def spawn_order(self) -> float:
+        if DISABLE_NOTES:
+            return 1e8
         return self.spawn_time
 
     def should_spawn(self) -> bool:
+        if DISABLE_NOTES:
+            return False
         return time() >= self.spawn_time
 
     def update_parallel(self):

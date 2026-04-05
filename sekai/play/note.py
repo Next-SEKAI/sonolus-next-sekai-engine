@@ -23,7 +23,7 @@ from sonolus.script.quad import Rect
 from sonolus.script.runtime import Touch, delta_time, input_offset, offset_adjusted_time, time, touches
 from sonolus.script.timing import beat_to_time
 
-from sekai.debug import SHOW_TICK_HITBOX_SIZE
+from sekai.debug import DISABLE_NOTES, SHOW_TICK_HITBOX_SIZE
 from sekai.lib import archetype_names
 from sekai.lib.buckets import WINDOW_SCALE, SekaiWindow
 from sekai.lib.connector import ActiveConnectorInfo, ConnectorKind, ConnectorLayer
@@ -141,6 +141,8 @@ class BaseNote(PlayArchetype):
             self.next_ref.get().prev_ref = self.ref()
 
     def preprocess(self):
+        if DISABLE_NOTES:
+            return
         self.init_data()
 
         self.result.bucket = get_note_bucket(self.kind)
@@ -176,12 +178,12 @@ class BaseNote(PlayArchetype):
             schedule_note_auto_sfx(self.effect_kind, self.target_time)
 
     def spawn_order(self) -> float:
-        if self.kind == NoteKind.ANCHOR:
+        if DISABLE_NOTES or self.kind == NoteKind.ANCHOR:
             return 1e8
         return self.start_time
 
     def should_spawn(self) -> bool:
-        if self.kind == NoteKind.ANCHOR:
+        if DISABLE_NOTES or self.kind == NoteKind.ANCHOR:
             return False
         return time() >= self.start_time
 
