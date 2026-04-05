@@ -4,15 +4,15 @@ from sekai.lib import archetype_names
 from sekai.lib.baseevent import init_event_list
 from sekai.lib.buckets import init_buckets
 from sekai.lib.layout import init_layout
-from sekai.lib.level_config import EngineRevision, LevelConfig, init_level_config
+from sekai.lib.level_config import EngineRevision, init_level_config
 from sekai.lib.note import init_life, init_score
 from sekai.lib.particle import init_particles
 from sekai.lib.skin import init_skin
 from sekai.lib.ui import init_ui
 from sekai.play.common import init_play_common
+from sekai.play.dynamic_stage import ZoomChange
 from sekai.play.input_manager import InputManager
 from sekai.play.note import NOTE_ARCHETYPES
-from sekai.play.dynamic_stage import ZoomChange
 from sekai.play.static_stage import StaticStage
 
 

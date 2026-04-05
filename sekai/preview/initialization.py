@@ -3,12 +3,13 @@ from sonolus.script.printing import PrintColor, PrintFormat
 from sonolus.script.timing import beat_to_time
 
 from sekai.lib import archetype_names
-from sekai.lib.layer import LAYER_BEAT_LINE, get_z
 from sekai.lib.baseevent import init_event_list
+from sekai.lib.layer import LAYER_BEAT_LINE, get_z
 from sekai.lib.level_config import EngineRevision, init_level_config
 from sekai.lib.particle import init_particles
 from sekai.lib.skin import ActiveSkin, init_skin
 from sekai.lib.ui import init_ui
+from sekai.preview.dynamic_stage import PreviewZoomChange
 from sekai.preview.layout import (
     PREVIEW_COLUMN_SECS,
     PreviewData,
@@ -17,7 +18,6 @@ from sekai.preview.layout import (
     layout_preview_bar_line,
     print_at_col_top,
 )
-from sekai.preview.dynamic_stage import PreviewZoomChange
 from sekai.preview.static_stage import draw_preview_cover, draw_preview_stage
 
 

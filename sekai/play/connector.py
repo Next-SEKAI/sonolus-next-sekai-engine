@@ -9,6 +9,7 @@ from sonolus.script.particle import ParticleHandle
 from sonolus.script.runtime import input_offset, offset_adjusted_time, time, touches
 from sonolus.script.timing import beat_to_time
 
+from sekai.debug import DISABLE_NOTES
 from sekai.lib import archetype_names
 from sekai.lib.connector import (
     CONNECTOR_SLOT_SPAWN_PERIOD,
@@ -27,7 +28,6 @@ from sekai.lib.connector import (
     update_connector_sfx,
     update_linear_connector_particle,
 )
-from sekai.debug import DISABLE_NOTES
 from sekai.lib.ease import EaseType
 from sekai.lib.note import draw_slide_note_head, get_attach_params
 from sekai.lib.options import Options

@@ -6,12 +6,12 @@ from sekai.lib.particle import BaseParticles
 from sekai.lib.skin import BaseSkin
 from sekai.play.bpm_change import BpmChange
 from sekai.play.connector import CONNECTOR_ARCHETYPES
+from sekai.play.dynamic_stage import DynamicStage, StageMaskChange, StagePivotChange, StageStyleChange, ZoomChange
 from sekai.play.initialization import Initialization
 from sekai.play.input_manager import InputManager
 from sekai.play.note import NOTE_ARCHETYPES
 from sekai.play.sim_line import SimLine
 from sekai.play.slot_effect import SLOT_EFFECT_ARCHETYPES
-from sekai.play.dynamic_stage import DynamicStage, StageMaskChange, StagePivotChange, StageStyleChange, ZoomChange
 from sekai.play.static_stage import StaticStage
 from sekai.play.timescale import TimescaleChange, TimescaleGroup
 

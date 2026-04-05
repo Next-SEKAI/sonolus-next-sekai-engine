@@ -5,15 +5,15 @@ from sekai.lib import archetype_names
 from sekai.lib.baseevent import init_event_list
 from sekai.lib.buckets import init_buckets
 from sekai.lib.layout import init_layout
-from sekai.lib.level_config import EngineRevision, LevelConfig, init_level_config
+from sekai.lib.level_config import EngineRevision, init_level_config
 from sekai.lib.note import init_life, init_score
 from sekai.lib.particle import init_particles
 from sekai.lib.skin import init_skin
 from sekai.lib.stage import schedule_lane_sfx
 from sekai.lib.streams import Streams
 from sekai.lib.ui import init_ui
-from sekai.watch.note import WATCH_NOTE_ARCHETYPES
 from sekai.watch.dynamic_stage import WatchZoomChange
+from sekai.watch.note import WATCH_NOTE_ARCHETYPES
 from sekai.watch.static_stage import WatchScheduledLaneEffect, WatchStaticStage
 
 

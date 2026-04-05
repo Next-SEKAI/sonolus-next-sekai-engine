@@ -7,6 +7,7 @@ from sonolus.script.interval import Interval
 from sonolus.script.particle import ParticleHandle
 from sonolus.script.runtime import is_replay, is_skip, time
 
+from sekai.debug import DISABLE_NOTES
 from sekai.lib import archetype_names
 from sekai.lib.connector import (
     CONNECTOR_SLOT_SPAWN_PERIOD,
@@ -23,7 +24,6 @@ from sekai.lib.connector import (
     update_circular_connector_particle,
     update_linear_connector_particle,
 )
-from sekai.debug import DISABLE_NOTES
 from sekai.lib.ease import EaseType
 from sekai.lib.note import draw_slide_note_head, get_attach_params
 from sekai.lib.options import Options

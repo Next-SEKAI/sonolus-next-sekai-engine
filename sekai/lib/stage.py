@@ -2,6 +2,7 @@ from enum import IntEnum
 from math import ceil, floor
 from typing import assert_never
 
+from sonolus.script.interval import clamp
 from sonolus.script.quad import Quad
 from sonolus.script.record import Record
 from sonolus.script.vec import Vec2
@@ -144,7 +145,9 @@ def draw_dynamic_stage(
     p_sprites = judge_line_color.progress
 
     if not sprites_b.available:
-        draw_fallback_stage(lane, width, division.end.size, division.end.parity, pivot_lane, order, a, y_offset=y_offset)
+        draw_fallback_stage(
+            lane, width, division.end.size, division.end.parity, pivot_lane, order, a, y_offset=y_offset
+        )
         return
 
     travel = approach(1 - y_offset)
@@ -410,7 +413,13 @@ def draw_dynamic_stage(
 
 
 def draw_fallback_stage(
-    lane: float, width: float, division_size: int, parity: DivisionParity, pivot: float, z: int, a: float,
+    lane: float,
+    width: float,
+    division_size: int,
+    parity: DivisionParity,
+    pivot: float,
+    z: int,
+    a: float,
     y_offset: float = 0,
 ):
     travel = approach(1 - y_offset)
