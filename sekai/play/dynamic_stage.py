@@ -76,6 +76,7 @@ class StagePivotChange(PlayArchetype, BaseEvent):
     lane: float = imported()
     division_size: float = imported(name="divisionSize")
     division_parity: DivisionParity = imported(name="divisionParity")
+    y_offset: float = imported(name="yOffset")
     ease: EaseType = imported()
     next_ref: EntityRef[StagePivotChange] = imported(name="next")
 

@@ -256,16 +256,6 @@ def layout_fallback_judge_line() -> Quad:
 
 
 def layout_note_body_by_edges(l: float, r: float, h: float, travel: float):
-    if Options.alternative_approach_curve:
-        offset = 80
-        test_offset = 0.5
-        current_d = 1 / travel + offset
-        current_d_offset = current_d + test_offset
-        current_h = 1 / current_d - 1 / current_d_offset
-        reference_d = 1 + offset
-        reference_d_offset = reference_d + test_offset
-        reference_h = 1 / reference_d - 1 / reference_d_offset
-        h *= current_h / reference_h
     return perspective_rect(l=l, r=r, t=1 - h, b=1 + h, travel=travel)
 
 
