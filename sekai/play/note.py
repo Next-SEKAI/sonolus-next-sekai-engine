@@ -18,7 +18,7 @@ from sonolus.script.array import Dim
 from sonolus.script.bucket import Bucket, Judgment
 from sonolus.script.containers import VarArray
 from sonolus.script.globals import level_memory
-from sonolus.script.interval import Interval, remap_clamped, unlerp_clamped
+from sonolus.script.interval import Interval, remap_clamped, unlerp_clamped, unlerp, lerp
 from sonolus.script.quad import Rect
 from sonolus.script.runtime import Touch, delta_time, input_offset, offset_adjusted_time, time, touches
 from sonolus.script.timing import beat_to_time
@@ -26,7 +26,7 @@ from sonolus.script.timing import beat_to_time
 from sekai.lib import archetype_names
 from sekai.lib.buckets import WINDOW_SCALE, SekaiWindow
 from sekai.lib.connector import ActiveConnectorInfo, ConnectorKind, ConnectorLayer
-from sekai.lib.ease import EaseType
+from sekai.lib.ease import EaseType, ease
 from sekai.lib.layout import FlickDirection, Layout, layout_hitbox, progress_to
 from sekai.lib.note import (
     NoteEffectKind,
@@ -75,7 +75,8 @@ class BaseNote(PlayArchetype):
     segment_layer: ConnectorLayer = imported(name="segmentLayer")
     attach_head_ref: EntityRef[BaseNote] = imported(name="attachHead")
     attach_tail_ref: EntityRef[BaseNote] = imported(name="attachTail")
-    next_ref: EntityRef[BaseNote] = imported(name="next")  # Only for level data; not used in-game.
+    next_ref: EntityRef[BaseNote] = imported(name="next")
+    prev_ref: EntityRef[BaseNote] = imported(name="prev")
     effect_kind: NoteEffectKind = imported(name="effectKind")
 
     kind: NoteKind = entity_data()
@@ -102,6 +103,10 @@ class BaseNote(PlayArchetype):
 
     should_play_hit_effects: bool = entity_memory()
 
+    hitbox: Rect = entity_memory()
+    hitbox_lane: float = entity_memory()
+    hitbox_size: float = entity_memory()
+
     end_time: float = exported()
     played_hit_effects: bool = exported()
 
@@ -127,6 +132,9 @@ class BaseNote(PlayArchetype):
             self.target_scaled_time = group_time_to_scaled_time(self.timescale_group, self.target_time)
             self.visual_start_time = get_visual_spawn_time(self.timescale_group, self.target_scaled_time)
             self.start_time = min(self.visual_start_time, self.input_interval.start)
+
+        if self.next_ref.index > 0:
+            self.next_ref.get().prev_ref = self.ref()
 
     def preprocess(self):
         self.init_data()
@@ -172,6 +180,49 @@ class BaseNote(PlayArchetype):
         if self.kind == NoteKind.ANCHOR:
             return False
         return time() >= self.start_time
+
+    def initialize(self):
+        if self.is_scored:
+            leniency = get_leniency(self.kind)
+            hitbox_l = self.lane - self.size
+            hitbox_r = self.lane + self.size
+            if self.kind in {NoteKind.NORM_TICK, NoteKind.CRIT_TICK, NoteKind.HIDE_TICK}:
+                input_start_time = self.target_time + self.judgment_window.good.start
+                current_ref = +EntityRef[BaseNote]
+                if self.is_attached:
+                    current_ref @= self.attach_head_ref
+                    attach_tail = self.attach_tail_ref.get()
+                    last_lane = attach_tail.lane
+                    last_size = attach_tail.size
+                    last_time = attach_tail.target_time
+                else:
+                    current_ref @= self.prev_ref
+                    last_lane = self.lane
+                    last_size = self.size
+                    last_time = self.target_time
+                while current_ref.index > 0:
+                    current = current_ref.get()
+                    if not current.is_attached:
+                        if current.target_time <= input_start_time:
+                            ease_progress = ease(current.connector_ease, unlerp(current.target_time, last_time, input_start_time))
+                            lane = lerp(current.lane, last_lane, ease_progress)
+                            size = lerp(current.size, last_size, ease_progress)
+                            hitbox_l = min(hitbox_l, lane - size)
+                            hitbox_r = max(hitbox_r, lane + size)
+                            break
+                        lane = current.lane
+                        size = current.size
+                        hitbox_l = min(hitbox_l, lane - size)
+                        hitbox_r = max(hitbox_r, lane + size)
+                        last_lane = lane
+                        last_size = size
+                        last_time = current.target_time
+                    current_ref @= current.prev_ref
+            hitbox_l -= leniency
+            hitbox_r += leniency
+            self.hitbox = layout_hitbox(hitbox_l, hitbox_r)
+            self.hitbox_lane = (hitbox_l + hitbox_r) / 2
+            self.hitbox_size = (hitbox_r - hitbox_l) / 2
 
     def update_sequential(self):
         if self.despawn:
@@ -297,7 +348,7 @@ class BaseNote(PlayArchetype):
             if offset_adjusted_time() < self.target_time + self.judgment_window.perfect.end:
                 return False
             # Otherwise, see if there's any ongoing touches in the hitbox.
-            hitbox = self.get_full_hitbox()
+            hitbox = self.hitbox
             for touch in touches():
                 if not touch.ended and hitbox.contains_point(touch.position):
                     return False
@@ -341,7 +392,7 @@ class BaseNote(PlayArchetype):
         # Another touch is allowed to flick the note as long as it started after the start of the input interval,
         # so we don't care which touch matched the tap id, just that the tap id is set.
 
-        hitbox = self.get_full_hitbox()
+        hitbox = self.hitbox
 
         for touch in touches():
             if not self.check_touch_touch_is_eligible_for_flick(hitbox, touch):
@@ -363,7 +414,7 @@ class BaseNote(PlayArchetype):
             return
         if self.should_do_delayed_trigger():
             return
-        hitbox = self.get_full_hitbox()
+        hitbox = self.hitbox
         has_touch = False
         for touch in touches():
             if not self.check_touch_is_eligible_for_trace(hitbox, touch):
@@ -387,7 +438,7 @@ class BaseNote(PlayArchetype):
             return
         if self.should_do_delayed_trigger():
             return
-        hitbox = self.get_full_hitbox()
+        hitbox = self.hitbox
         has_touch = False
         has_correct_direction_touch = False
         for touch in touches():
@@ -423,7 +474,7 @@ class BaseNote(PlayArchetype):
             self.best_touch_matches_direction = has_correct_direction_touch
 
     def handle_tick_input(self):
-        hitbox = self.get_full_hitbox()
+        hitbox = self.hitbox
         has_touch = False
         for touch in touches():
             if not hitbox.contains_point(touch.position):
@@ -436,7 +487,7 @@ class BaseNote(PlayArchetype):
             self.best_touch_matches_direction = True
 
     def handle_damage_input(self):
-        hitbox = self.get_full_hitbox()
+        hitbox = self.hitbox
         has_touch = False
         for touch in touches():
             if not hitbox.contains_point(touch.position):
@@ -590,10 +641,6 @@ class BaseNote(PlayArchetype):
     def post_judge(self):
         if self.should_play_hit_effects:
             PlayLevelMemory.last_note_sfx_time = time()
-
-    def get_full_hitbox(self) -> Rect:
-        leniency = get_leniency(self.kind)
-        return layout_hitbox(self.lane - self.size - leniency, self.lane + self.size + leniency)
 
     @property
     def progress(self) -> float:
