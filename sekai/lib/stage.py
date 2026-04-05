@@ -55,7 +55,8 @@ class StageBorderStyle(IntEnum):
 
 
 def draw_stage_and_accessories():
-    draw_basic_stage()
+    if not LevelConfig.skip_default_stage:
+        draw_basic_stage()
     draw_stage_cover()
 
 

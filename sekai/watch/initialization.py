@@ -39,8 +39,7 @@ class WatchInitialization(WatchArchetype):
         init_life(WATCH_NOTE_ARCHETYPES, self.initial_life)
 
         init_event_list(self.first_zoom_ref)
-        if not LevelConfig.skip_default_stage:
-            WatchStaticStage.spawn()
+        WatchStaticStage.spawn()
 
         for input_time, lanes in Streams.empty_input_lanes.iter_items_from(-2):
             for lane in lanes:
