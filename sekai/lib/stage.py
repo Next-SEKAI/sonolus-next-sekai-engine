@@ -224,7 +224,8 @@ def draw_dynamic_stage(
                 Quad(bl=div_layout_b.bl, tl=div_layout_t.tl, tr=div_layout_t.tr, br=div_layout_b.br), z=z, a=a
             )
 
-    judgment_divider_size = transformed_vec_at(0.014, travel).x
+    thickness_scale = clamp(1 / travel, 1, 4) if travel > 0 else 4
+    judgment_divider_size = transformed_vec_at(0.014 * thickness_scale, travel).x
 
     def layout_judgment_divider(lane: float):
         b = transformed_vec_at(lane, (1 + DynamicLayout.note_h - DynamicLayout.note_h / f + 0.001) * travel)
