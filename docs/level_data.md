@@ -60,6 +60,7 @@ An event that controls the reference point for note and lane movement.
 * **divisionParity (DivisionParity)**: Whether the pivot falls on a divider (even) or between dividers (odd). Takes on one of the following values:
   * EVEN = 0
   * ODD = 1
+* **yOffset (float)**: Vertical offset of the judge line. A value of 0 places the judge line at its default position; positive values move it up the stage.
 * **ease (EaseType)**
 * **next (ref?[StagePivotChange])**: A reference to the next **StagePivotChange** event.
 

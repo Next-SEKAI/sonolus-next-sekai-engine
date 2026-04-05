@@ -10,6 +10,7 @@ from sekai.lib.effect import SFX_DISTANCE, Effects
 from sekai.lib.layer import LAYER_COVER, LAYER_STAGE, get_z, get_z_alt
 from sekai.lib.layout import (
     DynamicLayout,
+    approach,
     layout_full_width_stage_cover,
     layout_hidden_cover,
     layout_lane,
@@ -129,6 +130,7 @@ def draw_dynamic_stage(
     order: int,
     a: float,
     lane_alpha: float = 1,
+    y_offset: float = 0,
 ):
     division = normalize_transition(division)
     judge_line_color = normalize_transition(judge_line_color)
@@ -141,9 +143,10 @@ def draw_dynamic_stage(
     p_sprites = judge_line_color.progress
 
     if not sprites_b.available:
-        draw_fallback_stage(lane, width, division.end.size, division.end.parity, pivot_lane, order, a)
+        draw_fallback_stage(lane, width, division.end.size, division.end.parity, pivot_lane, order, a, y_offset=y_offset)
         return
 
+    travel = approach(1 - y_offset)
     l = lane - width
     r = lane + width
     z_bg0 = get_z_alt(LAYER_STAGE, order * 14)
@@ -220,11 +223,11 @@ def draw_dynamic_stage(
                 Quad(bl=div_layout_b.bl, tl=div_layout_t.tl, tr=div_layout_t.tr, br=div_layout_b.br), z=z, a=a
             )
 
-    judgment_divider_size = transformed_vec_at(0.014).x
+    judgment_divider_size = transformed_vec_at(0.014, travel).x
 
     def layout_judgment_divider(lane: float):
-        b = transformed_vec_at(lane, 1 + DynamicLayout.note_h - DynamicLayout.note_h / f + 0.001)
-        t = transformed_vec_at(lane, 1 - DynamicLayout.note_h + DynamicLayout.note_h / f - 0.001)
+        b = transformed_vec_at(lane, (1 + DynamicLayout.note_h - DynamicLayout.note_h / f + 0.001) * travel)
+        t = transformed_vec_at(lane, (1 - DynamicLayout.note_h + DynamicLayout.note_h / f - 0.001) * travel)
         return Quad(
             bl=b - Vec2(judgment_divider_size, 0),
             tl=t - Vec2(judgment_divider_size, 0),
@@ -256,6 +259,7 @@ def draw_dynamic_stage(
                     l + 1 / f / 2,
                     1 - DynamicLayout.note_h + DynamicLayout.note_h / f,
                     1 + DynamicLayout.note_h - DynamicLayout.note_h / f,
+                    travel,
                 )
                 sprites.judgment_edge.draw(layout, z=z, a=a)
             case StageBorderStyle.LIGHT:
@@ -274,6 +278,7 @@ def draw_dynamic_stage(
                     r,
                     1 - DynamicLayout.note_h + DynamicLayout.note_h / f,
                     1 + DynamicLayout.note_h - DynamicLayout.note_h / f,
+                    travel,
                 )
                 sprites.judgment_edge.draw(layout, z=z, a=a)
             case StageBorderStyle.LIGHT:
@@ -286,19 +291,19 @@ def draw_dynamic_stage(
 
     def draw_gradient(sprites: JudgmentSpriteSet, z: float, a: float):
         layout = perspective_rect(
-            l, lane, 1 + DynamicLayout.note_h - DynamicLayout.note_h / f, 1 + DynamicLayout.note_h
+            l, lane, 1 + DynamicLayout.note_h - DynamicLayout.note_h / f, 1 + DynamicLayout.note_h, travel
         )
         sprites.judgment_gradient.draw(layout, z=z, a=a)
         layout = perspective_rect(
-            r, lane, 1 + DynamicLayout.note_h - DynamicLayout.note_h / f, 1 + DynamicLayout.note_h
+            r, lane, 1 + DynamicLayout.note_h - DynamicLayout.note_h / f, 1 + DynamicLayout.note_h, travel
         )
         sprites.judgment_gradient.draw(layout, z=z, a=a)
         layout = perspective_rect(
-            l, lane, 1 - DynamicLayout.note_h, 1 - DynamicLayout.note_h + DynamicLayout.note_h / f
+            l, lane, 1 - DynamicLayout.note_h, 1 - DynamicLayout.note_h + DynamicLayout.note_h / f, travel
         )
         sprites.judgment_gradient.draw(layout, z=z, a=a)
         layout = perspective_rect(
-            r, lane, 1 - DynamicLayout.note_h, 1 - DynamicLayout.note_h + DynamicLayout.note_h / f
+            r, lane, 1 - DynamicLayout.note_h, 1 - DynamicLayout.note_h + DynamicLayout.note_h / f, travel
         )
         sprites.judgment_gradient.draw(layout, z=z, a=a)
 
@@ -330,7 +335,7 @@ def draw_dynamic_stage(
                 draw_dividers(division.end.size, division.end.parity, pivot_lane, z_lane1, la * p_div)
 
     ActiveSkin.judgment_background.draw(
-        perspective_rect(l, r, 1 - DynamicLayout.note_h, 1 + DynamicLayout.note_h), z=z_bg1, a=a
+        perspective_rect(l, r, 1 - DynamicLayout.note_h, 1 + DynamicLayout.note_h, travel), z=z_bg1, a=a
     )
 
     p_left = left_border_style.progress
@@ -403,8 +408,10 @@ def draw_dynamic_stage(
 
 
 def draw_fallback_stage(
-    lane: float, width: float, division_size: int, parity: DivisionParity, pivot: float, z: int, a: float
+    lane: float, width: float, division_size: int, parity: DivisionParity, pivot: float, z: int, a: float,
+    y_offset: float = 0,
 ):
+    travel = approach(1 - y_offset)
     l = lane - width
     r = lane + width
     z_lo = get_z_alt(LAYER_STAGE, z * 3)
@@ -430,7 +437,7 @@ def draw_fallback_stage(
             prev = pos
     ActiveSkin.lane.draw(layout_lane_by_edges(prev, r), a=a, z=z_lo)
 
-    layout = perspective_rect(l, r, t=1 - DynamicLayout.note_h, b=1 + DynamicLayout.note_h)
+    layout = perspective_rect(l, r, t=1 - DynamicLayout.note_h, b=1 + DynamicLayout.note_h, travel=travel)
     ActiveSkin.judgment_line.draw(layout, z=z_hi, a=a)
 
 
