@@ -16,7 +16,7 @@ from sonolus.script.interval import lerp, remap_clamped, unlerp, unlerp_clamped
 from sonolus.script.runtime import is_replay, is_skip, time
 from sonolus.script.timing import beat_to_time
 
-from sekai.debug import SHOW_TICK_HITBOX_SIZE
+from sekai.debug import DISABLE_NOTES, SHOW_TICK_HITBOX_SIZE
 from sekai.lib.connector import ActiveConnectorInfo, ConnectorKind, ConnectorLayer
 from sekai.lib.ease import EaseType, ease
 from sekai.lib.layout import FlickDirection, progress_to
@@ -112,6 +112,8 @@ class WatchBaseNote(WatchArchetype):
             self.next_ref.get().prev_ref = self.ref()
 
     def preprocess(self):
+        if DISABLE_NOTES:
+            return
         self.init_data()
 
         self.result.bucket = get_note_bucket(self.kind)
@@ -154,7 +156,7 @@ class WatchBaseNote(WatchArchetype):
         self.result.target_time = self.target_time
 
     def spawn_time(self) -> float:
-        if self.kind == NoteKind.ANCHOR:
+        if DISABLE_NOTES or self.kind == NoteKind.ANCHOR:
             return 1e8
         return self.start_time
 

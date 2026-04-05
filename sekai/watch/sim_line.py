@@ -1,6 +1,7 @@
 from sonolus.script.archetype import EntityRef, WatchArchetype, callback, entity_data, imported
 from sonolus.script.runtime import is_replay
 
+from sekai.debug import DISABLE_NOTES
 from sekai.lib import archetype_names
 from sekai.lib.sim_line import draw_sim_line
 from sekai.lib.timescale import group_hide_notes
@@ -18,6 +19,8 @@ class WatchSimLine(WatchArchetype):
 
     @callback(order=1)
     def preprocess(self):
+        if DISABLE_NOTES:
+            return
         self.start_time = min(self.left.start_time, self.right.start_time)
         if is_replay():
             self.end_time = min(self.left.end_time, self.right.end_time, self.left.target_time)
@@ -25,6 +28,8 @@ class WatchSimLine(WatchArchetype):
             self.end_time = min(self.left.target_time, self.right.target_time)
 
     def spawn_time(self) -> float:
+        if DISABLE_NOTES:
+            return 1e8
         return self.start_time
 
     def despawn_time(self) -> float:

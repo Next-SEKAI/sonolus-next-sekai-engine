@@ -23,6 +23,7 @@ from sekai.lib.connector import (
     update_circular_connector_particle,
     update_linear_connector_particle,
 )
+from sekai.debug import DISABLE_NOTES
 from sekai.lib.ease import EaseType
 from sekai.lib.note import draw_slide_note_head, get_attach_params
 from sekai.lib.options import Options
@@ -49,6 +50,8 @@ class WatchConnector(WatchArchetype):
 
     @callback(order=1)
     def preprocess(self):
+        if DISABLE_NOTES:
+            return
         head = self.head
         tail = self.tail
         self.kind = self.segment_head.segment_kind
@@ -69,6 +72,8 @@ class WatchConnector(WatchArchetype):
         self.schedule_sfx()
 
     def spawn_time(self) -> float:
+        if DISABLE_NOTES:
+            return 1e8
         return self.start_time
 
     def despawn_time(self) -> float:

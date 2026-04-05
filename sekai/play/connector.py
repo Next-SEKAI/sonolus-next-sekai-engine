@@ -27,6 +27,7 @@ from sekai.lib.connector import (
     update_connector_sfx,
     update_linear_connector_particle,
 )
+from sekai.debug import DISABLE_NOTES
 from sekai.lib.ease import EaseType
 from sekai.lib.note import draw_slide_note_head, get_attach_params
 from sekai.lib.options import Options
@@ -59,6 +60,8 @@ class Connector(PlayArchetype):
 
     @callback(order=1)  # After note preprocessing is done
     def preprocess(self):
+        if DISABLE_NOTES:
+            return
         head = self.head
         tail = self.tail
         self.kind = self.segment_head.segment_kind
@@ -111,9 +114,13 @@ class Connector(PlayArchetype):
         Streams.connector_visual_states[self.index][-2] = ConnectorVisualState.WAITING
 
     def spawn_order(self) -> float:
+        if DISABLE_NOTES:
+            return 1e8
         return self.start_time
 
     def should_spawn(self) -> bool:
+        if DISABLE_NOTES:
+            return False
         return time() >= self.start_time
 
     @callback(order=-1)
