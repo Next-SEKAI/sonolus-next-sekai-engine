@@ -1,0 +1,1 @@
+SHOW_TICK_HITBOX_SIZE = False

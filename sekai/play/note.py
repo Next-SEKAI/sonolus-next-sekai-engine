@@ -18,11 +18,12 @@ from sonolus.script.array import Dim
 from sonolus.script.bucket import Bucket, Judgment
 from sonolus.script.containers import VarArray
 from sonolus.script.globals import level_memory
-from sonolus.script.interval import Interval, remap_clamped, unlerp_clamped, unlerp, lerp
+from sonolus.script.interval import Interval, lerp, remap_clamped, unlerp, unlerp_clamped
 from sonolus.script.quad import Rect
 from sonolus.script.runtime import Touch, delta_time, input_offset, offset_adjusted_time, time, touches
 from sonolus.script.timing import beat_to_time
 
+from sekai.debug import SHOW_TICK_HITBOX_SIZE
 from sekai.lib import archetype_names
 from sekai.lib.buckets import WINDOW_SCALE, SekaiWindow
 from sekai.lib.connector import ActiveConnectorInfo, ConnectorKind, ConnectorLayer
@@ -204,7 +205,9 @@ class BaseNote(PlayArchetype):
                     current = current_ref.get()
                     if not current.is_attached:
                         if current.target_time <= input_start_time:
-                            ease_progress = ease(current.connector_ease, unlerp(current.target_time, last_time, input_start_time))
+                            ease_progress = ease(
+                                current.connector_ease, unlerp(current.target_time, last_time, input_start_time)
+                            )
                             lane = lerp(current.lane, last_lane, ease_progress)
                             size = lerp(current.size, last_size, ease_progress)
                             hitbox_l = min(hitbox_l, lane - size)
@@ -221,8 +224,9 @@ class BaseNote(PlayArchetype):
             hitbox_l -= leniency
             hitbox_r += leniency
             self.hitbox = layout_hitbox(hitbox_l, hitbox_r)
-            self.hitbox_lane = (hitbox_l + hitbox_r) / 2
-            self.hitbox_size = (hitbox_r - hitbox_l) / 2
+            if SHOW_TICK_HITBOX_SIZE:
+                self.hitbox_lane = (hitbox_l + hitbox_r) / 2
+                self.hitbox_size = (hitbox_r - hitbox_l) / 2
 
     def update_sequential(self):
         if self.despawn:
@@ -322,6 +326,10 @@ class BaseNote(PlayArchetype):
             return
         if Options.disable_fake_notes and not self.is_scored:
             return
+        if SHOW_TICK_HITBOX_SIZE and self.kind in {NoteKind.NORM_TICK, NoteKind.CRIT_TICK, NoteKind.HIDE_TICK}:
+            draw_note(
+                NoteKind.DAMAGE, self.hitbox_lane, self.hitbox_size, self.progress, self.direction, self.target_time
+            )
         draw_note(self.kind, self.lane, self.size, self.progress, self.direction, self.target_time)
 
     def should_do_delayed_trigger(self) -> bool:
