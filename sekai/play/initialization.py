@@ -39,8 +39,7 @@ class Initialization(PlayArchetype):
         init_event_list(self.first_zoom_ref)
 
     def initialize(self):
-        if not LevelConfig.skip_default_stage:
-            StaticStage.spawn()
+        StaticStage.spawn()
         InputManager.spawn()
         self.replay_revision = self.revision
 
