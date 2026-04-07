@@ -170,7 +170,10 @@ class WatchBaseNote(WatchArchetype):
             hitbox_l = self.lane - self.size
             hitbox_r = self.lane + self.size
             judgment_window = get_note_window(self.kind)
-            input_start_time = self.target_time + judgment_window.good.start
+            window_start = self.target_time + judgment_window.good.start
+            window_end = self.target_time + judgment_window.good.end
+
+            # Scan backward to cover connector positions from window start to this tick
             current_ref = +EntityRef[WatchBaseNote]
             if self.is_attached:
                 current_ref @= self.attach_head_ref
@@ -186,9 +189,9 @@ class WatchBaseNote(WatchArchetype):
             while current_ref.index > 0:
                 current = current_ref.get()
                 if not current.is_attached:
-                    if current.target_time <= input_start_time:
+                    if current.target_time <= window_start:
                         ease_progress = ease(
-                            current.connector_ease, unlerp(current.target_time, last_time, input_start_time)
+                            current.connector_ease, unlerp(current.target_time, last_time, window_start)
                         )
                         lane = lerp(current.lane, last_lane, ease_progress)
                         size = lerp(current.size, last_size, ease_progress)
@@ -203,6 +206,42 @@ class WatchBaseNote(WatchArchetype):
                     last_size = size
                     last_time = current.target_time
                 current_ref @= current.prev_ref
+
+            # Scan forward to cover connector positions from this tick to window end
+            if self.is_attached:
+                current_ref @= self.attach_tail_ref
+                attach_head = self.attach_head_ref.get()
+                last_lane = attach_head.lane
+                last_size = attach_head.size
+                last_time = attach_head.target_time
+                last_ease = attach_head.connector_ease
+            else:
+                current_ref @= self.next_ref
+                last_lane = self.lane
+                last_size = self.size
+                last_time = self.target_time
+                last_ease = self.connector_ease
+            while current_ref.index > 0:
+                current = current_ref.get()
+                if not current.is_attached:
+                    if current.target_time >= window_end:
+                        ease_progress = ease(
+                            last_ease, unlerp(last_time, current.target_time, window_end)
+                        )
+                        lane = lerp(last_lane, current.lane, ease_progress)
+                        size = lerp(last_size, current.size, ease_progress)
+                        hitbox_l = min(hitbox_l, lane - size)
+                        hitbox_r = max(hitbox_r, lane + size)
+                        break
+                    lane = current.lane
+                    size = current.size
+                    hitbox_l = min(hitbox_l, lane - size)
+                    hitbox_r = max(hitbox_r, lane + size)
+                    last_lane = lane
+                    last_size = size
+                    last_time = current.target_time
+                    last_ease = current.connector_ease
+                current_ref @= current.next_ref
             hitbox_l -= leniency
             hitbox_r += leniency
             self.hitbox_lane = (hitbox_l + hitbox_r) / 2
