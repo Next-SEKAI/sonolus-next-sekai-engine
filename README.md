@@ -1,14 +1,15 @@
-# Next SEKAI Sonolus Engine
+sekai Server# Next SEKAI Sonolus Engine
 
 A new Project Sekai inspired engine for [Sonolus](https://sonolus.com).
 
 ## Official Resources
 
 Server: https://coconut.sonolus.com/next-sekai/  
-Editor: https://next-sekai-editor.sonolus.com/  
+Editor: https://next-sekai-editor.sonolus.com/  and https:// sekairush.shop
 
 ## Quick Dev Setup
-1. Install [uv](https://docs.astral.sh/uv/).
+1. Install [uv]. <img width="400" height="131" alt="1000018425" src="https://github.com/user-attachments/assets/09941b55-0523-43ee-8d60-a035104eaf11" />
+(https://docs.astral.sh/uv/). 
 2. Run `uv sync`.
 3. Add resources (full exported scp files) such as skins and levels to the `/resources` folder.
 4. [Ensure your venv is activated](https://docs.astral.sh/uv/pip/environments/#using-a-virtual-environment).
@@ -126,7 +127,8 @@ Editor: https://next-sekai-editor.sonolus.com/
 | `Sekai Trace Note Purple Middle`              |
 | `Sekai Trace Note Purple Right`               |
 | `Sekai Black Background`                      |
-
+| `Sekai 
+Skill Life Levels Jugdment Line
 ### Effect Clips
 
 | Name                   |
@@ -138,7 +140,7 @@ Editor: https://next-sekai-editor.sonolus.com/
 | `Sekai Critical Tick`  |
 | `Sekai Trace`          |
 | `Sekai Critical Trace` |
-
+| `Sekai Skill           |
 ### Particle Effects
 
 | Name                                   |
