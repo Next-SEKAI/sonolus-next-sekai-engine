@@ -225,9 +225,7 @@ class WatchBaseNote(WatchArchetype):
                 current = current_ref.get()
                 if not current.is_attached:
                     if current.target_time >= window_end:
-                        ease_progress = ease(
-                            last_ease, unlerp(last_time, current.target_time, window_end)
-                        )
+                        ease_progress = ease(last_ease, unlerp(last_time, current.target_time, window_end))
                         lane = lerp(last_lane, current.lane, ease_progress)
                         size = lerp(last_size, current.size, ease_progress)
                         hitbox_l = min(hitbox_l, lane - size)

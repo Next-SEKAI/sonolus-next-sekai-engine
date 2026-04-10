@@ -243,9 +243,7 @@ class BaseNote(PlayArchetype):
                     current = current_ref.get()
                     if not current.is_attached:
                         if current.target_time >= window_end:
-                            ease_progress = ease(
-                                last_ease, unlerp(last_time, current.target_time, window_end)
-                            )
+                            ease_progress = ease(last_ease, unlerp(last_time, current.target_time, window_end))
                             lane = lerp(last_lane, current.lane, ease_progress)
                             size = lerp(last_size, current.size, ease_progress)
                             hitbox_l = min(hitbox_l, lane - size)
@@ -669,6 +667,8 @@ class BaseNote(PlayArchetype):
         if self.result.bucket.id != -1:
             self.result.bucket_value = 0
         self.despawn = True
+        self.should_play_hit_effects = True
+        # Ideally we'd call post_judge here, but this is called in update_parallel. Not a big deal.
 
     def fail_late(self, accuracy: float | None = None):
         if accuracy is None:

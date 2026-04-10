@@ -770,12 +770,13 @@ def get_note_effect(kind: NoteEffectKind, judgment: Judgment):
 def play_note_hit_effects(
     kind: NoteKind, effect_kind: NoteEffectKind, lane: float, size: float, direction: FlickDirection, judgment: Judgment
 ):
-    if kind == NoteKind.DAMAGE and judgment == Judgment.PERFECT:
-        return
+    # Damage with overridden sfx can play, so this goes before the damage check
     sfx = get_note_effect(effect_kind, judgment)
-    particles = get_note_particles(kind, direction)
     if Options.sfx_enabled and not Options.auto_sfx and not is_watch() and sfx.is_available:
         sfx.play(SFX_DISTANCE)
+    if kind == NoteKind.DAMAGE and judgment == Judgment.PERFECT:
+        return
+    particles = get_note_particles(kind, direction)
     if Options.note_effect_enabled:
         if particles.linear.is_available:
             layout = layout_linear_effect(lane, shear=0)
