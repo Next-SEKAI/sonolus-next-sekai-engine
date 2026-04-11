@@ -1,12 +1,19 @@
+from __future__ import annotations
+
 from enum import IntEnum
 from math import ceil, floor
-from typing import assert_never
+from typing import Protocol, assert_never, cast
 
-from sonolus.script.interval import clamp
+from sonolus.script import runtime
+from sonolus.script.archetype import EntityRef, get_archetype_by_name
+from sonolus.script.interval import clamp, lerp
 from sonolus.script.quad import Quad
 from sonolus.script.record import Record
 from sonolus.script.vec import Vec2
 
+from sekai.lib import archetype_names
+from sekai.lib.baseevent import query_event_list
+from sekai.lib.ease import EaseType, ease
 from sekai.lib.effect import SFX_DISTANCE, Effects
 from sekai.lib.layer import LAYER_COVER, LAYER_STAGE, get_z, get_z_alt
 from sekai.lib.layout import (
@@ -55,16 +62,214 @@ class StageBorderStyle(IntEnum):
     DISABLED = 2
 
 
-def draw_stage_and_accessories():
-    if not LevelConfig.skip_default_stage:
-        draw_basic_stage()
-    draw_stage_cover()
-
-
 class Transition[T](Record):
     start: T
     end: T
     progress: float
+
+
+class StageProps(Record):
+    lane: float
+    width: float
+    pivot_lane: float
+    division: Transition[DivisionProps]
+    judge_line_color: Transition[JudgeLineColor]
+    left_border_style: Transition[StageBorderStyle]
+    right_border_style: Transition[StageBorderStyle]
+    order: int
+    a: float
+    lane_alpha: float
+    y_offset: float
+
+
+class StageMaskChangeLike(Protocol):
+    time: float
+    lane: float
+    size: float
+    ease: EaseType
+    next_ref: EntityRef
+
+    @classmethod
+    def at(cls, index: int) -> StageMaskChangeLike: ...
+
+    @property
+    def index(self) -> int: ...
+
+
+class StagePivotChangeLike(Protocol):
+    time: float
+    lane: float
+    division_size: float
+    division_parity: DivisionParity
+    y_offset: float
+    ease: EaseType
+    next_ref: EntityRef
+
+    @classmethod
+    def at(cls, index: int) -> StagePivotChangeLike: ...
+
+    @property
+    def index(self) -> int: ...
+
+
+class StageStyleChangeLike(Protocol):
+    time: float
+    judge_line_color: JudgeLineColor
+    left_border_style: StageBorderStyle
+    right_border_style: StageBorderStyle
+    alpha: float
+    lane_alpha: float
+    ease: EaseType
+    next_ref: EntityRef
+
+    @classmethod
+    def at(cls, index: int) -> StageStyleChangeLike: ...
+
+    @property
+    def index(self) -> int: ...
+
+
+class DynamicStageLike(Protocol):
+    from_start: bool
+    first_mask_change_ref: EntityRef
+    first_pivot_change_ref: EntityRef
+    first_style_change_ref: EntityRef
+
+    @property
+    def index(self) -> int: ...
+
+
+def _stage_mask_change_archetype() -> type[StageMaskChangeLike]:
+    return cast(type[StageMaskChangeLike], get_archetype_by_name(archetype_names.STAGE_MASK_CHANGE))
+
+
+def _stage_pivot_change_archetype() -> type[StagePivotChangeLike]:
+    return cast(type[StagePivotChangeLike], get_archetype_by_name(archetype_names.STAGE_PIVOT_CHANGE))
+
+
+def _stage_style_change_archetype() -> type[StageStyleChangeLike]:
+    return cast(type[StageStyleChangeLike], get_archetype_by_name(archetype_names.STAGE_STYLE_CHANGE))
+
+
+def get_start_time(stage: DynamicStageLike) -> float:
+    if stage.from_start:
+        return -1e8
+    first_ref = stage.first_mask_change_ref
+    if first_ref.index > 0:
+        return first_ref.get_as(_stage_mask_change_archetype()).time
+    return -1e8
+
+
+def get_end_time(stage: DynamicStageLike) -> float:
+    first_ref = stage.first_mask_change_ref
+    if first_ref.index <= 0:
+        return -1e8
+    last_ref, _ = query_event_list(first_ref, 1e8, lambda e: e.time)
+    if last_ref.index > 0:
+        return last_ref.get_as(_stage_mask_change_archetype()).time
+    return -1e8
+
+
+def get_stage_props(stage: DynamicStageLike, target_time: float | None = None) -> StageProps:
+    t = target_time if target_time is not None else runtime.time()
+    result = +StageProps
+    result.order = stage.index
+
+    first_mask_change_ref = stage.first_mask_change_ref
+    first_pivot_change_ref = stage.first_pivot_change_ref
+    first_style_change_ref = stage.first_style_change_ref
+
+    # Query mask changes
+    mask_a_ref, mask_b_ref = query_event_list(first_mask_change_ref, t, lambda e: e.time)
+    if mask_a_ref.index > 0:
+        mask_a = mask_a_ref.get_as(_stage_mask_change_archetype())
+        result.lane = mask_a.lane
+        result.width = mask_a.size
+        if mask_b_ref.index > 0:
+            mask_b = mask_b_ref.get_as(_stage_mask_change_archetype())
+            t_a = mask_a.time
+            t_b = mask_b.time
+            if t_b > t_a:
+                p = ease(mask_b.ease, (t - t_a) / (t_b - t_a))
+                result.lane = lerp(mask_a.lane, mask_b.lane, p)
+                result.width = lerp(mask_a.size, mask_b.size, p)
+    elif mask_b_ref.index > 0:
+        mask_b = mask_b_ref.get_as(_stage_mask_change_archetype())
+        result.lane = mask_b.lane
+        result.width = mask_b.size
+
+    # Query pivot changes
+    pivot_a_ref, pivot_b_ref = query_event_list(first_pivot_change_ref, t, lambda e: e.time)
+    if pivot_a_ref.index > 0:
+        pivot_a = pivot_a_ref.get_as(_stage_pivot_change_archetype())
+        result.pivot_lane = pivot_a.lane
+        result.division.start.size = int(pivot_a.division_size)
+        result.division.start.parity = pivot_a.division_parity
+        result.division.end @= result.division.start
+        result.y_offset = pivot_a.y_offset
+        if pivot_b_ref.index > 0:
+            pivot_b = pivot_b_ref.get_as(_stage_pivot_change_archetype())
+            t_a = pivot_a.time
+            t_b = pivot_b.time
+            if t_b > t_a:
+                p = ease(pivot_b.ease, (t - t_a) / (t_b - t_a))
+                result.pivot_lane = lerp(pivot_a.lane, pivot_b.lane, p)
+                result.division.end.size = int(pivot_b.division_size)
+                result.division.end.parity = pivot_b.division_parity
+                result.division.progress = p
+                result.y_offset = lerp(pivot_a.y_offset, pivot_b.y_offset, p)
+    elif pivot_b_ref.index > 0:
+        pivot_b = pivot_b_ref.get_as(_stage_pivot_change_archetype())
+        result.pivot_lane = pivot_b.lane
+        result.division.start.size = int(pivot_b.division_size)
+        result.division.start.parity = pivot_b.division_parity
+        result.division.end @= result.division.start
+        result.y_offset = pivot_b.y_offset
+
+    # Query style changes
+    style_a_ref, style_b_ref = query_event_list(first_style_change_ref, t, lambda e: e.time)
+    if style_a_ref.index > 0:
+        style_a = style_a_ref.get_as(_stage_style_change_archetype())
+        result.judge_line_color.start = style_a.judge_line_color
+        result.judge_line_color.end = style_a.judge_line_color
+        result.left_border_style.start = style_a.left_border_style
+        result.left_border_style.end = style_a.left_border_style
+        result.right_border_style.start = style_a.right_border_style
+        result.right_border_style.end = style_a.right_border_style
+        result.a = style_a.alpha
+        result.lane_alpha = style_a.lane_alpha
+        if style_b_ref.index > 0:
+            style_b = style_b_ref.get_as(_stage_style_change_archetype())
+            t_a = style_a.time
+            t_b = style_b.time
+            if t_b > t_a:
+                p = ease(style_b.ease, (t - t_a) / (t_b - t_a))
+                result.judge_line_color.end = style_b.judge_line_color
+                result.judge_line_color.progress = p
+                result.left_border_style.end = style_b.left_border_style
+                result.left_border_style.progress = p
+                result.right_border_style.end = style_b.right_border_style
+                result.right_border_style.progress = p
+                result.a = lerp(style_a.alpha, style_b.alpha, p)
+                result.lane_alpha = lerp(style_a.lane_alpha, style_b.lane_alpha, p)
+    elif style_b_ref.index > 0:
+        style_b = style_b_ref.get_as(_stage_style_change_archetype())
+        result.judge_line_color.start = style_b.judge_line_color
+        result.judge_line_color.end = style_b.judge_line_color
+        result.left_border_style.start = style_b.left_border_style
+        result.left_border_style.end = style_b.left_border_style
+        result.right_border_style.start = style_b.right_border_style
+        result.right_border_style.end = style_b.right_border_style
+        result.a = style_b.alpha
+        result.lane_alpha = style_b.lane_alpha
+
+    return result
+
+
+def draw_stage_and_accessories():
+    if not LevelConfig.skip_default_stage:
+        draw_basic_stage()
+    draw_stage_cover()
 
 
 def normalize_transition[T](value: Transition[T] | T) -> Transition[T]:

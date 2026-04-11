@@ -6,6 +6,7 @@ from sonolus.script.runtime import offset_adjusted_time, time, touches
 
 from sekai.lib import archetype_names
 from sekai.lib.layout import layout_hitbox, refresh_layout, touch_to_lane
+from sekai.lib.level_config import LevelConfig
 from sekai.lib.stage import draw_stage_and_accessories, play_lane_hit_effects
 from sekai.lib.streams import Streams
 from sekai.play.common import PlayLevelMemory
@@ -27,6 +28,8 @@ class StaticStage(PlayArchetype):
 
     @callback(order=2)
     def touch(self):
+        if LevelConfig.dynamic_stages:
+            return
         total_hitbox = layout_hitbox(-7, 7)
         empty_lanes = VarArray[float, Dim[16]].new()
         for touch in touches():

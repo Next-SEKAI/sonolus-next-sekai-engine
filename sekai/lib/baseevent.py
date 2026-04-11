@@ -47,19 +47,20 @@ def query_event_list[T: BaseEvent, K](
 ) -> tuple[EntityRef[T], EntityRef[T]]:
     a = type(first_ref)(0)
     b = type(first_ref)(0)
+    result = (a, b)
     if first_ref.index <= 0:
-        return a, b
+        return result
     first = first_ref.get()
     if accessor(first) > key:
         b.index = first_ref.index
-        return a, b
+        return result
     a.index = first_ref.index
     level = first.skip_levels - 1
     while level >= 0:
-        next_skip = +a.get().skip_refs[level]
+        next_skip = +a.get().skip_refs[level].with_archetype(type(first))
         while next_skip.index > 0 and accessor(next_skip.get()) <= key:
             a.index = next_skip.index
             next_skip.index = a.get().skip_refs[level].index
         level -= 1
     b.index = a.get().next_ref.index
-    return a, b
+    return result

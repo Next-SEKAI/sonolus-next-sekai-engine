@@ -1,12 +1,29 @@
 from __future__ import annotations
 
-from sonolus.script.archetype import EntityRef, StandardImport, WatchArchetype, callback, imported
+from sonolus.script.archetype import (
+    EntityRef,
+    StandardImport,
+    WatchArchetype,
+    callback,
+    entity_data,
+    imported,
+    shared_memory,
+)
+from sonolus.script.timing import beat_to_time
 
 from sekai.lib import archetype_names
 from sekai.lib.baseevent import BaseEvent, init_event_list
 from sekai.lib.ease import EaseType
 from sekai.lib.level_config import LevelConfig
-from sekai.lib.stage import DivisionParity, JudgeLineColor, StageBorderStyle
+from sekai.lib.stage import (
+    DivisionParity,
+    JudgeLineColor,
+    StageBorderStyle,
+    StageProps,
+    get_end_time,
+    get_stage_props,
+    get_start_time,
+)
 
 
 class WatchZoomChange(WatchArchetype, BaseEvent):
@@ -17,9 +34,12 @@ class WatchZoomChange(WatchArchetype, BaseEvent):
     ease: EaseType = imported()
     next_ref: EntityRef[WatchZoomChange] = imported(name="next")
 
+    time: float = entity_data()
+
     @callback(order=-1)
     def preprocess(self):
         LevelConfig.dynamic_stages = True
+        self.time = beat_to_time(self.beat)
 
 
 class WatchDynamicStage(WatchArchetype):
@@ -30,6 +50,11 @@ class WatchDynamicStage(WatchArchetype):
     first_pivot_change_ref: EntityRef[WatchStagePivotChange] = imported(name="firstPivotChange")
     first_style_change_ref: EntityRef[WatchStageStyleChange] = imported(name="firstStyleChange")
 
+    start_time: float = entity_data()
+    end_time: float = entity_data()
+
+    props: StageProps = shared_memory()
+
     @callback(order=-1)
     def preprocess(self):
         LevelConfig.dynamic_stages = True
@@ -37,12 +62,18 @@ class WatchDynamicStage(WatchArchetype):
         init_event_list(self.first_mask_change_ref)
         init_event_list(self.first_pivot_change_ref)
         init_event_list(self.first_style_change_ref)
+        self.start_time = get_start_time(self)
+        self.end_time = get_end_time(self)
 
     def spawn_time(self) -> float:
-        return -1e8
+        return self.start_time
 
     def despawn_time(self) -> float:
-        return 1e8
+        return self.end_time
+
+    @callback(order=-1)
+    def update_sequential(self):
+        self.props @= get_stage_props(self)
 
 
 class WatchStageMaskChange(WatchArchetype, BaseEvent):
@@ -54,6 +85,12 @@ class WatchStageMaskChange(WatchArchetype, BaseEvent):
     size: float = imported()
     ease: EaseType = imported()
     next_ref: EntityRef[WatchStageMaskChange] = imported(name="next")
+
+    time: float = entity_data()
+
+    @callback(order=-1)
+    def preprocess(self):
+        self.time = beat_to_time(self.beat)
 
 
 class WatchStagePivotChange(WatchArchetype, BaseEvent):
@@ -68,6 +105,12 @@ class WatchStagePivotChange(WatchArchetype, BaseEvent):
     ease: EaseType = imported()
     next_ref: EntityRef[WatchStagePivotChange] = imported(name="next")
 
+    time: float = entity_data()
+
+    @callback(order=-1)
+    def preprocess(self):
+        self.time = beat_to_time(self.beat)
+
 
 class WatchStageStyleChange(WatchArchetype, BaseEvent):
     name = archetype_names.STAGE_STYLE_CHANGE
@@ -81,3 +124,9 @@ class WatchStageStyleChange(WatchArchetype, BaseEvent):
     lane_alpha: float = imported(name="laneAlpha")
     ease: EaseType = imported()
     next_ref: EntityRef[WatchStageStyleChange] = imported(name="next")
+
+    time: float = entity_data()
+
+    @callback(order=-1)
+    def preprocess(self):
+        self.time = beat_to_time(self.beat)

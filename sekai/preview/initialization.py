@@ -18,7 +18,7 @@ from sekai.preview.layout import (
     layout_preview_bar_line,
     print_at_col_top,
 )
-from sekai.preview.static_stage import draw_preview_cover, draw_preview_stage
+from sekai.preview.stage import draw_preview_cover, draw_preview_stage
 
 
 class PreviewInitialization(PreviewArchetype):

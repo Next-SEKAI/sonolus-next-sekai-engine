@@ -1,12 +1,19 @@
 from __future__ import annotations
 
-from sonolus.script.archetype import EntityRef, PreviewArchetype, StandardImport, callback, imported
+from sonolus.script.archetype import EntityRef, PreviewArchetype, StandardImport, callback, entity_data, imported
+from sonolus.script.timing import beat_to_time
 
 from sekai.lib import archetype_names
 from sekai.lib.baseevent import BaseEvent, init_event_list
 from sekai.lib.ease import EaseType
 from sekai.lib.level_config import LevelConfig
-from sekai.lib.stage import DivisionParity, JudgeLineColor, StageBorderStyle
+from sekai.lib.stage import (
+    DivisionParity,
+    JudgeLineColor,
+    StageBorderStyle,
+    get_end_time,
+    get_start_time,
+)
 
 
 class PreviewZoomChange(PreviewArchetype, BaseEvent):
@@ -17,9 +24,12 @@ class PreviewZoomChange(PreviewArchetype, BaseEvent):
     ease: EaseType = imported()
     next_ref: EntityRef[PreviewZoomChange] = imported(name="next")
 
+    time: float = entity_data()
+
     @callback(order=-1)
     def preprocess(self):
         LevelConfig.dynamic_stages = True
+        self.time = beat_to_time(self.beat)
 
 
 class PreviewDynamicStage(PreviewArchetype):
@@ -30,6 +40,9 @@ class PreviewDynamicStage(PreviewArchetype):
     first_pivot_change_ref: EntityRef[PreviewStagePivotChange] = imported(name="firstPivotChange")
     first_style_change_ref: EntityRef[PreviewStageStyleChange] = imported(name="firstStyleChange")
 
+    start_time: float = entity_data()
+    end_time: float = entity_data()
+
     @callback(order=-1)
     def preprocess(self):
         LevelConfig.dynamic_stages = True
@@ -37,6 +50,8 @@ class PreviewDynamicStage(PreviewArchetype):
         init_event_list(self.first_mask_change_ref)
         init_event_list(self.first_pivot_change_ref)
         init_event_list(self.first_style_change_ref)
+        self.start_time = get_start_time(self)
+        self.end_time = get_end_time(self)
 
 
 class PreviewStageMaskChange(PreviewArchetype, BaseEvent):
@@ -48,6 +63,12 @@ class PreviewStageMaskChange(PreviewArchetype, BaseEvent):
     size: float = imported()
     ease: EaseType = imported()
     next_ref: EntityRef[PreviewStageMaskChange] = imported(name="next")
+
+    time: float = entity_data()
+
+    @callback(order=-1)
+    def preprocess(self):
+        self.time = beat_to_time(self.beat)
 
 
 class PreviewStagePivotChange(PreviewArchetype, BaseEvent):
@@ -62,6 +83,12 @@ class PreviewStagePivotChange(PreviewArchetype, BaseEvent):
     ease: EaseType = imported()
     next_ref: EntityRef[PreviewStagePivotChange] = imported(name="next")
 
+    time: float = entity_data()
+
+    @callback(order=-1)
+    def preprocess(self):
+        self.time = beat_to_time(self.beat)
+
 
 class PreviewStageStyleChange(PreviewArchetype, BaseEvent):
     name = archetype_names.STAGE_STYLE_CHANGE
@@ -75,3 +102,9 @@ class PreviewStageStyleChange(PreviewArchetype, BaseEvent):
     lane_alpha: float = imported(name="laneAlpha")
     ease: EaseType = imported()
     next_ref: EntityRef[PreviewStageStyleChange] = imported(name="next")
+
+    time: float = entity_data()
+
+    @callback(order=-1)
+    def preprocess(self):
+        self.time = beat_to_time(self.beat)
