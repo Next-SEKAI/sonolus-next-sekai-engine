@@ -527,9 +527,12 @@ class BaseNote(PlayArchetype):
             input_manager.disallow_empty(touch)
             has_touch = True
         if has_touch:
-            # Always judge as perfect accuracy for ticks if touched.
-            self.best_touch_time = self.target_time
-            self.best_touch_matches_direction = True
+            if offset_adjusted_time() >= self.target_time:
+                self.complete()
+            else:
+                # Always judge as perfect accuracy for ticks if touched.
+                self.best_touch_time = self.target_time
+                self.best_touch_matches_direction = True
 
     def handle_damage_input(self):
         hitbox = self.hitbox
