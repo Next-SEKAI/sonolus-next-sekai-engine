@@ -19,7 +19,7 @@ from sonolus.script.bucket import Bucket, Judgment
 from sonolus.script.containers import VarArray
 from sonolus.script.globals import level_memory
 from sonolus.script.interval import Interval, lerp, remap_clamped, unlerp, unlerp_clamped
-from sonolus.script.quad import Rect
+from sonolus.script.quad import Quad
 from sonolus.script.runtime import Touch, delta_time, input_offset, offset_adjusted_time, time, touches
 from sonolus.script.timing import beat_to_time
 
@@ -107,7 +107,7 @@ class BaseNote(PlayArchetype):
 
     should_play_hit_effects: bool = entity_memory()
 
-    hitbox: Rect = entity_memory()
+    hitbox: Quad = entity_memory()
     hitbox_lane: float = entity_memory()
     hitbox_size: float = entity_memory()
 
@@ -597,18 +597,18 @@ class BaseNote(PlayArchetype):
             case _:
                 assert_never(kind)
 
-    def check_touch_touch_is_eligible_for_flick(self, hitbox: Rect, touch: Touch) -> bool:
+    def check_touch_touch_is_eligible_for_flick(self, hitbox: Quad, touch: Touch) -> bool:
         return (
             touch.start_time >= self.captured_touch_time
             and touch.speed >= Layout.flick_speed_threshold
             and (hitbox.contains_point(touch.position) or hitbox.contains_point(touch.prev_position))
         )
 
-    def check_touch_is_eligible_for_trace(self, hitbox: Rect, touch: Touch) -> bool:
+    def check_touch_is_eligible_for_trace(self, hitbox: Quad, touch: Touch) -> bool:
         # Note that this does not check the time, since time may not be updated if the touch is stationary.
         return hitbox.contains_point(touch.position)
 
-    def check_touch_is_eligible_for_trace_flick(self, hitbox: Rect, touch: Touch) -> bool:
+    def check_touch_is_eligible_for_trace_flick(self, hitbox: Quad, touch: Touch) -> bool:
         return (
             touch.time >= self.unadjusted_input_interval.start
             and touch.speed >= Layout.flick_speed_threshold

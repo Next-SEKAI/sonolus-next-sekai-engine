@@ -11,7 +11,7 @@ from sonolus.script.runtime import aspect_ratio, screen
 from sonolus.script.values import swap
 from sonolus.script.vec import Vec2
 
-from sekai.lib.options import Options
+from sekai.lib.options import HitboxMode, Options
 from sekai.lib.timescale import CompositeTime
 
 LANE_T = 47 / 850
@@ -170,8 +170,12 @@ def transformed_vec_at(lane: float, travel: float = 1.0) -> Vec2:
     return transform_vec(Vec2(lane * travel, travel))
 
 
-def touch_x_to_lane(x: float) -> float:
-    return x / DynamicLayout.w_scale
+def touch_to_lane(pos: Vec2, pivot_lane: float = 0) -> float:
+    if Options.hitbox_mode == HitboxMode.VERTICAL:
+        return pos.x / DynamicLayout.w_scale
+    y_raw = (pos.y - DynamicLayout.t) / DynamicLayout.h_scale
+    x_raw = pos.x / DynamicLayout.w_scale
+    return pivot_lane + (x_raw - pivot_lane) / y_raw
 
 
 def perspective_vec(x: float, y: float, travel: float = 1.0) -> Vec2:
@@ -536,10 +540,15 @@ def layout_sim_line(
 def layout_hitbox(
     l: float,
     r: float,
-) -> Rect:
-    bl = transform_vec(Vec2(l, LANE_HITBOX_B))
-    tr = transform_vec(Vec2(r, LANE_HITBOX_T))
-    return Rect(l=bl.x, r=tr.x, b=bl.y, t=tr.y)
+) -> Quad:
+    result = +Quad
+    if Options.hitbox_mode == HitboxMode.ANGLED:
+        result @= perspective_rect(l, r, LANE_T, LANE_B)
+    else:
+        bl = transform_vec(Vec2(l, LANE_HITBOX_B))
+        tr = transform_vec(Vec2(r, LANE_HITBOX_T))
+        result @= Rect(l=bl.x, r=tr.x, b=bl.y, t=tr.y).as_quad()
+    return result
 
 
 def iter_slot_lanes(lane: float, size: float):

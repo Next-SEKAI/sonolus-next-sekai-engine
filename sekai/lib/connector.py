@@ -7,7 +7,7 @@ from sonolus.script.easing import ease_out_cubic
 from sonolus.script.effect import Effect, LoopedEffectHandle
 from sonolus.script.interval import clamp, lerp, remap, remap_clamped, unlerp_clamped
 from sonolus.script.particle import Particle, ParticleHandle
-from sonolus.script.quad import QuadLike, Rect
+from sonolus.script.quad import Quad, QuadLike
 from sonolus.script.record import Record
 from sonolus.script.runtime import time
 from sonolus.script.sprite import Sprite
@@ -501,7 +501,7 @@ class ActiveConnectorInfo(Record):
     last_active_time: float
     connector_kind: ConnectorKind
 
-    def get_hitbox(self, leniency: float) -> Rect:
+    def get_hitbox(self, leniency: float) -> Quad:
         return layout_hitbox(
             self.input_lane - self.input_size - leniency,
             self.input_lane + self.input_size + leniency,
