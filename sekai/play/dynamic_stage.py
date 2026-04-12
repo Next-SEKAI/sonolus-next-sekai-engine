@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from math import ceil, floor
+
 from sonolus.script.archetype import (
     EntityRef,
     PlayArchetype,
@@ -97,7 +99,15 @@ class DynamicStage(PlayArchetype):
         half_offset = p.division.start.parity == DivisionParity.ODD and p.division.start.size % 2 == 1
         lo = p.lane - p.width + 0.5
         hi = p.lane + p.width - 0.5
-        total_hitbox = layout_hitbox(p.lane - p.width, p.lane + p.width)
+        if half_offset:
+            leftmost = p.pivot_lane + ceil(lo - p.pivot_lane)
+            rightmost = p.pivot_lane + floor(hi - p.pivot_lane)
+        else:
+            leftmost = p.pivot_lane + 0.5 + ceil(lo - p.pivot_lane - 0.5)
+            rightmost = p.pivot_lane + 0.5 + floor(hi - p.pivot_lane - 0.5)
+        if leftmost > rightmost:
+            return
+        total_hitbox = layout_hitbox(leftmost - 0.5, rightmost + 0.5)
         empty_lanes = StageMemory.empty_lanes
         for touch in touches():
             if not total_hitbox.contains_point(touch.position):
