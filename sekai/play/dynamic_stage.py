@@ -43,7 +43,7 @@ class ZoomChange(PlayArchetype, BaseEvent):
 
     time: float = entity_data()
 
-    @callback(order=-1)
+    @callback(order=-2)
     def preprocess(self):
         LevelConfig.dynamic_stages = True
         self.time = beat_to_time(self.beat)
@@ -142,7 +142,7 @@ class StageMaskChange(PlayArchetype, BaseEvent):
 
     time: float = entity_data()
 
-    @callback(order=-1)
+    @callback(order=-2)
     def preprocess(self):
         self.time = beat_to_time(self.beat)
 
@@ -167,7 +167,7 @@ class StagePivotChange(PlayArchetype, BaseEvent):
 
     time: float = entity_data()
 
-    @callback(order=-1)
+    @callback(order=-2)
     def preprocess(self):
         self.time = beat_to_time(self.beat)
 
@@ -193,7 +193,7 @@ class StageStyleChange(PlayArchetype, BaseEvent):
 
     time: float = entity_data()
 
-    @callback(order=-1)
+    @callback(order=-2)
     def preprocess(self):
         self.time = beat_to_time(self.beat)
 

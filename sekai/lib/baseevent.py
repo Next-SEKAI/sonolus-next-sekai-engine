@@ -3,13 +3,12 @@ from typing import Any
 
 from sonolus.script.archetype import EntityRef, entity_data
 from sonolus.script.array import Array, Dim
-from sonolus.script.containers import VarArray
 
 
 class BaseEvent:
     next_ref: EntityRef[Any] = entity_data()
     prev_ref: EntityRef[Any] = entity_data()
-    skip_refs: VarArray[EntityRef[Any], Dim[16]] = entity_data()
+    skip_refs: Array[EntityRef[Any], Dim[16]] = entity_data()
     skip_levels: int = entity_data()
 
 

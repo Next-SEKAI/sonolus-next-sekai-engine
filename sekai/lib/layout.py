@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from enum import IntEnum
 from math import atan, ceil, floor, log, pi
 from typing import Protocol, assert_never, cast

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 from dataclasses import dataclass, field
 
 from sonolus.build.collection import Asset
@@ -38,9 +39,7 @@ def _build_note_archetype_lookup() -> dict[tuple[NoteKind, bool], type[PlayArche
 
 _NOTE_ARCHETYPE_BY_KIND = _build_note_archetype_lookup()
 
-_SIM_LINE_EXCLUDED_KINDS = frozenset(
-    {NoteKind.ANCHOR, NoteKind.NORM_TICK, NoteKind.CRIT_TICK, NoteKind.HIDE_TICK}
-)
+_SIM_LINE_EXCLUDED_KINDS = frozenset({NoteKind.ANCHOR, NoteKind.NORM_TICK, NoteKind.CRIT_TICK, NoteKind.HIDE_TICK})
 
 
 @dataclass
@@ -130,14 +129,7 @@ class LevelSlide:
     notes: list[LevelNote] = field(default_factory=list)
 
 
-type LevelEntities = (
-    LevelBpmChange
-    | LevelTimescaleGroup
-    | LevelNote
-    | LevelSlide
-    | LevelStage
-    | LevelZoomChange
-)
+type LevelEntities = LevelBpmChange | LevelTimescaleGroup | LevelNote | LevelSlide | LevelStage | LevelZoomChange
 
 
 def _note_archetype_for(kind: NoteKind, is_fake: bool) -> type[PlayArchetype]:
@@ -190,9 +182,7 @@ def build_level(
         if level_group is not None:
             return ts_group_map[id(level_group)]
         if default_ts_group is None:
-            default_level_group = LevelTimescaleGroup(
-                changes=[LevelTimescaleChange(beat=0.0, timescale=1.0)]
-            )
+            default_level_group = LevelTimescaleGroup(changes=[LevelTimescaleChange(beat=0.0, timescale=1.0)])
             default_ts_group, group_entities = _build_timescale_group(default_level_group)
             out_entities.extend(group_entities)
         return default_ts_group
@@ -254,11 +244,9 @@ def build_level(
         head.next_ref = tail.ref()
 
         separator_indices = [
-            i
-            for i, ln in enumerate(slide.notes)
-            if i == 0 or i == len(slide.notes) - 1 or ln.is_separator
+            i for i, ln in enumerate(slide.notes) if i == 0 or i == len(slide.notes) - 1 or ln.is_separator
         ]
-        for a, b in zip(separator_indices, separator_indices[1:]):
+        for a, b in itertools.pairwise(separator_indices):
             seg_head = built[a]
             seg_tail = built[b]
             seg_kind = slide.notes[a].segment_kind
@@ -284,8 +272,7 @@ def build_level(
         note.attach_tail_ref = tail.ref()
         note.is_attached = True
 
-    for level_bpm in bpm_changes:
-        out_entities.append(BpmChange(beat=level_bpm.beat, bpm=level_bpm.bpm))
+    out_entities.extend(BpmChange(beat=level_bpm.beat, bpm=level_bpm.bpm) for level_bpm in bpm_changes)
 
     _emit_sim_lines(note_entities, out_entities)
 
@@ -393,14 +380,11 @@ def _build_stage(level_stage: LevelStage) -> tuple[DynamicStage, list[PlayArchet
     return stage, extra
 
 
-def _build_zoom_changes(
-    level_zooms: list[LevelZoomChange], out_entities: list[PlayArchetype]
-) -> ZoomChange | None:
+def _build_zoom_changes(level_zooms: list[LevelZoomChange], out_entities: list[PlayArchetype]) -> ZoomChange | None:
     if not level_zooms:
         return None
     zoom_entities = [
-        ZoomChange(beat=z.beat, zoom=z.zoom, ease=z.ease)
-        for z in sorted(level_zooms, key=lambda z: z.beat)
+        ZoomChange(beat=z.beat, zoom=z.zoom, ease=z.ease) for z in sorted(level_zooms, key=lambda z: z.beat)
     ]
     _chain_next_refs(zoom_entities)
     out_entities.extend(zoom_entities)
@@ -422,5 +406,5 @@ def _emit_sim_lines(note_entities: list[PlayArchetype], out_entities: list[PlayA
         if len(group) < 2:
             continue
         group.sort(key=lambda n: n.lane)
-        for left, right in zip(group, group[1:]):
+        for left, right in itertools.pairwise(group):
             out_entities.append(SimLine(left_ref=left.ref(), right_ref=right.ref()))
