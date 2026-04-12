@@ -267,7 +267,7 @@ class WatchBaseNote(WatchArchetype):
             draw_note(
                 NoteKind.DAMAGE, self.hitbox_lane, self.hitbox_size, self.progress, self.direction, self.target_time
             )
-        draw_note(self.kind, self.lane, self.size, self.progress, self.direction, self.target_time)
+        draw_note(self.kind, self.visual_lane, self.size, self.progress, self.direction, self.target_time)
 
     def terminate(self):
         if is_skip():
@@ -275,7 +275,16 @@ class WatchBaseNote(WatchArchetype):
         if time() < self.despawn_time():
             return
         if (not is_replay() or self.played_hit_effects) and self.is_scored:
-            play_note_hit_effects(self.kind, self.effect_kind, self.lane, self.size, self.direction, self.judgment)
+            play_note_hit_effects(
+                self.kind, self.effect_kind, self.visual_lane, self.size, self.direction, self.judgment
+            )
+
+    @property
+    def visual_lane(self) -> float:
+        if self.stage_ref.index > 0:
+            return self.stage_ref.get().props.lane + self.rel_lane
+        else:
+            return self.lane
 
     @property
     def progress(self) -> float:

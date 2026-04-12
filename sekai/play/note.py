@@ -372,7 +372,7 @@ class BaseNote(PlayArchetype):
             draw_note(
                 NoteKind.DAMAGE, self.hitbox_lane, self.hitbox_size, self.progress, self.direction, self.target_time
             )
-        draw_note(self.kind, self.lane, self.size, self.progress, self.direction, self.target_time)
+        draw_note(self.kind, self.visual_lane, self.size, self.progress, self.direction, self.target_time)
 
     def should_do_delayed_trigger(self) -> bool:
         # Don't trigger if the previous frame was before the target time.
@@ -410,7 +410,7 @@ class BaseNote(PlayArchetype):
         if self.should_play_hit_effects:
             # We do this here for parallelism, and to reduce compilation time.
             play_note_hit_effects(
-                self.kind, self.effect_kind, self.lane, self.size, self.direction, self.result.judgment
+                self.kind, self.effect_kind, self.visual_lane, self.size, self.direction, self.result.judgment
             )
         if self.is_scored:
             self.result.haptic = get_note_haptic_feedback(self.kind, self.result.judgment)
@@ -718,6 +718,13 @@ class BaseNote(PlayArchetype):
             return remap_clamped(head_frac, tail_frac, head_progress, tail_progress, frac)
         else:
             return progress_to(self.target_scaled_time, group_scaled_time(self.timescale_group))
+
+    @property
+    def visual_lane(self) -> float:
+        if self.stage_ref.index > 0:
+            return self.stage_ref.get().props.lane + self.rel_lane
+        else:
+            return self.lane
 
     @property
     def head_ease_frac(self) -> float:
