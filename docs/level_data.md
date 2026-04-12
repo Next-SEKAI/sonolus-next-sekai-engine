@@ -91,6 +91,7 @@ An event that controls the visual style of a stage.
   * DISABLED = 2
 * **alpha (float)**
 * **laneAlpha (float)**
+* **judgeLineAlpha (float)**
 * **ease (EaseType)**
 * **next (ref?[StageStyleChange])**: A reference to the next **StageStyleChange** event.
 

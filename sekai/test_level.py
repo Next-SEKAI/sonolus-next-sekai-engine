@@ -59,8 +59,9 @@ style_changes = [
         judge_line_color=JudgeLineColor.RED,
         left_border_style=StageBorderStyle.DEFAULT,
         right_border_style=StageBorderStyle.DEFAULT,
-        alpha=0.0,
-        lane_alpha=0.0,
+        alpha=1.0,
+        lane_alpha=1.0,
+        judge_line_alpha=1.0,
         ease=EaseType.LINEAR,
     ),
     *[
@@ -69,8 +70,9 @@ style_changes = [
             judge_line_color=JudgeLineColor.RED if i % 2 == 0 else JudgeLineColor.BLUE,
             left_border_style=StageBorderStyle.DEFAULT,
             right_border_style=StageBorderStyle.DEFAULT,
-            alpha=1.0,
-            lane_alpha=1.0,
+            alpha=0.0 if i % 2 == 0 else 1.0,
+            lane_alpha=0.0,
+            judge_line_alpha=1.0,
             ease=EaseType.IN_OUT_QUAD,
         )
         for i in range(2 * ITERS + 1)

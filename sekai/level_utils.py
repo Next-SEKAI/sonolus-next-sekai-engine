@@ -111,6 +111,7 @@ class LevelStageStyleChange:
     right_border_style: StageBorderStyle
     alpha: float
     lane_alpha: float
+    judge_line_alpha: float
     ease: EaseType = EaseType.LINEAR
 
 
@@ -436,6 +437,7 @@ def _build_stage(level_stage: LevelStage) -> tuple[DynamicStage, list[PlayArchet
             right_border_style=s.right_border_style,
             alpha=s.alpha,
             lane_alpha=s.lane_alpha,
+            judge_line_alpha=s.judge_line_alpha,
             ease=s.ease,
         )
         for s in sorted(level_stage.style_changes, key=lambda c: c.beat)

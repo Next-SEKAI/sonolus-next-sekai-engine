@@ -125,6 +125,7 @@ class WatchStageStyleChange(WatchArchetype, BaseEvent):
     right_border_style: StageBorderStyle = imported(name="rightBorderStyle")
     alpha: float = imported()
     lane_alpha: float = imported(name="laneAlpha")
+    judge_line_alpha: float = imported(name="judgeLineAlpha")
     ease: EaseType = imported()
     next_ref: EntityRef[WatchStageStyleChange] = imported(name="next")
 

@@ -79,6 +79,7 @@ class StageProps(Record):
     order: int
     a: float
     lane_alpha: float
+    judge_line_alpha: float
     y_offset: float
 
     def draw(self):
@@ -93,6 +94,7 @@ class StageProps(Record):
             order=self.order,
             a=self.a,
             lane_alpha=self.lane_alpha,
+            judge_line_alpha=self.judge_line_alpha,
             y_offset=self.y_offset,
         )
 
@@ -134,6 +136,7 @@ class StageStyleChangeLike(Protocol):
     right_border_style: StageBorderStyle
     alpha: float
     lane_alpha: float
+    judge_line_alpha: float
     ease: EaseType
     next_ref: EntityRef
 
@@ -253,6 +256,7 @@ def get_stage_props(stage: DynamicStageLike, target_time: float | None = None) -
         result.right_border_style.end = style_a.right_border_style
         result.a = style_a.alpha
         result.lane_alpha = style_a.lane_alpha
+        result.judge_line_alpha = style_a.judge_line_alpha
         if style_b_ref.index > 0:
             style_b = style_b_ref.get_as(_stage_style_change_archetype())
             t_a = style_a.time
@@ -267,6 +271,7 @@ def get_stage_props(stage: DynamicStageLike, target_time: float | None = None) -
                 result.right_border_style.progress = p
                 result.a = lerp(style_a.alpha, style_b.alpha, p)
                 result.lane_alpha = lerp(style_a.lane_alpha, style_b.lane_alpha, p)
+                result.judge_line_alpha = lerp(style_a.judge_line_alpha, style_b.judge_line_alpha, p)
     elif style_b_ref.index > 0:
         style_b = style_b_ref.get_as(_stage_style_change_archetype())
         result.judge_line_color.start = style_b.judge_line_color
@@ -277,6 +282,7 @@ def get_stage_props(stage: DynamicStageLike, target_time: float | None = None) -
         result.right_border_style.end = style_b.right_border_style
         result.a = style_b.alpha
         result.lane_alpha = style_b.lane_alpha
+        result.judge_line_alpha = style_b.judge_line_alpha
 
     return result
 
@@ -352,6 +358,7 @@ def draw_dynamic_stage(
     order: int,
     a: float,
     lane_alpha: float = 1,
+    judge_line_alpha: float = 1,
     y_offset: float = 0,
 ):
     division = normalize_transition(division)
@@ -559,8 +566,9 @@ def draw_dynamic_stage(
             if p_div > 0:
                 draw_dividers(division.end.size, division.end.parity, pivot_lane, z_lane1, la * p_div)
 
+    ja = a * judge_line_alpha
     ActiveSkin.judgment_background.draw(
-        perspective_rect(l, r, 1 - DynamicLayout.note_h, 1 + DynamicLayout.note_h, travel), z=z_bg1, a=a
+        perspective_rect(l, r, 1 - DynamicLayout.note_h, 1 + DynamicLayout.note_h, travel), z=z_bg1, a=ja
     )
 
     p_left = left_border_style.progress
@@ -572,64 +580,64 @@ def draw_dynamic_stage(
     judgment_dividers_same = start_has_half_offset == end_has_half_offset
 
     if judgment_dividers_same and sprites_same:
-        draw_judgment_dividers(sprites_a, start_has_half_offset, pivot_lane, z_a0, z_a1, a)
+        draw_judgment_dividers(sprites_a, start_has_half_offset, pivot_lane, z_a0, z_a1, ja)
     elif judgment_dividers_same:
-        draw_judgment_dividers(sprites_a, start_has_half_offset, pivot_lane, z_a0, z_a1, a * (1 - p_sprites))
-        draw_judgment_dividers(sprites_b, start_has_half_offset, pivot_lane, z_b0, z_b1, a * p_sprites)
+        draw_judgment_dividers(sprites_a, start_has_half_offset, pivot_lane, z_a0, z_a1, ja * (1 - p_sprites))
+        draw_judgment_dividers(sprites_b, start_has_half_offset, pivot_lane, z_b0, z_b1, ja * p_sprites)
     elif sprites_same:
-        draw_judgment_dividers(sprites_a, start_has_half_offset, pivot_lane, z_a0, z_a1, a * (1 - p_div))
-        draw_judgment_dividers(sprites_a, end_has_half_offset, pivot_lane, z_a2, z_a3, a * p_div)
+        draw_judgment_dividers(sprites_a, start_has_half_offset, pivot_lane, z_a0, z_a1, ja * (1 - p_div))
+        draw_judgment_dividers(sprites_a, end_has_half_offset, pivot_lane, z_a2, z_a3, ja * p_div)
     else:
         alpha_aa = (1 - p_sprites) * (1 - p_div)
         alpha_ab = (1 - p_sprites) * p_div
         alpha_ba = p_sprites * (1 - p_div)
         alpha_bb = p_sprites * p_div
         if alpha_aa > 0:
-            draw_judgment_dividers(sprites_a, start_has_half_offset, pivot_lane, z_a0, z_a1, a * alpha_aa)
+            draw_judgment_dividers(sprites_a, start_has_half_offset, pivot_lane, z_a0, z_a1, ja * alpha_aa)
         if alpha_ab > 0:
-            draw_judgment_dividers(sprites_a, end_has_half_offset, pivot_lane, z_a2, z_a3, a * alpha_ab)
+            draw_judgment_dividers(sprites_a, end_has_half_offset, pivot_lane, z_a2, z_a3, ja * alpha_ab)
         if alpha_ba > 0:
-            draw_judgment_dividers(sprites_b, start_has_half_offset, pivot_lane, z_b0, z_b1, a * alpha_ba)
+            draw_judgment_dividers(sprites_b, start_has_half_offset, pivot_lane, z_b0, z_b1, ja * alpha_ba)
         if alpha_bb > 0:
-            draw_judgment_dividers(sprites_b, end_has_half_offset, pivot_lane, z_b2, z_b3, a * alpha_bb)
+            draw_judgment_dividers(sprites_b, end_has_half_offset, pivot_lane, z_b2, z_b3, ja * alpha_bb)
 
     if sprites_same:
-        draw_gradient(sprites_a, z_a4, a)
+        draw_gradient(sprites_a, z_a4, ja)
     else:
-        draw_gradient(sprites_a, z_a4, a * (1 - p_sprites))
-        draw_gradient(sprites_b, z_b4, a * p_sprites)
+        draw_gradient(sprites_a, z_a4, ja * (1 - p_sprites))
+        draw_gradient(sprites_b, z_b4, ja * p_sprites)
 
     if sprites_same and left_border_style.start == left_border_style.end:
-        draw_left_judgment_border(sprites_a, left_border_style.start, z_a0, a)
+        draw_left_judgment_border(sprites_a, left_border_style.start, z_a0, ja)
     else:
         alpha_aa = (1 - p_sprites) * (1 - p_left)
         alpha_ab = (1 - p_sprites) * p_left
         alpha_ba = p_sprites * (1 - p_left)
         alpha_bb = p_sprites * p_left
         if alpha_aa > 0:
-            draw_left_judgment_border(sprites_a, left_border_style.start, z_a0, a * alpha_aa)
+            draw_left_judgment_border(sprites_a, left_border_style.start, z_a0, ja * alpha_aa)
         if alpha_ab > 0:
-            draw_left_judgment_border(sprites_a, left_border_style.end, z_a2, a * alpha_ab)
+            draw_left_judgment_border(sprites_a, left_border_style.end, z_a2, ja * alpha_ab)
         if alpha_ba > 0:
-            draw_left_judgment_border(sprites_b, left_border_style.start, z_b0, a * alpha_ba)
+            draw_left_judgment_border(sprites_b, left_border_style.start, z_b0, ja * alpha_ba)
         if alpha_bb > 0:
-            draw_left_judgment_border(sprites_b, left_border_style.end, z_b2, a * alpha_bb)
+            draw_left_judgment_border(sprites_b, left_border_style.end, z_b2, ja * alpha_bb)
 
     if sprites_same and right_border_style.start == right_border_style.end:
-        draw_right_judgment_border(sprites_a, right_border_style.start, z_a0, a)
+        draw_right_judgment_border(sprites_a, right_border_style.start, z_a0, ja)
     else:
         alpha_aa = (1 - p_sprites) * (1 - p_right)
         alpha_ab = (1 - p_sprites) * p_right
         alpha_ba = p_sprites * (1 - p_right)
         alpha_bb = p_sprites * p_right
         if alpha_aa > 0:
-            draw_right_judgment_border(sprites_a, right_border_style.start, z_a0, a * alpha_aa)
+            draw_right_judgment_border(sprites_a, right_border_style.start, z_a0, ja * alpha_aa)
         if alpha_ab > 0:
-            draw_right_judgment_border(sprites_a, right_border_style.end, z_a2, a * alpha_ab)
+            draw_right_judgment_border(sprites_a, right_border_style.end, z_a2, ja * alpha_ab)
         if alpha_ba > 0:
-            draw_right_judgment_border(sprites_b, right_border_style.start, z_b0, a * alpha_ba)
+            draw_right_judgment_border(sprites_b, right_border_style.start, z_b0, ja * alpha_ba)
         if alpha_bb > 0:
-            draw_right_judgment_border(sprites_b, right_border_style.end, z_b2, a * alpha_bb)
+            draw_right_judgment_border(sprites_b, right_border_style.end, z_b2, ja * alpha_bb)
 
 
 def draw_fallback_stage(
