@@ -132,6 +132,43 @@ class LevelSlide:
 type LevelEntities = LevelBpmChange | LevelTimescaleGroup | LevelNote | LevelSlide | LevelStage | LevelZoomChange
 
 
+def _apply_ease(ease_type: EaseType, x: float) -> float:
+    x = max(0.0, min(1.0, x))
+    if ease_type == EaseType.NONE:
+        return 0.0 if x < 1.0 else 1.0
+    if ease_type == EaseType.LINEAR:
+        return x
+    if ease_type == EaseType.IN_QUAD:
+        return x * x
+    if ease_type == EaseType.OUT_QUAD:
+        return 1.0 - (1.0 - x) * (1.0 - x)
+    if ease_type == EaseType.IN_OUT_QUAD:
+        return 2.0 * x * x if x < 0.5 else 1.0 - (-2.0 * x + 2.0) ** 2 / 2.0
+    if ease_type == EaseType.OUT_IN_QUAD:
+        return (1.0 - (1.0 - 2.0 * x) ** 2) / 2.0 if x < 0.5 else 0.5 + ((2.0 * x - 1.0) ** 2) / 2.0
+    return x
+
+
+def _pivot_lane_at(level_stage: LevelStage, beat: float) -> float:
+    pivots = sorted(level_stage.pivot_changes, key=lambda p: p.beat)
+    if not pivots:
+        return 0.0
+    pivot_a: LevelStagePivotChange | None = None
+    pivot_b: LevelStagePivotChange | None = None
+    for p in pivots:
+        if p.beat <= beat:
+            pivot_a = p
+        else:
+            pivot_b = p
+            break
+    if pivot_a is None:
+        return pivots[0].lane
+    if pivot_b is None or pivot_b.beat == pivot_a.beat:
+        return pivot_a.lane
+    frac = _apply_ease(pivot_b.ease, (beat - pivot_a.beat) / (pivot_b.beat - pivot_a.beat))
+    return pivot_a.lane + (pivot_b.lane - pivot_a.lane) * frac
+
+
 def _note_archetype_for(kind: NoteKind, is_fake: bool) -> type[PlayArchetype]:
     key = (kind, is_fake)
     if key not in _NOTE_ARCHETYPE_BY_KIND and is_fake:
@@ -201,9 +238,16 @@ def build_level(
     def emit_note(level_note: LevelNote, force_separator: bool = False) -> PlayArchetype:
         ts_group = resolve_ts_group(level_note.timescale_group)
         archetype_cls = _note_archetype_for(level_note.kind, level_note.is_fake)
+        if level_note.stage is not None:
+            pivot_lane = _pivot_lane_at(level_note.stage, level_note.beat)
+            abs_lane = pivot_lane + level_note.lane
+            rel_lane = level_note.lane
+        else:
+            abs_lane = level_note.lane
+            rel_lane = 0.0
         kwargs: dict[str, object] = {
             "beat": level_note.beat,
-            "lane": level_note.lane,
+            "lane": abs_lane,
             "size": level_note.size,
             "direction": level_note.direction,
             "connector_ease": level_note.connector_ease,
@@ -215,6 +259,7 @@ def build_level(
         }
         if level_note.stage is not None:
             kwargs["stage_ref"] = stage_map[id(level_note.stage)].ref()
+            kwargs["rel_lane"] = rel_lane
         note = archetype_cls(**kwargs)
         note_entities.append(note)
         out_entities.append(note)

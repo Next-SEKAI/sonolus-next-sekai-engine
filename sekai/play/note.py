@@ -723,7 +723,7 @@ class BaseNote(PlayArchetype):
     @property
     def visual_lane(self) -> float:
         if self.stage_ref.index > 0:
-            return self.stage_ref.get().props.lane + self.rel_lane
+            return self.stage_ref.get().props.pivot_lane + self.rel_lane
         else:
             return self.lane
 
