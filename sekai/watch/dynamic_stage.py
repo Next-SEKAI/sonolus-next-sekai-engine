@@ -75,6 +75,9 @@ class WatchDynamicStage(WatchArchetype):
     def update_sequential(self):
         self.props @= get_stage_props(self)
 
+    def update_parallel(self):
+        self.props.draw()
+
 
 class WatchStageMaskChange(WatchArchetype, BaseEvent):
     name = archetype_names.STAGE_MASK_CHANGE

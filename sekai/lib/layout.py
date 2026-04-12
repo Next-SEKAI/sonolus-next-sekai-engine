@@ -170,12 +170,12 @@ def transformed_vec_at(lane: float, travel: float = 1.0) -> Vec2:
     return transform_vec(Vec2(lane * travel, travel))
 
 
-def touch_to_lane(pos: Vec2, pivot_lane: float = 0) -> float:
+def touch_to_lane(pos: Vec2) -> float:
     if Options.hitbox_mode == HitboxMode.VERTICAL:
         return pos.x / DynamicLayout.w_scale
     y_raw = (pos.y - DynamicLayout.t) / DynamicLayout.h_scale
     x_raw = pos.x / DynamicLayout.w_scale
-    return pivot_lane + (x_raw - pivot_lane) / y_raw
+    return x_raw / y_raw
 
 
 def perspective_vec(x: float, y: float, travel: float = 1.0) -> Vec2:

@@ -81,6 +81,21 @@ class StageProps(Record):
     lane_alpha: float
     y_offset: float
 
+    def draw(self):
+        draw_dynamic_stage(
+            lane=self.lane,
+            width=self.width,
+            pivot_lane=self.pivot_lane,
+            division=self.division,
+            judge_line_color=self.judge_line_color,
+            left_border_style=self.left_border_style,
+            right_border_style=self.right_border_style,
+            order=self.order,
+            a=self.a,
+            lane_alpha=self.lane_alpha,
+            y_offset=self.y_offset,
+        )
+
 
 class StageMaskChangeLike(Protocol):
     time: float

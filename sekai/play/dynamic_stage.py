@@ -9,12 +9,14 @@ from sonolus.script.archetype import (
     imported,
     shared_memory,
 )
-from sonolus.script.runtime import time
+from sonolus.script.interval import clamp
+from sonolus.script.runtime import time, touches
 from sonolus.script.timing import beat_to_time
 
 from sekai.lib import archetype_names
 from sekai.lib.baseevent import BaseEvent, init_event_list
 from sekai.lib.ease import EaseType
+from sekai.lib.layout import layout_hitbox, touch_to_lane
 from sekai.lib.level_config import LevelConfig
 from sekai.lib.stage import (
     DivisionParity,
@@ -24,7 +26,11 @@ from sekai.lib.stage import (
     get_end_time,
     get_stage_props,
     get_start_time,
+    play_lane_hit_effects,
 )
+from sekai.play import input_manager
+from sekai.play.common import PlayLevelMemory
+from sekai.play.static_stage import StageMemory
 
 
 class ZoomChange(PlayArchetype, BaseEvent):
@@ -84,6 +90,44 @@ class DynamicStage(PlayArchetype):
             self.despawn = True
             return
         self.props @= get_stage_props(self)
+
+    @callback(order=2)
+    def touch(self):
+        p = self.props
+        half_offset = p.division.start.parity == DivisionParity.ODD and p.division.start.size % 2 == 1
+        lo = p.lane - p.width + 0.5
+        hi = p.lane + p.width - 0.5
+        total_hitbox = layout_hitbox(p.lane - p.width, p.lane + p.width)
+        empty_lanes = StageMemory.empty_lanes
+        for touch in touches():
+            if not total_hitbox.contains_point(touch.position):
+                continue
+            if not input_manager.is_allowed_empty(touch):
+                continue
+            lane = touch_to_lane(touch.position)
+            rel = lane - p.pivot_lane
+            if half_offset:
+                rounded_lane = clamp(p.pivot_lane + round(rel), lo, hi)
+            else:
+                rounded_lane = clamp(p.pivot_lane + round(rel - 0.5) + 0.5, lo, hi)
+            if touch.started:
+                play_lane_hit_effects(rounded_lane, sfx=time() > PlayLevelMemory.last_note_sfx_time + 0.6)
+                if not empty_lanes.is_full():
+                    empty_lanes.append(rounded_lane)
+            else:
+                prev_lane = touch_to_lane(touch.prev_position)
+                prev_rel = prev_lane - p.pivot_lane
+                if half_offset:
+                    prev_rounded_lane = clamp(p.pivot_lane + round(prev_rel), lo, hi)
+                else:
+                    prev_rounded_lane = clamp(p.pivot_lane + round(prev_rel - 0.5) + 0.5, lo, hi)
+                if rounded_lane != prev_rounded_lane:
+                    play_lane_hit_effects(rounded_lane, sfx=time() > PlayLevelMemory.last_note_sfx_time + 0.6)
+                    if not empty_lanes.is_full():
+                        empty_lanes.append(rounded_lane)
+
+    def update_parallel(self):
+        self.props.draw()
 
 
 class StageMaskChange(PlayArchetype, BaseEvent):

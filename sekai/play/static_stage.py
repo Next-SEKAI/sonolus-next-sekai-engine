@@ -1,6 +1,7 @@
 from sonolus.script.archetype import PlayArchetype, callback
 from sonolus.script.array import Dim
 from sonolus.script.containers import VarArray
+from sonolus.script.globals import level_memory
 from sonolus.script.interval import clamp
 from sonolus.script.runtime import offset_adjusted_time, time, touches
 
@@ -9,8 +10,13 @@ from sekai.lib.layout import layout_hitbox, refresh_layout, touch_to_lane
 from sekai.lib.level_config import LevelConfig
 from sekai.lib.stage import draw_stage_and_accessories, play_lane_hit_effects
 from sekai.lib.streams import Streams
+from sekai.play import input_manager
 from sekai.play.common import PlayLevelMemory
-from sekai.play.input_manager import is_allowed_empty
+
+
+@level_memory
+class StageMemory:
+    empty_lanes: VarArray[float, Dim[16]]
 
 
 class StaticStage(PlayArchetype):
@@ -26,16 +32,20 @@ class StaticStage(PlayArchetype):
     def update_sequential(self):
         refresh_layout()
 
-    @callback(order=2)
+    @callback(order=3)
     def touch(self):
+        empty_lanes = StageMemory.empty_lanes
         if LevelConfig.dynamic_stages:
+            if len(empty_lanes) > 0:
+                Streams.empty_input_lanes[offset_adjusted_time()] = empty_lanes
+                empty_lanes.clear()
             return
+        empty_lanes.clear()
         total_hitbox = layout_hitbox(-7, 7)
-        empty_lanes = VarArray[float, Dim[16]].new()
         for touch in touches():
             if not total_hitbox.contains_point(touch.position):
                 continue
-            if not is_allowed_empty(touch):
+            if not input_manager.is_allowed_empty(touch):
                 continue
             lane = touch_to_lane(touch.position)
             rounded_lane = clamp(round(lane - 0.5) + 0.5, -5.5, 5.5)
