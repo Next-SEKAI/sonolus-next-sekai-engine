@@ -8,7 +8,7 @@ from sonolus.script.globals import level_data, level_memory
 from sonolus.script.interval import clamp, lerp, remap, unlerp
 from sonolus.script.num import Num
 from sonolus.script.quad import Quad, QuadLike, Rect
-from sonolus.script.runtime import aspect_ratio, screen, time
+from sonolus.script.runtime import aspect_ratio, is_play, is_watch, screen, time
 from sonolus.script.values import swap
 from sonolus.script.vec import Vec2
 
@@ -149,7 +149,10 @@ def get_zoom(target_time: float | None = None) -> float:
 
 
 def refresh_layout():
-    zoom = get_zoom()
+    if is_play() or is_watch():
+        zoom = get_zoom()
+    else:
+        zoom = 1.0
 
     t = Layout.field_h * (0.5 + 1.15875 * (47 / 1176))
     b = Layout.field_h * (0.5 - 1.15875 * (803 / 1176))
