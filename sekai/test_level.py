@@ -5,6 +5,7 @@ from sekai.level_utils import (
     LevelStageMaskChange,
     LevelStagePivotChange,
     LevelStageStyleChange,
+    LevelZoomChange,
     build_level,
 )
 from sekai.lib.ease import EaseType
@@ -83,9 +84,22 @@ stage = LevelStage(
     style_changes=style_changes,
 )
 
+zoom_changes = [
+    LevelZoomChange(beat=0.0, zoom=1.0, ease=EaseType.LINEAR),
+    *[
+        LevelZoomChange(
+            beat=float(i) + 2.0,
+            zoom=0.6 if i % 2 == 0 else 1.0,
+            ease=EaseType.IN_OUT_QUAD,
+        )
+        for i in range(2 * ITERS + 1)
+    ],
+]
+
 entities = [
     LevelBpmChange(beat=0.0, bpm=60.0),
     stage,
+    *zoom_changes,
     *[
         LevelNote(beat=4.0 + i / 2.0, lane=0.0, size=2.0, kind=NoteKind.CRIT_FLICK, stage=stage)
         for i in range((2 * ITERS + 2 - 4) * 2 + 1)
