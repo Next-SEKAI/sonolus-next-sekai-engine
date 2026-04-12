@@ -1,16 +1,20 @@
 from enum import IntEnum
 from math import atan, ceil, floor, log, pi
-from typing import assert_never
+from typing import Protocol, assert_never, cast
 
+from sonolus.script.archetype import EntityRef, get_archetype_by_name
 from sonolus.script.debug import static_error
 from sonolus.script.globals import level_data, level_memory
 from sonolus.script.interval import clamp, lerp, remap, unlerp
 from sonolus.script.num import Num
 from sonolus.script.quad import Quad, QuadLike, Rect
-from sonolus.script.runtime import aspect_ratio, screen
+from sonolus.script.runtime import aspect_ratio, screen, time
 from sonolus.script.values import swap
 from sonolus.script.vec import Vec2
 
+from sekai.lib import archetype_names
+from sekai.lib.baseevent import query_event_list
+from sekai.lib.ease import EaseType, ease
 from sekai.lib.options import HitboxMode, Options
 from sekai.lib.timescale import CompositeTime
 
@@ -94,8 +98,58 @@ def init_layout():
     Layout.flick_speed_threshold = 2 * DynamicLayout.w_scale
 
 
+class ZoomChangeLike(Protocol):
+    time: float
+    zoom: float
+    ease: EaseType
+    next_ref: EntityRef
+
+    @classmethod
+    def at(cls, index: int) -> ZoomChangeLike: ...
+
+    @property
+    def index(self) -> int: ...
+
+
+class InitializationLike(Protocol):
+    first_zoom_ref: EntityRef
+
+    @classmethod
+    def at(cls, index: int) -> InitializationLike: ...
+
+
+def _zoom_change_archetype() -> type[ZoomChangeLike]:
+    return cast(type[ZoomChangeLike], get_archetype_by_name(archetype_names.ZOOM_CHANGE))
+
+
+def _initialization_archetype() -> type[InitializationLike]:
+    return cast(type[InitializationLike], get_archetype_by_name(archetype_names.INITIALIZATION))
+
+
+def get_zoom(target_time: float | None = None) -> float:
+    first_zoom_ref = _initialization_archetype().at(0).first_zoom_ref
+    if first_zoom_ref.index <= 0:
+        return 1.0
+    t = time() if target_time is None else target_time
+    zoom_a_ref, zoom_b_ref = query_event_list(first_zoom_ref, t, lambda e: e.time)
+    zoom_archetype = _zoom_change_archetype()
+    if zoom_a_ref.index > 0:
+        zoom_a = zoom_a_ref.get_as(zoom_archetype)
+        if zoom_b_ref.index > 0:
+            zoom_b = zoom_b_ref.get_as(zoom_archetype)
+            t_a = zoom_a.time
+            t_b = zoom_b.time
+            if t_b > t_a:
+                p = ease(zoom_b.ease, (t - t_a) / (t_b - t_a))
+                return lerp(zoom_a.zoom, zoom_b.zoom, p)
+        return zoom_a.zoom
+    if zoom_b_ref.index > 0:
+        return zoom_b_ref.get_as(zoom_archetype).zoom
+    return 1.0
+
+
 def refresh_layout():
-    zoom = 1
+    zoom = get_zoom()
 
     t = Layout.field_h * (0.5 + 1.15875 * (47 / 1176))
     b = Layout.field_h * (0.5 - 1.15875 * (803 / 1176))
