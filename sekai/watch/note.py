@@ -149,7 +149,7 @@ class WatchBaseNote(WatchArchetype):
                     schedule_note_sfx(self.effect_kind, self.judgment, self.end_time)
                 schedule_note_slot_effects(
                     self.kind,
-                    self.lane,
+                    self._visual_lane_at(self.end_time),
                     self.size,
                     self.end_time,
                     self.direction,
@@ -164,7 +164,7 @@ class WatchBaseNote(WatchArchetype):
                 schedule_note_sfx(self.effect_kind, Judgment.PERFECT, self.target_time)
                 schedule_note_slot_effects(
                     self.kind,
-                    self.lane,
+                    self._visual_lane_at(self.target_time),
                     self.size,
                     self.target_time,
                     self.direction,
@@ -319,6 +319,11 @@ class WatchBaseNote(WatchArchetype):
                 pivot_lane=self.visual_pivot_lane,
                 half_offset=self.visual_half_offset,
             )
+
+    def _visual_lane_at(self, t: float) -> float:
+        if self.stage_ref.index <= 0:
+            return self.lane
+        return get_stage_props(self.stage_ref.get(), t).pivot_lane + self.rel_lane
 
     def _stage_y_offset_at(self, t: float) -> float:
         if self.stage_ref.index <= 0:

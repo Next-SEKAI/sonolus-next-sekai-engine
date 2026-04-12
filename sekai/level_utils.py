@@ -365,7 +365,7 @@ def build_level(
         bgm=bgm if bgm is not None else _build_silent_wav(),
         data=LevelData(
             bgm_offset=0.0,
-            entities=sorted_entities,
+            entities=list(sorted_entities),
         ),
     )
 

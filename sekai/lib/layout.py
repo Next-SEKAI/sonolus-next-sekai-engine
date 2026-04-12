@@ -618,8 +618,9 @@ def layout_hitbox(
 
 
 def iter_slot_lanes(lane: float, size: float, pivot_lane: float = 0.0, half_offset: bool = False):
+    e = 1e-6
     offset = 0.0 if half_offset else 0.5
     shift = pivot_lane + offset - 0.5
     shifted_lane = lane - shift
-    for i in range(floor(shifted_lane - size), ceil(shifted_lane + size)):
+    for i in range(floor(shifted_lane - size + e), ceil(shifted_lane + size - e)):
         yield i + 0.5 + shift
