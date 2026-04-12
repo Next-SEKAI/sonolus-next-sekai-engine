@@ -96,7 +96,7 @@ class DynamicStage(PlayArchetype):
     @callback(order=2)
     def touch(self):
         p = self.props
-        if p.a < 1:
+        if p.a < 1 or p.lane_alpha < 1:
             return
         half_offset = p.division.start.parity == DivisionParity.ODD and p.division.start.size % 2 == 1
         lo = p.lane - p.width + 0.5
