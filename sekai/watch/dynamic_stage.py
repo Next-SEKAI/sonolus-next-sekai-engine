@@ -9,6 +9,7 @@ from sonolus.script.archetype import (
     imported,
     shared_memory,
 )
+from sonolus.script.runtime import time
 from sonolus.script.timing import beat_to_time
 
 from sekai.lib import archetype_names
@@ -20,6 +21,8 @@ from sekai.lib.stage import (
     JudgeLineColor,
     StageBorderStyle,
     StageProps,
+    get_draw_end_time,
+    get_draw_start_time,
     get_end_time,
     get_stage_props,
     get_start_time,
@@ -46,12 +49,15 @@ class WatchDynamicStage(WatchArchetype):
     name = archetype_names.STAGE
 
     from_start: bool = imported(name="fromStart")
+    until_end: bool = imported(name="untilEnd")
     first_mask_change_ref: EntityRef[WatchStageMaskChange] = imported(name="firstMaskChange")
     first_pivot_change_ref: EntityRef[WatchStagePivotChange] = imported(name="firstPivotChange")
     first_style_change_ref: EntityRef[WatchStageStyleChange] = imported(name="firstStyleChange")
 
     start_time: float = entity_data()
     end_time: float = entity_data()
+    draw_start_time: float = entity_data()
+    draw_end_time: float = entity_data()
 
     props: StageProps = shared_memory()
 
@@ -64,6 +70,8 @@ class WatchDynamicStage(WatchArchetype):
         init_event_list(self.first_style_change_ref)
         self.start_time = get_start_time(self)
         self.end_time = get_end_time(self)
+        self.draw_start_time = get_draw_start_time(self)
+        self.draw_end_time = get_draw_end_time(self)
 
     def spawn_time(self) -> float:
         return self.start_time
@@ -76,6 +84,9 @@ class WatchDynamicStage(WatchArchetype):
         self.props @= get_stage_props(self)
 
     def update_parallel(self):
+        t = time()
+        if t < self.draw_start_time or t > self.draw_end_time:
+            return
         self.props.draw()
 
 

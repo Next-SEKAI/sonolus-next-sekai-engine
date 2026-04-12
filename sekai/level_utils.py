@@ -119,6 +119,7 @@ class LevelStageStyleChange:
 @dataclass
 class LevelStage:
     from_start: bool = False
+    until_end: bool = False
     mask_changes: list[LevelStageMaskChange] = field(default_factory=list)
     pivot_changes: list[LevelStagePivotChange] = field(default_factory=list)
     style_changes: list[LevelStageStyleChange] = field(default_factory=list)
@@ -394,7 +395,7 @@ def _build_timescale_group(
 
 
 def _build_stage(level_stage: LevelStage) -> tuple[DynamicStage, list[PlayArchetype]]:
-    stage = DynamicStage(from_start=level_stage.from_start)
+    stage = DynamicStage(from_start=level_stage.from_start, until_end=level_stage.until_end)
     extra: list[PlayArchetype] = [stage]
 
     mask_events = [

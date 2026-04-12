@@ -36,6 +36,7 @@ class PreviewDynamicStage(PreviewArchetype):
     name = archetype_names.STAGE
 
     from_start: bool = imported(name="fromStart")
+    until_end: bool = imported(name="untilEnd")
     first_mask_change_ref: EntityRef[PreviewStageMaskChange] = imported(name="firstMaskChange")
     first_pivot_change_ref: EntityRef[PreviewStagePivotChange] = imported(name="firstPivotChange")
     first_style_change_ref: EntityRef[PreviewStageStyleChange] = imported(name="firstStyleChange")

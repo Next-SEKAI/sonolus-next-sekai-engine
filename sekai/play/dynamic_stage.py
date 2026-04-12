@@ -25,6 +25,8 @@ from sekai.lib.stage import (
     JudgeLineColor,
     StageBorderStyle,
     StageProps,
+    get_draw_end_time,
+    get_draw_start_time,
     get_end_time,
     get_stage_props,
     get_start_time,
@@ -61,12 +63,15 @@ class DynamicStage(PlayArchetype):
     name = archetype_names.STAGE
 
     from_start: bool = imported(name="fromStart")
+    until_end: bool = imported(name="untilEnd")
     first_mask_change_ref: EntityRef[StageMaskChange] = imported(name="firstMaskChange")
     first_pivot_change_ref: EntityRef[StagePivotChange] = imported(name="firstPivotChange")
     first_style_change_ref: EntityRef[StageStyleChange] = imported(name="firstStyleChange")
 
     start_time: float = entity_data()
     end_time: float = entity_data()
+    draw_start_time: float = entity_data()
+    draw_end_time: float = entity_data()
 
     props: StageProps = shared_memory()
 
@@ -79,6 +84,8 @@ class DynamicStage(PlayArchetype):
         init_event_list(self.first_style_change_ref)
         self.start_time = get_start_time(self)
         self.end_time = get_end_time(self)
+        self.draw_start_time = get_draw_start_time(self)
+        self.draw_end_time = get_draw_end_time(self)
 
     def spawn_order(self) -> float:
         return self.start_time
@@ -88,13 +95,15 @@ class DynamicStage(PlayArchetype):
 
     @callback(order=-1)
     def update_sequential(self):
+        self.props @= get_stage_props(self)
         if time() >= self.end_time:
             self.despawn = True
-            return
-        self.props @= get_stage_props(self)
 
     @callback(order=2)
     def touch(self):
+        t = time()
+        if t < self.draw_start_time or t > self.draw_end_time:
+            return
         p = self.props
         if p.a < 1 or p.lane_alpha < 1:
             return
@@ -139,6 +148,9 @@ class DynamicStage(PlayArchetype):
                         empty_lanes.append(rounded_lane)
 
     def update_parallel(self):
+        t = time()
+        if t < self.draw_start_time or t > self.draw_end_time:
+            return
         self.props.draw()
 
 

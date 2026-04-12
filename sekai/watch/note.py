@@ -175,6 +175,11 @@ class WatchBaseNote(WatchArchetype):
 
         self.result.target_time = self.target_time
 
+        if self.stage_ref.index > 0:
+            stage = self.stage_ref.get()
+            stage.start_time = min(stage.start_time, self.start_time - 1.0)
+            stage.end_time = max(stage.end_time, self.target_time + 1.0)
+
     def spawn_time(self) -> float:
         if DISABLE_NOTES or self.kind == NoteKind.ANCHOR:
             return 1e8

@@ -149,6 +149,7 @@ class StageStyleChangeLike(Protocol):
 
 class DynamicStageLike(Protocol):
     from_start: bool
+    until_end: bool
     first_mask_change_ref: EntityRef
     first_pivot_change_ref: EntityRef
     first_style_change_ref: EntityRef
@@ -172,18 +173,45 @@ def _stage_style_change_archetype() -> type[StageStyleChangeLike]:
 def get_start_time(stage: DynamicStageLike) -> float:
     if stage.from_start:
         return -1e8
-    first_ref = stage.first_mask_change_ref
-    if first_ref.index > 0:
-        return get_event_as(first_ref, _stage_mask_change_archetype()).time
-    return -1e8
+    result = 1e8
+    if stage.first_mask_change_ref.index > 0:
+        result = min(result, get_event_as(stage.first_mask_change_ref, _stage_mask_change_archetype()).time)
+    if stage.first_pivot_change_ref.index > 0:
+        result = min(result, get_event_as(stage.first_pivot_change_ref, _stage_pivot_change_archetype()).time)
+    if stage.first_style_change_ref.index > 0:
+        result = min(result, get_event_as(stage.first_style_change_ref, _stage_style_change_archetype()).time)
+    return result
 
 
 def get_end_time(stage: DynamicStageLike) -> float:
-    first_ref = stage.first_mask_change_ref
-    if first_ref.index <= 0:
+    if stage.until_end:
+        return 1e8
+    result = -1e8
+    if stage.first_mask_change_ref.index > 0:
+        last_ref, _ = query_event_list(stage.first_mask_change_ref, 1e8, lambda e: e.time)
+        result = max(result, get_event_as(last_ref, _stage_mask_change_archetype()).time)
+    if stage.first_pivot_change_ref.index > 0:
+        last_ref, _ = query_event_list(stage.first_pivot_change_ref, 1e8, lambda e: e.time)
+        result = max(result, get_event_as(last_ref, _stage_pivot_change_archetype()).time)
+    if stage.first_style_change_ref.index > 0:
+        last_ref, _ = query_event_list(stage.first_style_change_ref, 1e8, lambda e: e.time)
+        result = max(result, get_event_as(last_ref, _stage_style_change_archetype()).time)
+    return result
+
+
+def get_draw_start_time(stage: DynamicStageLike) -> float:
+    if stage.from_start:
         return -1e8
-    last_ref, _ = query_event_list(first_ref, 1e8, lambda e: e.time)
-    if last_ref.index > 0:
+    if stage.first_mask_change_ref.index > 0:
+        return get_event_as(stage.first_mask_change_ref, _stage_mask_change_archetype()).time
+    return 1e8
+
+
+def get_draw_end_time(stage: DynamicStageLike) -> float:
+    if stage.until_end:
+        return 1e8
+    if stage.first_mask_change_ref.index > 0:
+        last_ref, _ = query_event_list(stage.first_mask_change_ref, 1e8, lambda e: e.time)
         return get_event_as(last_ref, _stage_mask_change_archetype()).time
     return -1e8
 
