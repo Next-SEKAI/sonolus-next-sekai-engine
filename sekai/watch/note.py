@@ -39,7 +39,7 @@ from sekai.lib.note import (
     schedule_note_slot_effects,
 )
 from sekai.lib.options import Options
-from sekai.lib.stage import get_stage_props
+from sekai.lib.stage import DivisionParity, get_stage_props
 from sekai.lib.timescale import (
     CompositeTime,
     group_hide_notes,
@@ -154,6 +154,8 @@ class WatchBaseNote(WatchArchetype):
                     self.end_time,
                     self.direction,
                     y_offset=self._stage_y_offset_at(self.end_time),
+                    pivot_lane=self._stage_pivot_lane_at(self.end_time),
+                    half_offset=self._stage_half_offset_at(self.end_time),
                 )
             self.result.bucket_value = self.accuracy * 1000
         else:
@@ -167,6 +169,8 @@ class WatchBaseNote(WatchArchetype):
                     self.target_time,
                     self.direction,
                     y_offset=self._stage_y_offset_at(self.target_time),
+                    pivot_lane=self._stage_pivot_lane_at(self.target_time),
+                    half_offset=self._stage_half_offset_at(self.target_time),
                 )
 
         self.result.target_time = self.target_time
@@ -312,12 +316,25 @@ class WatchBaseNote(WatchArchetype):
                 self.direction,
                 self.judgment,
                 y_offset=self.visual_y_offset,
+                pivot_lane=self.visual_pivot_lane,
+                half_offset=self.visual_half_offset,
             )
 
     def _stage_y_offset_at(self, t: float) -> float:
         if self.stage_ref.index <= 0:
             return 0.0
         return get_stage_props(self.stage_ref.get(), t).y_offset
+
+    def _stage_pivot_lane_at(self, t: float) -> float:
+        if self.stage_ref.index <= 0:
+            return 0.0
+        return get_stage_props(self.stage_ref.get(), t).pivot_lane
+
+    def _stage_half_offset_at(self, t: float) -> bool:
+        if self.stage_ref.index <= 0:
+            return False
+        division = get_stage_props(self.stage_ref.get(), t).division.start
+        return division.parity == DivisionParity.ODD and division.size % 2 == 1
 
     @property
     def visual_lane(self) -> float:
@@ -332,6 +349,21 @@ class WatchBaseNote(WatchArchetype):
             return self.stage_ref.get().props.y_offset
         else:
             return 0.0
+
+    @property
+    def visual_pivot_lane(self) -> float:
+        if self.stage_ref.index > 0:
+            return self.stage_ref.get().props.pivot_lane
+        else:
+            return 0.0
+
+    @property
+    def visual_half_offset(self) -> bool:
+        if self.stage_ref.index > 0:
+            division = self.stage_ref.get().props.division.start
+            return division.parity == DivisionParity.ODD and division.size % 2 == 1
+        else:
+            return False
 
     @property
     def progress(self) -> float:

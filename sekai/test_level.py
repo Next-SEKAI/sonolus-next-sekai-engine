@@ -87,8 +87,8 @@ entities = [
     LevelBpmChange(beat=0.0, bpm=60.0),
     stage,
     *[
-        LevelNote(beat=4.0 + i / 4.0, lane=0.0, size=1.0, kind=NoteKind.NORM_TAP, stage=stage)
-        for i in range((2 * ITERS + 2 - 4) * 4 + 1)
+        LevelNote(beat=4.0 + i / 2.0, lane=0.0, size=2.0, kind=NoteKind.CRIT_FLICK, stage=stage)
+        for i in range((2 * ITERS + 2 - 4) * 2 + 1)
     ],
 ]
 

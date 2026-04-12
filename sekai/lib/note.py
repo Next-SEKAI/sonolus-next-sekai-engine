@@ -783,6 +783,8 @@ def play_note_hit_effects(
     direction: FlickDirection,
     judgment: Judgment,
     y_offset: float = 0.0,
+    pivot_lane: float = 0.0,
+    half_offset: bool = False,
 ):
     # Damage with overridden sfx can play, so this goes before the damage check
     sfx = get_note_effect(effect_kind, judgment)
@@ -814,7 +816,7 @@ def play_note_hit_effects(
             layout = layout_tick_effect(lane, y_offset=y_offset)
             particles.tick.spawn(layout, duration=0.6 / Options.effect_animation_speed)
         if particles.slot_linear.is_available:
-            for slot_lane in iter_slot_lanes(lane, size):
+            for slot_lane in iter_slot_lanes(lane, size, pivot_lane=pivot_lane, half_offset=half_offset):
                 layout = layout_linear_effect(slot_lane, shear=0, y_offset=y_offset)
                 particles.slot_linear.spawn(layout, duration=0.5 / Options.effect_animation_speed)
     if Options.lane_effect_enabled:
@@ -827,7 +829,16 @@ def play_note_hit_effects(
         elif particles.lane_basic.is_available:
             particles.lane_basic.spawn(layout, duration=0.3 / Options.effect_animation_speed)
     if Options.slot_effect_enabled and not is_watch():
-        schedule_note_slot_effects(kind, lane, size, time(), direction, y_offset=y_offset)
+        schedule_note_slot_effects(
+            kind,
+            lane,
+            size,
+            time(),
+            direction,
+            y_offset=y_offset,
+            pivot_lane=pivot_lane,
+            half_offset=half_offset,
+        )
 
 
 def get_note_haptic_feedback(kind: NoteKind, judgment: Judgment) -> HapticType:
@@ -876,6 +887,8 @@ def schedule_note_slot_effects(
     target_time: float,
     direction: FlickDirection,
     y_offset: float = 0.0,
+    pivot_lane: float = 0.0,
+    half_offset: bool = False,
 ):
     if is_tutorial():
         return
@@ -884,7 +897,7 @@ def schedule_note_slot_effects(
     sprite_set = get_note_sprite_set(kind, direction)
     slot_sprite = sprite_set.slot
     if slot_sprite.is_available:
-        for slot_lane in iter_slot_lanes(lane, size):
+        for slot_lane in iter_slot_lanes(lane, size, pivot_lane=pivot_lane, half_offset=half_offset):
             get_archetype_by_name(archetype_names.SLOT_EFFECT).spawn(
                 sprite=slot_sprite, start_time=target_time, lane=slot_lane, y_offset=y_offset
             )
@@ -896,12 +909,18 @@ def schedule_note_slot_effects(
 
 
 def draw_tutorial_note_slot_effects(
-    kind: NoteKind, lane: float, size: float, start_time: float, direction: FlickDirection
+    kind: NoteKind,
+    lane: float,
+    size: float,
+    start_time: float,
+    direction: FlickDirection,
+    pivot_lane: float = 0.0,
+    half_offset: bool = False,
 ):
     sprite_set = get_note_sprite_set(kind, direction)
     slot_sprite = sprite_set.slot
     if slot_sprite.is_available and time() < start_time + SLOT_EFFECT_DURATION / Options.effect_animation_speed:
-        for slot_lane in iter_slot_lanes(lane, size):
+        for slot_lane in iter_slot_lanes(lane, size, pivot_lane=pivot_lane, half_offset=half_offset):
             draw_slot_effect(
                 sprite=slot_sprite,
                 start_time=start_time,

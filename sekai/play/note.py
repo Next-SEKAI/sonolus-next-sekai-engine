@@ -49,6 +49,7 @@ from sekai.lib.note import (
     schedule_note_auto_sfx,
 )
 from sekai.lib.options import Options
+from sekai.lib.stage import DivisionParity
 from sekai.lib.timescale import (
     CompositeTime,
     group_hide_notes,
@@ -432,6 +433,8 @@ class BaseNote(PlayArchetype):
                 self.direction,
                 self.result.judgment,
                 y_offset=self.visual_y_offset,
+                pivot_lane=self.visual_pivot_lane,
+                half_offset=self.visual_half_offset,
             )
         if self.is_scored:
             self.result.haptic = get_note_haptic_feedback(self.kind, self.result.judgment)
@@ -753,6 +756,21 @@ class BaseNote(PlayArchetype):
             return self.stage_ref.get().props.y_offset
         else:
             return 0.0
+
+    @property
+    def visual_pivot_lane(self) -> float:
+        if self.stage_ref.index > 0:
+            return self.stage_ref.get().props.pivot_lane
+        else:
+            return 0.0
+
+    @property
+    def visual_half_offset(self) -> bool:
+        if self.stage_ref.index > 0:
+            division = self.stage_ref.get().props.division.start
+            return division.parity == DivisionParity.ODD and division.size % 2 == 1
+        else:
+            return False
 
     @property
     def head_ease_frac(self) -> float:
