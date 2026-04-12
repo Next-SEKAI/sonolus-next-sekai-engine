@@ -19,6 +19,7 @@ class SlotGlowEffect(PlayArchetype):
     start_time: float = entity_memory()
     lane: float = entity_memory()
     size: float = entity_memory()
+    y_offset: float = entity_memory()
     end_time: float = entity_memory()
 
     def initialize(self):
@@ -34,6 +35,7 @@ class SlotGlowEffect(PlayArchetype):
             self.end_time,
             self.lane,
             self.size,
+            y_offset=self.y_offset,
         )
 
 
@@ -43,6 +45,7 @@ class SlotEffect(PlayArchetype):
     sprite: Sprite = entity_memory()
     start_time: float = entity_memory()
     lane: float = entity_memory()
+    y_offset: float = entity_memory()
     end_time: float = entity_memory()
 
     def initialize(self):
@@ -57,6 +60,7 @@ class SlotEffect(PlayArchetype):
             self.start_time,
             self.end_time,
             self.lane,
+            y_offset=self.y_offset,
         )
 
 

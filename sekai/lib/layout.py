@@ -259,12 +259,12 @@ def layout_sekai_stage() -> Quad:
     return transform_quad(rect)
 
 
-def layout_lane_by_edges(l: float, r: float) -> Quad:
-    return perspective_rect(l=l, r=r, t=LANE_T, b=LANE_B)
+def layout_lane_by_edges(l: float, r: float, y_offset: float = 0.0) -> Quad:
+    return perspective_rect(l=l, r=r, t=LANE_T, b=LANE_B, travel=approach(1 - y_offset))
 
 
-def layout_lane(lane: float, size: float) -> Quad:
-    return layout_lane_by_edges(lane - size, lane + size)
+def layout_lane(lane: float, size: float, y_offset: float = 0.0) -> Quad:
+    return layout_lane_by_edges(lane - size, lane + size, y_offset=y_offset)
 
 
 def layout_stage_cover() -> Quad:
@@ -477,20 +477,23 @@ def layout_flick_arrow_fallback(
     )
 
 
-def layout_slot_effect(lane: float) -> Quad:
+def layout_slot_effect(lane: float, y_offset: float = 0.0) -> Quad:
+    travel = approach(1 - y_offset)
     return perspective_rect(
         l=lane - 0.5,
         r=lane + 0.5,
         b=1 + DynamicLayout.note_h,
         t=1 - DynamicLayout.note_h,
+        travel=travel,
     )
 
 
-def layout_slot_glow_effect(lane: float, size: float, height: float) -> Quad:
+def layout_slot_glow_effect(lane: float, size: float, height: float, y_offset: float = 0.0) -> Quad:
     s = 1 + 0.25 * Options.slot_effect_size
-    h = 4.25 * DynamicLayout.w_scale * Options.slot_effect_size
-    l_min = transform_vec(Vec2(lane - size, 1))
-    r_min = transform_vec(Vec2(lane + size, 1))
+    travel = approach(1 - y_offset)
+    h = 4.25 * DynamicLayout.w_scale * Options.slot_effect_size * travel
+    l_min = transformed_vec_at(lane - size, travel)
+    r_min = transformed_vec_at(lane + size, travel)
     l_max = (l_min + Vec2(0, h)) * Vec2(s, 1)
     r_max = (r_min + Vec2(0, h)) * Vec2(s, 1)
     return Quad(
@@ -501,10 +504,11 @@ def layout_slot_glow_effect(lane: float, size: float, height: float) -> Quad:
     )
 
 
-def layout_linear_effect(lane: float, shear: float) -> Quad:
+def layout_linear_effect(lane: float, shear: float, y_offset: float = 0.0) -> Quad:
     w = Options.note_effect_size
-    bl = transform_vec(Vec2(lane - w, 1))
-    br = transform_vec(Vec2(lane + w, 1))
+    travel = approach(1 - y_offset)
+    bl = transformed_vec_at(lane - w, travel)
+    br = transformed_vec_at(lane + w, travel)
     up = (br - bl).rotate(pi / 2) + (shear + 0.125 * lane) * (br - bl) / 2
     return Quad(
         bl=bl,
@@ -514,10 +518,11 @@ def layout_linear_effect(lane: float, shear: float) -> Quad:
     )
 
 
-def layout_rotated_linear_effect(lane: float, shear: float) -> Quad:
+def layout_rotated_linear_effect(lane: float, shear: float, y_offset: float = 0.0) -> Quad:
     w = Options.note_effect_size
-    bl = transform_vec(Vec2(lane - w, 1))
-    br = transform_vec(Vec2(lane + w, 1))
+    travel = approach(1 - y_offset)
+    bl = transformed_vec_at(lane - w, travel)
+    br = transformed_vec_at(lane + w, travel)
     up = (br - bl).orthogonal()
     return Quad(
         bl=bl,
@@ -527,11 +532,12 @@ def layout_rotated_linear_effect(lane: float, shear: float) -> Quad:
     ).rotate_about(atan(-(shear + 0.125 * lane) / 2), pivot=(bl + br) / 2)
 
 
-def layout_circular_effect(lane: float, w: float, h: float) -> Quad:
-    w *= Options.note_effect_size
+def layout_circular_effect(lane: float, w: float, h: float, y_offset: float = 0.0) -> Quad:
+    travel = approach(1 - y_offset)
+    w *= Options.note_effect_size * travel
     h *= Options.note_effect_size * DynamicLayout.w_scale / DynamicLayout.h_scale
-    t = 1 + h
-    b = 1 - h
+    t = (1 + h) * travel
+    b = (1 - h) * travel
     return transform_quad(
         Quad(
             bl=Vec2(lane * b - w, b),
@@ -542,10 +548,11 @@ def layout_circular_effect(lane: float, w: float, h: float) -> Quad:
     )
 
 
-def layout_tick_effect(lane: float) -> Rect:
-    w = 4 * DynamicLayout.w_scale * Options.note_effect_size
+def layout_tick_effect(lane: float, y_offset: float = 0.0) -> Rect:
+    travel = approach(1 - y_offset)
+    w = 4 * DynamicLayout.w_scale * Options.note_effect_size * travel
     h = w
-    center = transform_vec(Vec2(lane, 1))
+    center = transformed_vec_at(lane, travel)
     return Rect(
         l=center.x - w,
         r=center.x + w,

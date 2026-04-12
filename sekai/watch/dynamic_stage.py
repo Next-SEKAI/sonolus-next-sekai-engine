@@ -36,7 +36,7 @@ class WatchZoomChange(WatchArchetype, BaseEvent):
 
     time: float = entity_data()
 
-    @callback(order=-1)
+    @callback(order=-2)
     def preprocess(self):
         LevelConfig.dynamic_stages = True
         self.time = beat_to_time(self.beat)
@@ -91,7 +91,7 @@ class WatchStageMaskChange(WatchArchetype, BaseEvent):
 
     time: float = entity_data()
 
-    @callback(order=-1)
+    @callback(order=-2)
     def preprocess(self):
         self.time = beat_to_time(self.beat)
 
@@ -110,7 +110,7 @@ class WatchStagePivotChange(WatchArchetype, BaseEvent):
 
     time: float = entity_data()
 
-    @callback(order=-1)
+    @callback(order=-2)
     def preprocess(self):
         self.time = beat_to_time(self.beat)
 
@@ -130,6 +130,6 @@ class WatchStageStyleChange(WatchArchetype, BaseEvent):
 
     time: float = entity_data()
 
-    @callback(order=-1)
+    @callback(order=-2)
     def preprocess(self):
         self.time = beat_to_time(self.beat)

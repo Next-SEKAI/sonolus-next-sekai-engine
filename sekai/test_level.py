@@ -33,7 +33,7 @@ mask_changes = [
 pivot_changes = [
     LevelStagePivotChange(
         beat=0.0,
-        lane=2.0,
+        lane=-2.0,
         division_size=2.0,
         division_parity=DivisionParity.EVEN,
         y_offset=0.0,
@@ -42,10 +42,10 @@ pivot_changes = [
     *[
         LevelStagePivotChange(
             beat=float(i) + 2.0,
-            lane=2.0 if i % 2 == 0 else -2.0,
+            lane=-2.0 if i % 2 == 0 else 2.0,
             division_size=2.0,
             division_parity=DivisionParity.EVEN,
-            y_offset=0.0,
+            y_offset=0.3 if i % 2 == 0 else 0.0,
             ease=EaseType.IN_OUT_QUAD,
         )
         for i in range(2 * ITERS + 1)
@@ -87,7 +87,7 @@ entities = [
     LevelBpmChange(beat=0.0, bpm=60.0),
     stage,
     *[
-        LevelNote(beat=4.0 + i / 4.0, lane=0.0, size=1.0, kind=NoteKind.NORM_TRACE, stage=stage)
+        LevelNote(beat=4.0 + i / 4.0, lane=0.0, size=1.0, kind=NoteKind.NORM_TAP, stage=stage)
         for i in range((2 * ITERS + 2 - 4) * 4 + 1)
     ],
 ]

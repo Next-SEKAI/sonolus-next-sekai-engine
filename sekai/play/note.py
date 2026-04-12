@@ -371,9 +371,23 @@ class BaseNote(PlayArchetype):
             return
         if SHOW_TICK_HITBOX_SIZE and self.kind in {NoteKind.NORM_TICK, NoteKind.CRIT_TICK, NoteKind.HIDE_TICK}:
             draw_note(
-                NoteKind.DAMAGE, self.hitbox_lane, self.hitbox_size, self.progress, self.direction, self.target_time
+                NoteKind.DAMAGE,
+                self.hitbox_lane,
+                self.hitbox_size,
+                self.progress,
+                self.direction,
+                self.target_time,
+                y_offset=self.visual_y_offset,
             )
-        draw_note(self.kind, self.visual_lane, self.size, self.progress, self.direction, self.target_time)
+        draw_note(
+            self.kind,
+            self.visual_lane,
+            self.size,
+            self.progress,
+            self.direction,
+            self.target_time,
+            y_offset=self.visual_y_offset,
+        )
 
     def should_do_delayed_trigger(self) -> bool:
         # Don't trigger if the previous frame was before the target time.
@@ -411,7 +425,13 @@ class BaseNote(PlayArchetype):
         if self.should_play_hit_effects:
             # We do this here for parallelism, and to reduce compilation time.
             play_note_hit_effects(
-                self.kind, self.effect_kind, self.visual_lane, self.size, self.direction, self.result.judgment
+                self.kind,
+                self.effect_kind,
+                self.visual_lane,
+                self.size,
+                self.direction,
+                self.result.judgment,
+                y_offset=self.visual_y_offset,
             )
         if self.is_scored:
             self.result.haptic = get_note_haptic_feedback(self.kind, self.result.judgment)
@@ -726,6 +746,13 @@ class BaseNote(PlayArchetype):
             return self.stage_ref.get().props.pivot_lane + self.rel_lane
         else:
             return self.lane
+
+    @property
+    def visual_y_offset(self) -> float:
+        if self.stage_ref.index > 0:
+            return self.stage_ref.get().props.y_offset
+        else:
+            return 0.0
 
     @property
     def head_ease_frac(self) -> float:

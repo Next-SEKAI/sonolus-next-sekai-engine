@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import itertools
+import struct
 from dataclasses import dataclass, field
 
 from sonolus.build.collection import Asset
@@ -40,6 +41,28 @@ def _build_note_archetype_lookup() -> dict[tuple[NoteKind, bool], type[PlayArche
 _NOTE_ARCHETYPE_BY_KIND = _build_note_archetype_lookup()
 
 _SIM_LINE_EXCLUDED_KINDS = frozenset({NoteKind.ANCHOR, NoteKind.NORM_TICK, NoteKind.CRIT_TICK, NoteKind.HIDE_TICK})
+
+
+def _build_silent_wav(duration_seconds: float = 60.0, sample_rate: int = 8000) -> bytes:
+    num_samples = int(duration_seconds * sample_rate)
+    data_size = num_samples  # 1 channel, 8-bit
+    header = struct.pack(
+        "<4sI4s4sIHHIIHH4sI",
+        b"RIFF",
+        36 + data_size,
+        b"WAVE",
+        b"fmt ",
+        16,
+        1,  # PCM
+        1,  # channels
+        sample_rate,
+        sample_rate,  # byte rate = sample_rate * channels * bits/8
+        1,  # block align
+        8,  # bits per sample
+        b"data",
+        data_size,
+    )
+    return header + b"\x80" * data_size
 
 
 @dataclass
@@ -337,7 +360,7 @@ def build_level(
     return Level(
         name=name,
         title=title,
-        bgm=bgm,
+        bgm=bgm if bgm is not None else _build_silent_wav(),
         data=LevelData(
             bgm_offset=0.0,
             entities=sorted_entities,

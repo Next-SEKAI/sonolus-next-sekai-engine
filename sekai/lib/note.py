@@ -286,8 +286,8 @@ def get_visual_spawn_time(
     if isinstance(target_scaled_time, CompositeTime):
         target_scaled_time = target_scaled_time.total
     return min(
-        group_scaled_time_to_first_time(timescale_group, target_scaled_time - preempt_time() * 1.1),
-        group_scaled_time_to_first_time_2(timescale_group, target_scaled_time + preempt_time() * 1.1),
+        group_scaled_time_to_first_time(timescale_group, target_scaled_time - preempt_time() * 2),
+        group_scaled_time_to_first_time_2(timescale_group, target_scaled_time + preempt_time() * 2),
         -2 if -1 <= progress_to(target_scaled_time, -2) <= 3 else 1e8,
     )
 
@@ -312,10 +312,18 @@ def get_attach_params(
     return lane, size
 
 
-def draw_note(kind: NoteKind, lane: float, size: float, progress: float, direction: FlickDirection, target_time: float):
+def draw_note(
+    kind: NoteKind,
+    lane: float,
+    size: float,
+    progress: float,
+    direction: FlickDirection,
+    target_time: float,
+    y_offset: float = 0.0,
+):
     if not Layout.progress_start <= progress <= Layout.progress_cutoff:
         return
-    travel = approach(progress)
+    travel = approach(progress - y_offset)
     sprite_set = get_note_sprite_set(kind, direction)
     draw_note_body(sprite_set.body, kind, lane, size, travel, target_time)
     draw_note_arrow(sprite_set.arrow, kind, lane, size, travel, target_time, direction)
@@ -768,7 +776,13 @@ def get_note_effect(kind: NoteEffectKind, judgment: Judgment):
 
 
 def play_note_hit_effects(
-    kind: NoteKind, effect_kind: NoteEffectKind, lane: float, size: float, direction: FlickDirection, judgment: Judgment
+    kind: NoteKind,
+    effect_kind: NoteEffectKind,
+    lane: float,
+    size: float,
+    direction: FlickDirection,
+    judgment: Judgment,
+    y_offset: float = 0.0,
 ):
     # Damage with overridden sfx can play, so this goes before the damage check
     sfx = get_note_effect(effect_kind, judgment)
@@ -779,10 +793,10 @@ def play_note_hit_effects(
     particles = get_note_particles(kind, direction)
     if Options.note_effect_enabled:
         if particles.linear.is_available:
-            layout = layout_linear_effect(lane, shear=0)
+            layout = layout_linear_effect(lane, shear=0, y_offset=y_offset)
             particles.linear.spawn(layout, duration=0.5 / Options.effect_animation_speed)
         if particles.circular.is_available:
-            layout = layout_circular_effect(lane, w=1.75, h=1.05)
+            layout = layout_circular_effect(lane, w=1.75, h=1.05, y_offset=y_offset)
             particles.circular.spawn(layout, duration=0.6 / Options.effect_animation_speed)
         if particles.directional.is_available:
             match direction:
@@ -794,23 +808,26 @@ def play_note_hit_effects(
                     shear = 1
                 case _:
                     assert_never(direction)
-            layout = layout_rotated_linear_effect(lane, shear=shear)
+            layout = layout_rotated_linear_effect(lane, shear=shear, y_offset=y_offset)
             particles.directional.spawn(layout, duration=0.32 / Options.effect_animation_speed)
         if particles.tick.is_available:
-            layout = layout_tick_effect(lane)
+            layout = layout_tick_effect(lane, y_offset=y_offset)
             particles.tick.spawn(layout, duration=0.6 / Options.effect_animation_speed)
         if particles.slot_linear.is_available:
             for slot_lane in iter_slot_lanes(lane, size):
-                layout = layout_linear_effect(slot_lane, shear=0)
+                layout = layout_linear_effect(slot_lane, shear=0, y_offset=y_offset)
                 particles.slot_linear.spawn(layout, duration=0.5 / Options.effect_animation_speed)
     if Options.lane_effect_enabled:
-        layout = layout_lane(lane, size)
+        lane_y_offset = (
+            y_offset if kind in {NoteKind.CRIT_FLICK, NoteKind.CRIT_HEAD_FLICK, NoteKind.CRIT_TAIL_FLICK} else 0.0
+        )
+        layout = layout_lane(lane, size, y_offset=lane_y_offset)
         if particles.lane.is_available:
             particles.lane.spawn(layout, duration=1 / Options.effect_animation_speed)
         elif particles.lane_basic.is_available:
             particles.lane_basic.spawn(layout, duration=0.3 / Options.effect_animation_speed)
     if Options.slot_effect_enabled and not is_watch():
-        schedule_note_slot_effects(kind, lane, size, time(), direction)
+        schedule_note_slot_effects(kind, lane, size, time(), direction, y_offset=y_offset)
 
 
 def get_note_haptic_feedback(kind: NoteKind, judgment: Judgment) -> HapticType:
@@ -852,7 +869,14 @@ def schedule_note_sfx(kind: NoteEffectKind, judgment: Judgment, target_time: flo
         sfx.schedule(target_time, SFX_DISTANCE)
 
 
-def schedule_note_slot_effects(kind: NoteKind, lane: float, size: float, target_time: float, direction: FlickDirection):
+def schedule_note_slot_effects(
+    kind: NoteKind,
+    lane: float,
+    size: float,
+    target_time: float,
+    direction: FlickDirection,
+    y_offset: float = 0.0,
+):
     if is_tutorial():
         return
     if not Options.slot_effect_enabled:
@@ -862,12 +886,12 @@ def schedule_note_slot_effects(kind: NoteKind, lane: float, size: float, target_
     if slot_sprite.is_available:
         for slot_lane in iter_slot_lanes(lane, size):
             get_archetype_by_name(archetype_names.SLOT_EFFECT).spawn(
-                sprite=slot_sprite, start_time=target_time, lane=slot_lane
+                sprite=slot_sprite, start_time=target_time, lane=slot_lane, y_offset=y_offset
             )
     slot_glow_sprite = sprite_set.slot_glow
     if slot_glow_sprite.is_available:
         get_archetype_by_name(archetype_names.SLOT_GLOW_EFFECT).spawn(
-            sprite=slot_glow_sprite, start_time=target_time, lane=lane, size=size
+            sprite=slot_glow_sprite, start_time=target_time, lane=lane, size=size, y_offset=y_offset
         )
 
 

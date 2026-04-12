@@ -39,6 +39,7 @@ from sekai.lib.note import (
     schedule_note_slot_effects,
 )
 from sekai.lib.options import Options
+from sekai.lib.stage import get_stage_props
 from sekai.lib.timescale import (
     CompositeTime,
     group_hide_notes,
@@ -146,13 +147,27 @@ class WatchBaseNote(WatchArchetype):
                     schedule_note_auto_sfx(self.effect_kind, self.target_time)
                 else:
                     schedule_note_sfx(self.effect_kind, self.judgment, self.end_time)
-                schedule_note_slot_effects(self.kind, self.lane, self.size, self.end_time, self.direction)
+                schedule_note_slot_effects(
+                    self.kind,
+                    self.lane,
+                    self.size,
+                    self.end_time,
+                    self.direction,
+                    y_offset=self._stage_y_offset_at(self.end_time),
+                )
             self.result.bucket_value = self.accuracy * 1000
         else:
             self.judgment = Judgment.PERFECT
             if self.is_scored:
                 schedule_note_sfx(self.effect_kind, Judgment.PERFECT, self.target_time)
-                schedule_note_slot_effects(self.kind, self.lane, self.size, self.target_time, self.direction)
+                schedule_note_slot_effects(
+                    self.kind,
+                    self.lane,
+                    self.size,
+                    self.target_time,
+                    self.direction,
+                    y_offset=self._stage_y_offset_at(self.target_time),
+                )
 
         self.result.target_time = self.target_time
 
@@ -265,9 +280,23 @@ class WatchBaseNote(WatchArchetype):
             return
         if SHOW_TICK_HITBOX_SIZE and self.kind in {NoteKind.NORM_TICK, NoteKind.CRIT_TICK, NoteKind.HIDE_TICK}:
             draw_note(
-                NoteKind.DAMAGE, self.hitbox_lane, self.hitbox_size, self.progress, self.direction, self.target_time
+                NoteKind.DAMAGE,
+                self.hitbox_lane,
+                self.hitbox_size,
+                self.progress,
+                self.direction,
+                self.target_time,
+                y_offset=self.visual_y_offset,
             )
-        draw_note(self.kind, self.visual_lane, self.size, self.progress, self.direction, self.target_time)
+        draw_note(
+            self.kind,
+            self.visual_lane,
+            self.size,
+            self.progress,
+            self.direction,
+            self.target_time,
+            y_offset=self.visual_y_offset,
+        )
 
     def terminate(self):
         if is_skip():
@@ -276,8 +305,19 @@ class WatchBaseNote(WatchArchetype):
             return
         if (not is_replay() or self.played_hit_effects) and self.is_scored:
             play_note_hit_effects(
-                self.kind, self.effect_kind, self.visual_lane, self.size, self.direction, self.judgment
+                self.kind,
+                self.effect_kind,
+                self.visual_lane,
+                self.size,
+                self.direction,
+                self.judgment,
+                y_offset=self.visual_y_offset,
             )
+
+    def _stage_y_offset_at(self, t: float) -> float:
+        if self.stage_ref.index <= 0:
+            return 0.0
+        return get_stage_props(self.stage_ref.get(), t).y_offset
 
     @property
     def visual_lane(self) -> float:
@@ -285,6 +325,13 @@ class WatchBaseNote(WatchArchetype):
             return self.stage_ref.get().props.pivot_lane + self.rel_lane
         else:
             return self.lane
+
+    @property
+    def visual_y_offset(self) -> float:
+        if self.stage_ref.index > 0:
+            return self.stage_ref.get().props.y_offset
+        else:
+            return 0.0
 
     @property
     def progress(self) -> float:
