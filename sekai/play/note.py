@@ -74,6 +74,7 @@ class BaseNote(PlayArchetype):
     active_head_ref: EntityRef[BaseNote] = imported(name="activeHead")
     is_attached: bool = imported(name="isAttached")
     connector_ease: EaseType = imported(name="connectorEase")
+    is_separator: bool = imported(name="isSeparator")
     segment_kind: ConnectorKind = imported(name="segmentKind")
     segment_alpha: float = imported(name="segmentAlpha")
     segment_layer: ConnectorLayer = imported(name="segmentLayer")
