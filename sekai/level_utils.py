@@ -100,7 +100,8 @@ class LevelStagePivotChange:
     lane: float
     division_size: float
     division_parity: DivisionParity
-    y_offset: float
+    abs_y_offset: float
+    y_beat_offset: float
     ease: EaseType = EaseType.LINEAR
 
 
@@ -420,7 +421,8 @@ def _build_stage(level_stage: LevelStage) -> tuple[DynamicStage, list[PlayArchet
             lane=p.lane,
             division_size=p.division_size,
             division_parity=p.division_parity,
-            y_offset=p.y_offset,
+            abs_y_offset=p.abs_y_offset,
+            y_beat_offset=p.y_beat_offset,
             ease=p.ease,
         )
         for p in sorted(level_stage.pivot_changes, key=lambda c: c.beat)

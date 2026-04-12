@@ -13,12 +13,12 @@ from sonolus.script.archetype import (
 )
 from sonolus.script.interval import clamp
 from sonolus.script.runtime import time, touches
-from sonolus.script.timing import beat_to_time
+from sonolus.script.timing import beat_to_bpm, beat_to_time
 
 from sekai.lib import archetype_names
 from sekai.lib.baseevent import BaseEvent, init_event_list
 from sekai.lib.ease import EaseType
-from sekai.lib.layout import layout_hitbox, touch_to_lane
+from sekai.lib.layout import layout_hitbox, preempt_time, touch_to_lane
 from sekai.lib.level_config import LevelConfig
 from sekai.lib.stage import (
     DivisionParity,
@@ -185,15 +185,18 @@ class StagePivotChange(PlayArchetype, BaseEvent):
     lane: float = imported()
     division_size: float = imported(name="divisionSize")
     division_parity: DivisionParity = imported(name="divisionParity")
-    y_offset: float = imported(name="yOffset")
+    abs_y_offset: float = imported(name="yOffset")
+    y_beat_offset: float = imported(name="yBeatOffset")
     ease: EaseType = imported()
     next_ref: EntityRef[StagePivotChange] = imported(name="next")
 
+    y_offset: float = entity_data()
     time: float = entity_data()
 
     @callback(order=-2)
     def preprocess(self):
         self.time = beat_to_time(self.beat)
+        self.y_offset = self.abs_y_offset + self.y_beat_offset * 60 / beat_to_bpm(self.beat) / preempt_time()
 
     def spawn_order(self) -> float:
         return 1e8

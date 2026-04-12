@@ -62,6 +62,7 @@ An event that controls the reference point for note and lane movement.
   * EVEN = 0
   * ODD = 1
 * **yOffset (float)**: Vertical offset of the judge line. A value of 0 places the judge line at its default position; positive values move it up the stage.
+* **yBeatOffset (float)**: Additional vertical offset expressed in beats. Resolved at preprocess time as an extra contribution to yOffset equal to `yBeatOffset * 60 / bpm / preempt_time()`, where `bpm` is the BPM at this event's beat and `preempt_time()` is the current note-speed-derived preempt time in seconds.
 * **ease (EaseType)**
 * **next (ref?[StagePivotChange])**: A reference to the next **StagePivotChange** event.
 

@@ -10,11 +10,12 @@ from sonolus.script.archetype import (
     shared_memory,
 )
 from sonolus.script.runtime import time
-from sonolus.script.timing import beat_to_time
+from sonolus.script.timing import beat_to_bpm, beat_to_time
 
 from sekai.lib import archetype_names
 from sekai.lib.baseevent import BaseEvent, init_event_list
 from sekai.lib.ease import EaseType
+from sekai.lib.layout import preempt_time
 from sekai.lib.level_config import LevelConfig
 from sekai.lib.stage import (
     DivisionParity,
@@ -115,15 +116,18 @@ class WatchStagePivotChange(WatchArchetype, BaseEvent):
     lane: float = imported()
     division_size: float = imported(name="divisionSize")
     division_parity: DivisionParity = imported(name="divisionParity")
-    y_offset: float = imported(name="yOffset")
+    abs_y_offset: float = imported(name="yOffset")
+    y_beat_offset: float = imported(name="yBeatOffset")
     ease: EaseType = imported()
     next_ref: EntityRef[WatchStagePivotChange] = imported(name="next")
 
+    y_offset: float = entity_data()
     time: float = entity_data()
 
     @callback(order=-2)
     def preprocess(self):
         self.time = beat_to_time(self.beat)
+        self.y_offset = self.abs_y_offset + self.y_beat_offset * 60 / beat_to_bpm(self.beat) / preempt_time()
 
 
 class WatchStageStyleChange(WatchArchetype, BaseEvent):

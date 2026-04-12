@@ -37,7 +37,8 @@ pivot_changes = [
         lane=-2.0,
         division_size=2.0,
         division_parity=DivisionParity.EVEN,
-        y_offset=0.0,
+        abs_y_offset=0.0,
+        y_beat_offset=0.0,
         ease=EaseType.LINEAR,
     ),
     *[
@@ -46,7 +47,8 @@ pivot_changes = [
             lane=-2.0 if i % 2 == 0 else 2.0,
             division_size=2.0,
             division_parity=DivisionParity.EVEN,
-            y_offset=0.3 if i % 2 == 0 else 0.0,
+            abs_y_offset=0.3 if i % 2 == 0 else 0.0,
+            y_beat_offset=0.0,
             ease=EaseType.IN_OUT_QUAD,
         )
         for i in range(2 * ITERS + 1)
