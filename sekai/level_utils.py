@@ -3,6 +3,7 @@ from __future__ import annotations
 import itertools
 import struct
 from dataclasses import dataclass, field
+from typing import cast
 
 from sonolus.build.collection import Asset
 from sonolus.script.archetype import PlayArchetype
@@ -25,7 +26,7 @@ from sekai.play.dynamic_stage import (
     ZoomChange,
 )
 from sekai.play.initialization import Initialization
-from sekai.play.note import NOTE_ARCHETYPES
+from sekai.play.note import NOTE_ARCHETYPES, BaseNote
 from sekai.play.sim_line import SimLine
 from sekai.play.timescale import TimescaleChange, TimescaleGroup
 
@@ -34,7 +35,7 @@ def _build_note_archetype_lookup() -> dict[tuple[NoteKind, bool], type[PlayArche
     lookup: dict[tuple[NoteKind, bool], type[PlayArchetype]] = {}
     for archetype in NOTE_ARCHETYPES:
         is_fake = str(archetype.name).startswith("Fake")
-        lookup[(archetype.key, is_fake)] = archetype
+        lookup[(cast(NoteKind, archetype.key), is_fake)] = archetype
     return lookup
 
 
@@ -256,10 +257,10 @@ def build_level(
 
     first_zoom = _build_zoom_changes(level_zoom_changes, out_entities)
 
-    note_entities: list[PlayArchetype] = []
-    slide_head_tail: dict[int, tuple[PlayArchetype, PlayArchetype]] = {}
+    note_entities: list[BaseNote] = []
+    slide_head_tail: dict[int, tuple[BaseNote, BaseNote]] = {}
 
-    def emit_note(level_note: LevelNote, force_separator: bool = False) -> PlayArchetype:
+    def emit_note(level_note: LevelNote, force_separator: bool = False) -> BaseNote:
         ts_group = resolve_ts_group(level_note.timescale_group)
         archetype_cls = _note_archetype_for(level_note.kind, level_note.is_fake)
         if level_note.stage is not None:
@@ -284,7 +285,7 @@ def build_level(
         if level_note.stage is not None:
             kwargs["stage_ref"] = stage_map[id(level_note.stage)].ref()
             kwargs["rel_lane"] = rel_lane
-        note = archetype_cls(**kwargs)
+        note = cast(BaseNote, archetype_cls(**kwargs))
         note_entities.append(note)
         out_entities.append(note)
         return note
@@ -292,13 +293,13 @@ def build_level(
     for level_note in top_notes:
         emit_note(level_note)
 
-    pending_attachments: list[tuple[PlayArchetype, LevelSlide]] = []
-    notes_by_level: dict[int, PlayArchetype] = {}
+    pending_attachments: list[tuple[BaseNote, LevelSlide]] = []
+    notes_by_level: dict[int, BaseNote] = {}
 
     for slide in slides:
         if len(slide.notes) < 2:
             raise ValueError("LevelSlide must contain at least two notes")
-        built: list[PlayArchetype] = []
+        built: list[BaseNote] = []
         for i, ln in enumerate(slide.notes):
             is_endpoint = i == 0 or i == len(slide.notes) - 1
             note = emit_note(ln, force_separator=is_endpoint)
@@ -466,8 +467,8 @@ def _chain_next_refs(events: list) -> None:
         events[i].next_ref = events[i + 1].ref()
 
 
-def _emit_sim_lines(note_entities: list[PlayArchetype], out_entities: list[PlayArchetype]) -> None:
-    buckets: dict[float, list[PlayArchetype]] = {}
+def _emit_sim_lines(note_entities: list[BaseNote], out_entities: list[PlayArchetype]) -> None:
+    buckets: dict[float, list[BaseNote]] = {}
     for note in note_entities:
         if note.key in _SIM_LINE_EXCLUDED_KINDS:
             continue

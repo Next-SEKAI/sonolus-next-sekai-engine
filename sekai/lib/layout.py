@@ -15,7 +15,7 @@ from sonolus.script.values import swap
 from sonolus.script.vec import Vec2
 
 from sekai.lib import archetype_names
-from sekai.lib.baseevent import query_event_list
+from sekai.lib.baseevent import get_event_as, query_event_list
 from sekai.lib.ease import EaseType, ease
 from sekai.lib.options import HitboxMode, Options
 from sekai.lib.timescale import CompositeTime
@@ -136,9 +136,9 @@ def get_zoom(target_time: float | None = None) -> float:
     zoom_a_ref, zoom_b_ref = query_event_list(first_zoom_ref, t, lambda e: e.time)
     zoom_archetype = _zoom_change_archetype()
     if zoom_a_ref.index > 0:
-        zoom_a = zoom_a_ref.get_as(zoom_archetype)
+        zoom_a = get_event_as(zoom_a_ref, zoom_archetype)
         if zoom_b_ref.index > 0:
-            zoom_b = zoom_b_ref.get_as(zoom_archetype)
+            zoom_b = get_event_as(zoom_b_ref, zoom_archetype)
             t_a = zoom_a.time
             t_b = zoom_b.time
             if t_b > t_a:
@@ -146,7 +146,7 @@ def get_zoom(target_time: float | None = None) -> float:
                 return lerp(zoom_a.zoom, zoom_b.zoom, p)
         return zoom_a.zoom
     if zoom_b_ref.index > 0:
-        return zoom_b_ref.get_as(zoom_archetype).zoom
+        return get_event_as(zoom_b_ref, zoom_archetype).zoom
     return 1.0
 
 

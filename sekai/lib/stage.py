@@ -12,7 +12,7 @@ from sonolus.script.record import Record
 from sonolus.script.vec import Vec2
 
 from sekai.lib import archetype_names
-from sekai.lib.baseevent import query_event_list
+from sekai.lib.baseevent import get_event_as, query_event_list
 from sekai.lib.ease import EaseType, ease
 from sekai.lib.effect import SFX_DISTANCE, Effects
 from sekai.lib.layer import LAYER_COVER, LAYER_STAGE, get_z, get_z_alt
@@ -174,7 +174,7 @@ def get_start_time(stage: DynamicStageLike) -> float:
         return -1e8
     first_ref = stage.first_mask_change_ref
     if first_ref.index > 0:
-        return first_ref.get_as(_stage_mask_change_archetype()).time
+        return get_event_as(first_ref, _stage_mask_change_archetype()).time
     return -1e8
 
 
@@ -184,7 +184,7 @@ def get_end_time(stage: DynamicStageLike) -> float:
         return -1e8
     last_ref, _ = query_event_list(first_ref, 1e8, lambda e: e.time)
     if last_ref.index > 0:
-        return last_ref.get_as(_stage_mask_change_archetype()).time
+        return get_event_as(last_ref, _stage_mask_change_archetype()).time
     return -1e8
 
 
@@ -200,11 +200,11 @@ def get_stage_props(stage: DynamicStageLike, target_time: float | None = None) -
     # Query mask changes
     mask_a_ref, mask_b_ref = query_event_list(first_mask_change_ref, t, lambda e: e.time)
     if mask_a_ref.index > 0:
-        mask_a = mask_a_ref.get_as(_stage_mask_change_archetype())
+        mask_a = get_event_as(mask_a_ref, _stage_mask_change_archetype())
         result.lane = mask_a.lane
         result.width = mask_a.size
         if mask_b_ref.index > 0:
-            mask_b = mask_b_ref.get_as(_stage_mask_change_archetype())
+            mask_b = get_event_as(mask_b_ref, _stage_mask_change_archetype())
             t_a = mask_a.time
             t_b = mask_b.time
             if t_b > t_a:
@@ -212,21 +212,21 @@ def get_stage_props(stage: DynamicStageLike, target_time: float | None = None) -
                 result.lane = lerp(mask_a.lane, mask_b.lane, p)
                 result.width = lerp(mask_a.size, mask_b.size, p)
     elif mask_b_ref.index > 0:
-        mask_b = mask_b_ref.get_as(_stage_mask_change_archetype())
+        mask_b = get_event_as(mask_b_ref, _stage_mask_change_archetype())
         result.lane = mask_b.lane
         result.width = mask_b.size
 
     # Query pivot changes
     pivot_a_ref, pivot_b_ref = query_event_list(first_pivot_change_ref, t, lambda e: e.time)
     if pivot_a_ref.index > 0:
-        pivot_a = pivot_a_ref.get_as(_stage_pivot_change_archetype())
+        pivot_a = get_event_as(pivot_a_ref, _stage_pivot_change_archetype())
         result.pivot_lane = pivot_a.lane
         result.division.start.size = int(pivot_a.division_size)
         result.division.start.parity = pivot_a.division_parity
         result.division.end @= result.division.start
         result.y_offset = pivot_a.y_offset
         if pivot_b_ref.index > 0:
-            pivot_b = pivot_b_ref.get_as(_stage_pivot_change_archetype())
+            pivot_b = get_event_as(pivot_b_ref, _stage_pivot_change_archetype())
             t_a = pivot_a.time
             t_b = pivot_b.time
             if t_b > t_a:
@@ -237,7 +237,7 @@ def get_stage_props(stage: DynamicStageLike, target_time: float | None = None) -
                 result.division.progress = p
                 result.y_offset = lerp(pivot_a.y_offset, pivot_b.y_offset, p)
     elif pivot_b_ref.index > 0:
-        pivot_b = pivot_b_ref.get_as(_stage_pivot_change_archetype())
+        pivot_b = get_event_as(pivot_b_ref, _stage_pivot_change_archetype())
         result.pivot_lane = pivot_b.lane
         result.division.start.size = int(pivot_b.division_size)
         result.division.start.parity = pivot_b.division_parity
@@ -247,7 +247,7 @@ def get_stage_props(stage: DynamicStageLike, target_time: float | None = None) -
     # Query style changes
     style_a_ref, style_b_ref = query_event_list(first_style_change_ref, t, lambda e: e.time)
     if style_a_ref.index > 0:
-        style_a = style_a_ref.get_as(_stage_style_change_archetype())
+        style_a = get_event_as(style_a_ref, _stage_style_change_archetype())
         result.judge_line_color.start = style_a.judge_line_color
         result.judge_line_color.end = style_a.judge_line_color
         result.left_border_style.start = style_a.left_border_style
@@ -258,7 +258,7 @@ def get_stage_props(stage: DynamicStageLike, target_time: float | None = None) -
         result.lane_alpha = style_a.lane_alpha
         result.judge_line_alpha = style_a.judge_line_alpha
         if style_b_ref.index > 0:
-            style_b = style_b_ref.get_as(_stage_style_change_archetype())
+            style_b = get_event_as(style_b_ref, _stage_style_change_archetype())
             t_a = style_a.time
             t_b = style_b.time
             if t_b > t_a:
@@ -273,7 +273,7 @@ def get_stage_props(stage: DynamicStageLike, target_time: float | None = None) -
                 result.lane_alpha = lerp(style_a.lane_alpha, style_b.lane_alpha, p)
                 result.judge_line_alpha = lerp(style_a.judge_line_alpha, style_b.judge_line_alpha, p)
     elif style_b_ref.index > 0:
-        style_b = style_b_ref.get_as(_stage_style_change_archetype())
+        style_b = get_event_as(style_b_ref, _stage_style_change_archetype())
         result.judge_line_color.start = style_b.judge_line_color
         result.judge_line_color.end = style_b.judge_line_color
         result.left_border_style.start = style_b.left_border_style

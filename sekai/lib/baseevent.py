@@ -1,15 +1,27 @@
 from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from sonolus.script.archetype import EntityRef, entity_data
 from sonolus.script.array import Array, Dim
 
+if TYPE_CHECKING:
+    from sonolus.script.archetype import _BaseArchetype
 
-class BaseEvent:
+    _BaseEventBase = _BaseArchetype
+else:
+    _BaseEventBase = object
+
+
+class BaseEvent(_BaseEventBase):
     next_ref: EntityRef[Any] = entity_data()
     prev_ref: EntityRef[Any] = entity_data()
     skip_refs: Array[EntityRef[Any], Dim[16]] = entity_data()
     skip_levels: int = entity_data()
+
+
+def get_event_as[T](ref: EntityRef, archetype: type[T]) -> T:
+    """Typed wrapper around EntityRef.get_as that preserves the archetype's type (including Protocol types)."""
+    return cast(T, ref.with_archetype(cast(Any, archetype)).get())
 
 
 def init_event_list[T: BaseEvent](first_ref: EntityRef[T]):
@@ -27,7 +39,7 @@ def init_event_list[T: BaseEvent](first_ref: EntityRef[T]):
         current.prev_ref.index = last_refs[0].index
         for j in range(len(last_refs)):
             if i % (2**j) == 0:
-                last_refs[j].get_as(first_ref.archetype()).skip_refs[j].index = current_ref.index
+                get_event_as(last_refs[j], first_ref.archetype()).skip_refs[j].index = current_ref.index
                 last_refs[j].index = current_ref.index
         current_ref.index = current.next_ref.index
         i += 1
@@ -41,11 +53,12 @@ def init_event_list[T: BaseEvent](first_ref: EntityRef[T]):
         first.skip_levels = len(last_refs)
 
 
-def query_event_list[T: BaseEvent, K](
+def query_event_list[T: BaseEvent, K: float](
     first_ref: EntityRef[T], key: K, accessor: Callable[[T], K]
 ) -> tuple[EntityRef[T], EntityRef[T]]:
-    a = type(first_ref)(0)
-    b = type(first_ref)(0)
+    ref_type = type(first_ref)
+    a = ref_type(0)
+    b = ref_type(0)
     result = (a, b)
     if first_ref.index <= 0:
         return result
