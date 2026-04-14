@@ -17,6 +17,12 @@ class StageCoverMode(IntEnum):
     FULL_WIDTH = 2
 
 
+class StageCoverNoteSpeedCompensation(IntEnum):
+    OFF = 0
+    FIXED_ONLY = 1
+    FULL = 2
+
+
 class VibrateMode(IntEnum):
     DISABLED = 0
     MISS = 1
@@ -173,6 +179,17 @@ class Options:
         max=1,
         step=0.01,
         unit=StandardText.PERCENTAGE_UNIT,
+    )
+    stage_cover_scroll_speed_compensation: StageCoverNoteSpeedCompensation = select_option(
+        name="Stage Cover Note Speed Compensation",
+        advanced=True,
+        scope="Sekai",
+        values=[
+            "Off",
+            "Fixed Only",
+            "Full",
+        ],
+        default=1,
     )
     hidden: float = slider_option(
         name=StandardText.HIDDEN,

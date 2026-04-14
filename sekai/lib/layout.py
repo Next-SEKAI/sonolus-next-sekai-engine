@@ -17,7 +17,7 @@ from sonolus.script.vec import Vec2
 from sekai.lib import archetype_names
 from sekai.lib.baseevent import get_event_as, query_event_list
 from sekai.lib.ease import EaseType, ease
-from sekai.lib.options import HitboxMode, Options
+from sekai.lib.options import HitboxMode, Options, StageCoverNoteSpeedCompensation
 from sekai.lib.timescale import CompositeTime
 
 LANE_T = 47 / 850
@@ -40,7 +40,6 @@ APPROACH_SCALE = 1.06**-45
 # Value above 1 where we cut off drawing sprites. Doesn't really matter as long as it's high enough,
 # such that something like a flick arrow below the judge line isn't obviously suddenly cut off.
 DEFAULT_APPROACH_CUTOFF = 2.5
-DEFAULT_PROGRESS_CUTOFF = 1 - log(DEFAULT_APPROACH_CUTOFF, APPROACH_SCALE)
 
 
 class FlickDirection(IntEnum):
@@ -56,6 +55,7 @@ class FlickDirection(IntEnum):
 class Layout:
     field_w: float
     field_h: float
+    approach_start: float
     progress_start: float
     progress_cutoff: float
     flick_speed_threshold: float
@@ -85,17 +85,24 @@ def init_layout():
     Layout.field_w = field_w
     Layout.field_h = field_h
 
+    Layout.approach_start = 0.0
+
     refresh_layout()
 
+    if Options.stage_cover and Options.stage_cover_scroll_speed_compensation != StageCoverNoteSpeedCompensation.OFF:
+        target_travel = lerp(APPROACH_SCALE, 1.0, Options.stage_cover)
+        candidate = inverse_approach(target_travel)
+        Layout.approach_start = clamp(candidate, 0, 0.99)
+
     if Options.stage_cover:
-        Layout.progress_start = inverse_approach(lerp(approach(0), 1.0, Options.stage_cover))
+        Layout.progress_start = inverse_approach(lerp(APPROACH_SCALE, 1.0, Options.stage_cover))
     else:
         Layout.progress_start = 0.0
 
     if Options.hidden:
-        Layout.progress_cutoff = inverse_approach(lerp(1.0, approach(0), Options.hidden))
+        Layout.progress_cutoff = inverse_approach(lerp(1.0, APPROACH_SCALE, Options.hidden))
     else:
-        Layout.progress_cutoff = DEFAULT_PROGRESS_CUTOFF
+        Layout.progress_cutoff = inverse_approach(DEFAULT_APPROACH_CUTOFF)
 
     Layout.flick_speed_threshold = 2 * DynamicLayout.w_scale
 
@@ -168,6 +175,7 @@ def refresh_layout():
 
 
 def approach(progress: float) -> float:
+    progress = lerp(Layout.approach_start, 1.0, progress)
     if Options.alternative_approach_curve:
         d_0 = 1 / APPROACH_SCALE
         d_1 = 2.5
@@ -184,11 +192,12 @@ def inverse_approach(approach_value: float) -> float:
         v_1 = (d_0 - d_1) / d_1**2
         d = remap(APPROACH_SCALE, 1, 1 / d_0, 1 / d_1, approach_value)
         if d <= 1 / d_1:
-            return (1 / d - d_0) / (d_1 - d_0)
+            raw = (1 / d - d_0) / (d_1 - d_0)
         else:
-            return 1 + (d - 1 / d_1) / v_1
+            raw = 1 + (d - 1 / d_1) / v_1
     else:
-        return 1 - log(approach_value) / log(APPROACH_SCALE)
+        raw = 1 - log(approach_value) / log(APPROACH_SCALE)
+    return unlerp(Layout.approach_start, 1.0, raw)
 
 
 def progress_to(to_time: float | CompositeTime, now: float | CompositeTime) -> float:
@@ -202,7 +211,10 @@ def progress_to(to_time: float | CompositeTime, now: float | CompositeTime) -> f
 
 
 def preempt_time() -> float:
-    return lerp(0.35, 4, unlerp(12, 1, Options.note_speed) ** 1.31)
+    raw = lerp(0.35, 4, unlerp(12, 1, Options.note_speed) ** 1.31)
+    if Options.stage_cover_scroll_speed_compensation == StageCoverNoteSpeedCompensation.FIXED_ONLY:
+        return raw * (1 - Layout.approach_start)
+    return raw
 
 
 def get_alpha(target_time: float, now: float | None = None) -> float:
@@ -268,7 +280,7 @@ def layout_lane(lane: float, size: float, y_offset: float = 0.0) -> Quad:
 
 
 def layout_stage_cover() -> Quad:
-    b = lerp(approach(0), 1.0, Options.stage_cover)
+    b = lerp(APPROACH_SCALE, 1.0, Options.stage_cover)
     return perspective_rect(
         l=-6,
         r=6,
@@ -278,7 +290,7 @@ def layout_stage_cover() -> Quad:
 
 
 def layout_stage_cover_and_line() -> tuple[Quad, Quad]:
-    b = lerp(approach(0), 1.0, Options.stage_cover)
+    b = lerp(APPROACH_SCALE, 1.0, Options.stage_cover)
     cover_b = b + 0.002
     return perspective_rect(
         l=-6,
@@ -294,7 +306,7 @@ def layout_stage_cover_and_line() -> tuple[Quad, Quad]:
 
 
 def layout_full_width_stage_cover() -> Rect:
-    b = transform_vec(Vec2(0, lerp(approach(0), 1.0, Options.stage_cover))).y
+    b = transform_vec(Vec2(0, lerp(APPROACH_SCALE, 1.0, Options.stage_cover))).y
     return Rect(
         l=screen().l,
         r=screen().r,
@@ -305,7 +317,7 @@ def layout_full_width_stage_cover() -> Rect:
 
 def layout_hidden_cover() -> Quad:
     b = 1 - DynamicLayout.note_h
-    t = min(b, max(lerp(1.0, approach(0), Options.hidden), lerp(approach(0), 1.0, Options.stage_cover)))
+    t = min(b, max(lerp(1.0, APPROACH_SCALE, Options.hidden), lerp(APPROACH_SCALE, 1.0, Options.stage_cover)))
     return perspective_rect(
         l=-6,
         r=6,
