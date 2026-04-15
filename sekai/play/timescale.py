@@ -41,6 +41,7 @@ class TimescaleGroup(PlayArchetype):
     name = archetype_names.TIMESCALE_GROUP
 
     first_ref: EntityRef[TimescaleChange] = imported(name="first")
+    force_note_speed: float = imported(name="forceNoteSpeed")
 
     current_scaled_time: CompositeTime = shared_memory()
     last_change: EntityRef[TimescaleChange] = shared_memory()

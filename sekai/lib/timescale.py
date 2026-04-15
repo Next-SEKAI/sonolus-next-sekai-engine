@@ -48,6 +48,7 @@ class TimescaleGroupLike(Protocol):
     scaled_time_to_first_time_2: ScaledTimeToFirstTime
     current_scaled_time: CompositeTime
     hide_notes: bool
+    force_note_speed: float
 
     @classmethod
     def at(cls, index: int) -> TimescaleGroupLike: ...
@@ -285,6 +286,14 @@ def group_hide_notes(group: int | EntityRef) -> bool:
     if group <= 0:
         return False
     return timescale_group_archetype().at(group).hide_notes
+
+
+def group_force_note_speed(group: int | EntityRef) -> float:
+    if isinstance(group, EntityRef):
+        group = group.index
+    if group <= 0:
+        return 0.0
+    return timescale_group_archetype().at(group).force_note_speed
 
 
 def iter_timescale_changes_in_group_from_time(

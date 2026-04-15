@@ -6,9 +6,6 @@ Handles common initialization logic for the engine. Must appear exactly once as 
 
 ### Fields
 
-* **revision (EngineRevision)**: Which version of engine logic to use. Defaults to BASE. Takes on one of the following values:
-  * BASE = 0
-  * SONOLUS_1_1_0 = 1
 * **initialLife (int)**: The initial life value for the level. Defaults to 1000.
 * **firstZoom (ref?[ZoomChange])**: An optional reference to the first **ZoomChange** entity.
 
@@ -113,6 +110,7 @@ Represents a timescale group and is referenced by notes and timescale changes.
 ### Fields
 
 * **first (ref[#TIMESCALE_CHANGE])**: [Temporary] a reference to the first change
+* **forceNoteSpeed (float)**: If greater than 0 (valid range 1–12), overrides the effective note speed for notes attached to this group, and bypasses the stage-cover FIXED_ONLY scroll-speed compensation. A value of 0 means follow the user's #NOTE_SPEED option.
 
 ## #TIMESCALE_CHANGE
 

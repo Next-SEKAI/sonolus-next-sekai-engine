@@ -42,6 +42,7 @@ from sekai.lib.options import Options
 from sekai.lib.stage import DivisionParity, get_stage_props
 from sekai.lib.timescale import (
     CompositeTime,
+    group_force_note_speed,
     group_hide_notes,
     group_scaled_time,
     group_time_to_scaled_time,
@@ -381,11 +382,19 @@ class WatchBaseNote(WatchArchetype):
             attach_head = self.attach_head_ref.get()
             attach_tail = self.attach_tail_ref.get()
             head_progress = (
-                progress_to(attach_head.target_scaled_time, group_scaled_time(attach_head.timescale_group))
+                progress_to(
+                    attach_head.target_scaled_time,
+                    group_scaled_time(attach_head.timescale_group),
+                    group_force_note_speed(attach_head.timescale_group),
+                )
                 if time() < attach_head.target_time
                 else 1.0
             )
-            tail_progress = progress_to(attach_tail.target_scaled_time, group_scaled_time(attach_tail.timescale_group))
+            tail_progress = progress_to(
+                attach_tail.target_scaled_time,
+                group_scaled_time(attach_tail.timescale_group),
+                group_force_note_speed(attach_tail.timescale_group),
+            )
             head_frac = (
                 0.0
                 if time() < attach_head.target_time
@@ -395,7 +404,11 @@ class WatchBaseNote(WatchArchetype):
             frac = unlerp_clamped(attach_head.target_time, attach_tail.target_time, self.target_time)
             return remap_clamped(head_frac, tail_frac, head_progress, tail_progress, frac)
         else:
-            return progress_to(self.target_scaled_time, group_scaled_time(self.timescale_group))
+            return progress_to(
+                self.target_scaled_time,
+                group_scaled_time(self.timescale_group),
+                group_force_note_speed(self.timescale_group),
+            )
 
     @property
     def head_ease_frac(self) -> float:

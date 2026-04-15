@@ -35,6 +35,7 @@ class WatchTimescaleGroup(WatchArchetype):
     name = archetype_names.TIMESCALE_GROUP
 
     first_ref: EntityRef[WatchTimescaleChange] = imported(name="first")
+    force_note_speed: float = imported(name="forceNoteSpeed")
 
     current_scaled_time: CompositeTime = shared_memory()
     last_change: EntityRef[WatchTimescaleChange] = shared_memory()

@@ -85,7 +85,12 @@ from sekai.lib.slot_effect import (
     draw_slot_effect,
     draw_slot_glow_effect,
 )
-from sekai.lib.timescale import CompositeTime, group_scaled_time_to_first_time, group_scaled_time_to_first_time_2
+from sekai.lib.timescale import (
+    CompositeTime,
+    group_force_note_speed,
+    group_scaled_time_to_first_time,
+    group_scaled_time_to_first_time_2,
+)
 
 
 class NoteKind(IntEnum):
@@ -285,10 +290,11 @@ def get_visual_spawn_time(
 ):
     if isinstance(target_scaled_time, CompositeTime):
         target_scaled_time = target_scaled_time.total
+    force_speed = group_force_note_speed(timescale_group)
     return min(
-        group_scaled_time_to_first_time(timescale_group, target_scaled_time - preempt_time() * 2),
-        group_scaled_time_to_first_time_2(timescale_group, target_scaled_time + preempt_time() * 2),
-        -2 if -1 <= progress_to(target_scaled_time, -2) <= 3 else 1e8,
+        group_scaled_time_to_first_time(timescale_group, target_scaled_time - preempt_time(force_speed) * 2),
+        group_scaled_time_to_first_time_2(timescale_group, target_scaled_time + preempt_time(force_speed) * 2),
+        -2 if -1 <= progress_to(target_scaled_time, -2, force_speed) <= 3 else 1e8,
     )
 
 

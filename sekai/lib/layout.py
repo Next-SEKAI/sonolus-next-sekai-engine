@@ -200,17 +200,24 @@ def inverse_approach(approach_value: float) -> float:
     return unlerp(Layout.approach_start, 1.0, raw)
 
 
-def progress_to(to_time: float | CompositeTime, now: float | CompositeTime) -> float:
+def progress_to(
+    to_time: float | CompositeTime,
+    now: float | CompositeTime,
+    force_speed: float = 0,
+) -> float:
+    p = preempt_time(force_speed)
     match (to_time, now):
         case (CompositeTime(), CompositeTime()):
-            return ((now.base - to_time.base) + now.delta - to_time.delta + preempt_time()) / preempt_time()
+            return ((now.base - to_time.base) + now.delta - to_time.delta + p) / p
         case (Num(), Num()):
-            return unlerp(to_time - preempt_time(), to_time, now)
+            return unlerp(to_time - p, to_time, now)
         case _:
             static_error("Unexpected types for progress_to")
 
 
-def preempt_time() -> float:
+def preempt_time(force_speed: float = 0) -> float:
+    if force_speed > 0:
+        return lerp(0.35, 4, unlerp(12, 1, force_speed) ** 1.31)
     raw = lerp(0.35, 4, unlerp(12, 1, Options.note_speed) ** 1.31)
     if Options.stage_cover_scroll_speed_compensation == StageCoverNoteSpeedCompensation.FIXED_ONLY:
         return raw * (1 - Layout.approach_start)

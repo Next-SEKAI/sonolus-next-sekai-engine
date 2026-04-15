@@ -84,6 +84,7 @@ class LevelTimescaleChange:
 @dataclass
 class LevelTimescaleGroup:
     changes: list[LevelTimescaleChange] = field(default_factory=list)
+    force_note_speed: float = 0.0
 
 
 @dataclass
@@ -377,7 +378,7 @@ def _build_timescale_group(
 ) -> tuple[TimescaleGroup, list[PlayArchetype]]:
     if not level_group.changes:
         raise ValueError("LevelTimescaleGroup must have at least one change")
-    group = TimescaleGroup()
+    group = TimescaleGroup(force_note_speed=level_group.force_note_speed)
     change_entities: list[TimescaleChange] = []
     for level_change in sorted(level_group.changes, key=lambda c: c.beat):
         change = TimescaleChange(
