@@ -401,7 +401,16 @@ def draw_dynamic_stage(
 
     if not sprites_b.available:
         draw_fallback_stage(
-            lane, width, division.end.size, division.end.parity, pivot_lane, order, a, y_offset=y_offset
+            lane,
+            width,
+            division.end.size,
+            division.end.parity,
+            pivot_lane,
+            order,
+            a,
+            lane_alpha,
+            judge_line_alpha,
+            y_offset,
         )
         return
 
@@ -667,6 +676,8 @@ def draw_dynamic_stage(
         if alpha_bb > 0:
             draw_right_judgment_border(sprites_b, right_border_style.end, z_b2, ja * alpha_bb)
 
+    draw_per_stage_cover(l, r, a, lane_alpha, order)
+
 
 def draw_fallback_stage(
     lane: float,
@@ -676,6 +687,8 @@ def draw_fallback_stage(
     pivot: float,
     z: int,
     a: float,
+    lane_alpha: float = 1,
+    judge_line_alpha: float = 1,
     y_offset: float = 0,
 ):
     travel = approach(1 - y_offset)
@@ -684,46 +697,84 @@ def draw_fallback_stage(
     z_lo = get_z_alt(LAYER_STAGE, z * 3)
     z_mid = get_z_alt(LAYER_STAGE, z * 3 + 1)
     z_hi = get_z_alt(LAYER_STAGE, z * 3 + 2)
-    layout_b = layout_lane_by_edges(l - 0.25, l)  # Artificially thicken the top so it renders better
-    layout_t = layout_lane_by_edges(l - 1, l)
-    ActiveSkin.stage_left_border.draw(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br), z=z_mid)
-    layout_b = layout_lane_by_edges(r, r + 0.25)
-    layout_t = layout_lane_by_edges(r, r + 1)
-    ActiveSkin.stage_right_border.draw(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br), z=z_mid)
+    la = a * lane_alpha
+    ja = a * judge_line_alpha
+    if la > 0:
+        layout_b = layout_lane_by_edges(l - 0.25, l)  # Artificially thicken the top so it renders better
+        layout_t = layout_lane_by_edges(l - 1, l)
+        ActiveSkin.stage_left_border.draw(
+            Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br), z=z_mid, a=la
+        )
+        layout_b = layout_lane_by_edges(r, r + 0.25)
+        layout_t = layout_lane_by_edges(r, r + 1)
+        ActiveSkin.stage_right_border.draw(
+            Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br), z=z_mid, a=la
+        )
 
-    eps = 0.001
-    parity_offset = division_size / 2 if parity == DivisionParity.ODD else 0
-    shifted_pivot = pivot + parity_offset
-    prev = l
-    if division_size > 0:
-        k_start = floor((l - shifted_pivot + eps) / division_size) + 1
-        k_end = ceil((r - shifted_pivot - eps) / division_size) - 1
-        for k in range(k_start, k_end + 1):
-            pos = shifted_pivot + k * division_size
-            ActiveSkin.lane.draw(layout_lane_by_edges(prev, pos), a=a, z=z_lo)
-            prev = pos
-    ActiveSkin.lane.draw(layout_lane_by_edges(prev, r), a=a, z=z_lo)
+        eps = 0.001
+        parity_offset = division_size / 2 if parity == DivisionParity.ODD else 0
+        shifted_pivot = pivot + parity_offset
+        prev = l
+        if division_size > 0:
+            k_start = floor((l - shifted_pivot + eps) / division_size) + 1
+            k_end = ceil((r - shifted_pivot - eps) / division_size) - 1
+            for k in range(k_start, k_end + 1):
+                pos = shifted_pivot + k * division_size
+                ActiveSkin.lane.draw(layout_lane_by_edges(prev, pos), a=la, z=z_lo)
+                prev = pos
+        ActiveSkin.lane.draw(layout_lane_by_edges(prev, r), a=la, z=z_lo)
 
     layout = perspective_rect(l, r, t=1 - DynamicLayout.note_h, b=1 + DynamicLayout.note_h, travel=travel)
-    ActiveSkin.judgment_line.draw(layout, z=z_hi, a=a)
+    ActiveSkin.judgment_line.draw(layout, z=z_hi, a=ja)
+
+    draw_per_stage_cover(l, r, a, lane_alpha, z)
+
+
+def draw_per_stage_cover(l: float, r: float, a: float, lane_alpha: float, order: int):
+    if not LevelConfig.dynamic_stages:
+        return
+    ca = a * lane_alpha
+    if ca <= 0:
+        return
+    z_cover = get_z_alt(LAYER_COVER, order * 4)
+    z_line = get_z_alt(LAYER_COVER, order * 4 + 1)
+    z_hidden = get_z_alt(LAYER_COVER, order * 4 + 2)
+    if Options.stage_cover > 0:
+        match Options.stage_cover_mode:
+            case StageCoverMode.STAGE:
+                layout = layout_stage_cover(l, r)
+                ActiveSkin.cover.draw(layout, z=z_cover, a=Options.stage_cover_alpha * ca)
+            case StageCoverMode.STAGE_AND_LINE:
+                cover_layout, line_layout = layout_stage_cover_and_line(l, r)
+                ActiveSkin.cover.draw(cover_layout, z=z_cover, a=Options.stage_cover_alpha * ca)
+                ActiveSkin.guide_neutral.draw(line_layout, z=z_line, a=0.75 * ca)
+            case StageCoverMode.FULL_WIDTH:
+                pass
+            case _:
+                assert_never(Options.stage_cover_mode)
+    if Options.hidden > 0:
+        layout = layout_hidden_cover(l, r)
+        ActiveSkin.cover.draw(layout, z=z_hidden, a=ca)
 
 
 def draw_stage_cover():
     if Options.stage_cover > 0:
         match Options.stage_cover_mode:
             case StageCoverMode.STAGE:
-                layout = layout_stage_cover()
-                ActiveSkin.cover.draw(layout, z=get_z(LAYER_COVER), a=Options.stage_cover_alpha)
+                if not LevelConfig.dynamic_stages:
+                    layout = layout_stage_cover()
+                    ActiveSkin.cover.draw(layout, z=get_z(LAYER_COVER), a=Options.stage_cover_alpha)
             case StageCoverMode.STAGE_AND_LINE:
-                cover_layout, line_layout = layout_stage_cover_and_line()
-                ActiveSkin.cover.draw(cover_layout, z=get_z(LAYER_COVER), a=Options.stage_cover_alpha)
-                ActiveSkin.guide_neutral.draw(line_layout, z=get_z(LAYER_COVER, etc=1), a=0.75)
+                if not LevelConfig.dynamic_stages:
+                    cover_layout, line_layout = layout_stage_cover_and_line()
+                    ActiveSkin.cover.draw(cover_layout, z=get_z(LAYER_COVER), a=Options.stage_cover_alpha)
+                    ActiveSkin.guide_neutral.draw(line_layout, z=get_z(LAYER_COVER, etc=1), a=0.75)
             case StageCoverMode.FULL_WIDTH:
                 layout = layout_full_width_stage_cover()
                 ActiveSkin.cover.draw(layout, z=get_z(LAYER_COVER), a=Options.stage_cover_alpha)
             case _:
                 assert_never(Options.stage_cover_mode)
-    if Options.hidden > 0:
+    if Options.hidden > 0 and not LevelConfig.dynamic_stages:
         layout = layout_hidden_cover()
         ActiveSkin.cover.draw(layout, z=get_z(LAYER_COVER), a=1)
 

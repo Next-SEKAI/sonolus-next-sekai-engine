@@ -286,27 +286,27 @@ def layout_lane(lane: float, size: float, y_offset: float = 0.0) -> Quad:
     return layout_lane_by_edges(lane - size, lane + size, y_offset=y_offset)
 
 
-def layout_stage_cover() -> Quad:
+def layout_stage_cover(l: float = -6, r: float = 6) -> Quad:
     b = lerp(APPROACH_SCALE, 1.0, Options.stage_cover)
     return perspective_rect(
-        l=-6,
-        r=6,
+        l=l,
+        r=r,
         t=LANE_T,
         b=b,
     )
 
 
-def layout_stage_cover_and_line() -> tuple[Quad, Quad]:
+def layout_stage_cover_and_line(l: float = -6, r: float = 6) -> tuple[Quad, Quad]:
     b = lerp(APPROACH_SCALE, 1.0, Options.stage_cover)
     cover_b = b + 0.002
     return perspective_rect(
-        l=-6,
-        r=6,
+        l=l,
+        r=r,
         t=LANE_T,
         b=cover_b,
     ), perspective_rect(
-        l=-6,
-        r=6,
+        l=l,
+        r=r,
         t=cover_b,
         b=b,
     )
@@ -322,12 +322,12 @@ def layout_full_width_stage_cover() -> Rect:
     )
 
 
-def layout_hidden_cover() -> Quad:
+def layout_hidden_cover(l: float = -6, r: float = 6) -> Quad:
     b = 1 - DynamicLayout.note_h
     t = min(b, max(lerp(1.0, APPROACH_SCALE, Options.hidden), lerp(APPROACH_SCALE, 1.0, Options.stage_cover)))
     return perspective_rect(
-        l=-6,
-        r=6,
+        l=l,
+        r=r,
         t=t,
         b=b,
     )
