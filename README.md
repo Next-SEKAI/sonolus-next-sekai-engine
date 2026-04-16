@@ -5,9 +5,10 @@ A new Project Sekai inspired engine for [Sonolus](https://sonolus.com).
 ## Official Resources
 
 Server: https://coconut.sonolus.com/next-sekai/  
-Editor: https://next-sekai-editor.sonolus.com/  
+Editor: https://next-sekai-editor.sonolus.com/
 
 ## Quick Dev Setup
+
 1. Install [uv](https://docs.astral.sh/uv/).
 2. Run `uv sync`.
 3. Add resources (full exported scp files) such as skins and levels to the `/resources` folder.
@@ -18,114 +19,115 @@ Editor: https://next-sekai-editor.sonolus.com/
 
 ### Skin Sprites
 
-| Name                                          |
-|-----------------------------------------------|
-| `Sekai Stage`                                 |
-| `Sekai Stage Surface`                         |
-| `Sekai Note Cyan Left`                        |
-| `Sekai Note Cyan Middle`                      |
-| `Sekai Note Cyan Right`                       |
-| `Sekai Note Green Left`                       |
-| `Sekai Note Green Middle`                     |
-| `Sekai Note Green Right`                      |
-| `Sekai Note Red Left`                         |
-| `Sekai Note Red Middle`                       |
-| `Sekai Note Red Right`                        |
-| `Sekai Note Yellow Left`                      |
-| `Sekai Note Yellow Middle`                    |
-| `Sekai Note Yellow Right`                     |
-| `Sekai Diamond Green`                         |
-| `Sekai Diamond Yellow`                        |
-| `Sekai Active Slide Connection Green`         |
-| `Sekai Active Slide Connection Green Active`  |
-| `Sekai Active Slide Connection Yellow`        |
-| `Sekai Active Slide Connection Yellow Active` |
-| `Sekai Slot Cyan`                             |
-| `Sekai Slot Green`                            |
-| `Sekai Slot Red`                              |
-| `Sekai Slot Yellow`                           |
-| `Sekai Slot Yellow Flick`                     |
-| `Sekai Slot Yellow Slider`                    |
-| `Sekai Slot Glow Cyan`                        |
-| `Sekai Slot Glow Green`                       |
-| `Sekai Slot Glow Red`                         |
-| `Sekai Slot Glow Yellow`                      |
-| `Sekai Slot Glow Yellow Flick`                |
-| `Sekai Slot Glow Yellow Slider Tap`           |
-| `Sekai Slot Glow Green Slider Hold`           |
-| `Sekai Slot Glow Yellow Slider Hold`          |
-| `Sekai Flick Arrow Red Up 1`                  |
-| `Sekai Flick Arrow Red Up 2`                  |
-| `Sekai Flick Arrow Red Up 3`                  |
-| `Sekai Flick Arrow Red Up 4`                  |
-| `Sekai Flick Arrow Red Up 5`                  |
-| `Sekai Flick Arrow Red Up 6`                  |
-| `Sekai Flick Arrow Red Up Left 1`             |
-| `Sekai Flick Arrow Red Up Left 2`             |
-| `Sekai Flick Arrow Red Up Left 3`             |
-| `Sekai Flick Arrow Red Up Left 4`             |
-| `Sekai Flick Arrow Red Up Left 5`             |
-| `Sekai Flick Arrow Red Up Left 6`             |
-| `Sekai Flick Arrow Red Down 1`                |
-| `Sekai Flick Arrow Red Down 2`                |
-| `Sekai Flick Arrow Red Down 3`                |
-| `Sekai Flick Arrow Red Down 4`                |
-| `Sekai Flick Arrow Red Down 5`                |
-| `Sekai Flick Arrow Red Down 6`                |
-| `Sekai Flick Arrow Red Down Left 1`           |
-| `Sekai Flick Arrow Red Down Left 2`           |
-| `Sekai Flick Arrow Red Down Left 3`           |
-| `Sekai Flick Arrow Red Down Left 4`           |
-| `Sekai Flick Arrow Red Down Left 5`           |
-| `Sekai Flick Arrow Red Down Left 6`           |
-| `Sekai Flick Arrow Yellow Up 1`               |
-| `Sekai Flick Arrow Yellow Up 2`               |
-| `Sekai Flick Arrow Yellow Up 3`               |
-| `Sekai Flick Arrow Yellow Up 4`               |
-| `Sekai Flick Arrow Yellow Up 5`               |
-| `Sekai Flick Arrow Yellow Up 6`               |
-| `Sekai Flick Arrow Yellow Up Left 1`          |
-| `Sekai Flick Arrow Yellow Up Left 2`          |
-| `Sekai Flick Arrow Yellow Up Left 3`          |
-| `Sekai Flick Arrow Yellow Up Left 4`          |
-| `Sekai Flick Arrow Yellow Up Left 5`          |
-| `Sekai Flick Arrow Yellow Up Left 6`          |
-| `Sekai Flick Arrow Yellow Down 1`             |
-| `Sekai Flick Arrow Yellow Down 2`             |
-| `Sekai Flick Arrow Yellow Down 3`             |
-| `Sekai Flick Arrow Yellow Down 4`             |
-| `Sekai Flick Arrow Yellow Down 5`             |
-| `Sekai Flick Arrow Yellow Down 6`             |
-| `Sekai Flick Arrow Yellow Down Left 1`        |
-| `Sekai Flick Arrow Yellow Down Left 2`        |
-| `Sekai Flick Arrow Yellow Down Left 3`        |
-| `Sekai Flick Arrow Yellow Down Left 4`        |
-| `Sekai Flick Arrow Yellow Down Left 5`        |
-| `Sekai Flick Arrow Yellow Down Left 6`        |
-| `Sekai Trace Note Green Left`                 |
-| `Sekai Trace Note Green Middle`               |
-| `Sekai Trace Note Green Right`                |
-| `Sekai Trace Note Yellow Left`                |
-| `Sekai Trace Note Yellow Middle`              |
-| `Sekai Trace Note Yellow Right`               |
-| `Sekai Trace Note Red Left`                   |
-| `Sekai Trace Note Red Middle`                 |
-| `Sekai Trace Note Red Right`                  |
-| `Sekai Trace Diamond Green`                   |
-| `Sekai Trace Diamond Yellow`                  |
-| `Sekai Trace Diamond Red`                     |
-| `Sekai Guide Green`                           |
-| `Sekai Guide Yellow`                          |
-| `Sekai Guide Red`                             |
-| `Sekai Guide Purple`                          |
-| `Sekai Guide Cyan`                            |
-| `Sekai Guide Blue`                            |
-| `Sekai Guide Neutral`                         |
-| `Sekai Guide Black`                           |
-| `Sekai Trace Note Purple Left`                |
-| `Sekai Trace Note Purple Middle`              |
-| `Sekai Trace Note Purple Right`               |
-| `Sekai Black Background`                      |
+For each role below, the engine picks the first available sprite in the listed
+order. Earlier entries take precedence over later ones, and `->` separates
+fallbacks from highest to lowest priority.
+
+Shorthand used in the tables:
+
+- `{A, B, C}` expands to one sprite per listed value, e.g.
+  `Sekai Normal Note {Left, Middle, Right}` = `Sekai Normal Note Left`,
+  `Sekai Normal Note Middle`, `Sekai Normal Note Right`.
+- `{1..6}` expands to a range, e.g.
+  `Sekai Flick Arrow Up {1..6}` = `Sekai Flick Arrow Up 1` through
+  `Sekai Flick Arrow Up 6`.
+- When both appear together, every combination applies, e.g.
+  `Sekai Flick Arrow {Up, Up Left, Down, Down Left} {1..6}` = 4 * 6 = 24 sprites.
+
+#### Stage
+
+`<Color>` = `{Neutral, Red, Green, Blue, Yellow, Purple, Cyan, Black}`.
+
+| Role                     | Sprite                            |
+|--------------------------|-----------------------------------|
+| Stage                    | `Sekai Stage` (optional)          |
+| Stage Border             | `Sekai Stage Border`              |
+| Lane Background          | `Sekai Lane Background`           |
+| Lane Divider             | `Sekai Lane Divider`              |
+| Judgment Line Background | `Sekai Judgment Background`       |
+| Judgment Gradient        | `Sekai Judgment Gradient <Color>` |
+| Judgment Edge            | `Sekai Judgment Edge <Color>`     |
+| Judgment Center          | `Sekai Judgment Center <Color>`   |
+
+#### Note Bodies
+
+| Note Type                 | Bucket Icon                             | Render Style | Body Precedence                                                                                                                                                                                                                                       |
+|---------------------------|-----------------------------------------|--------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Tap                       | `Sekai Normal Note Basic`               | Normal       | `Sekai Normal Note {Left, Middle, Right}` -> `Sekai Note Cyan {Left, Middle, Right}` -> `NOTE_HEAD_CYAN`                                                                                                                                              |
+| Slide                     | `Sekai Slide Note Basic`                | Normal       | `Sekai Slide Note {Left, Middle, Right}` -> `Sekai Note Green {Left, Middle, Right}` -> `NOTE_HEAD_GREEN`                                                                                                                                             |
+| Flick                     | `Sekai Flick Note Basic`                | Normal       | `Sekai Flick Note {Left, Middle, Right}` -> `Sekai Note Red {Left, Middle, Right}` -> `NOTE_HEAD_RED`                                                                                                                                                 |
+| Down Flick                | `Sekai Flick Note Basic`                | Normal       | `Sekai Down Flick Note {Left, Middle, Right}` -> `Sekai Flick Note {Left, Middle, Right}` -> `Sekai Note Red {Left, Middle, Right}` -> `NOTE_HEAD_RED`                                                                                                |
+| Critical                  | `Sekai Critical Note Basic`             | Normal       | `Sekai Critical Note {Left, Middle, Right}` -> `Sekai Note Yellow {Left, Middle, Right}` -> `NOTE_HEAD_YELLOW`                                                                                                                                        |
+| Critical Slide            | `Sekai Critical Slide Note Basic`       | Normal       | `Sekai Critical Slide Note {Left, Middle, Right}` -> `Sekai Critical Note {Left, Middle, Right}` -> `Sekai Note Yellow {Left, Middle, Right}` -> `NOTE_HEAD_YELLOW`                                                                                   |
+| Critical Flick            | `Sekai Critical Flick Note Basic`       | Normal       | `Sekai Critical Flick Note {Left, Middle, Right}` -> `Sekai Critical Note {Left, Middle, Right}` -> `Sekai Note Yellow {Left, Middle, Right}` -> `NOTE_HEAD_YELLOW`                                                                                   |
+| Critical Down Flick       | `Sekai Critical Flick Note Basic`       | Normal       | `Sekai Critical Down Flick Note {Left, Middle, Right}` -> `Sekai Critical Flick Note {Left, Middle, Right}` -> `Sekai Critical Note {Left, Middle, Right}` -> `Sekai Note Yellow {Left, Middle, Right}` -> `NOTE_HEAD_YELLOW`                         |
+| Trace                     | `Sekai Normal Trace Note Basic`         | Slim         | `Sekai Normal Trace Note {Left, Middle, Right}` -> `Sekai Trace Note Green {Left, Middle, Right}` -> `NOTE_HEAD_GREEN`                                                                                                                                |
+| Trace Flick               | `Sekai Trace Flick Note Basic`          | Slim         | `Sekai Trace Flick Note {Left, Middle, Right}` -> `Sekai Trace Note Red {Left, Middle, Right}` -> `NOTE_HEAD_RED`                                                                                                                                     |
+| Trace Down Flick          | `Sekai Trace Flick Note Basic`          | Slim         | `Sekai Trace Down Flick Note {Left, Middle, Right}` -> `Sekai Trace Flick Note {Left, Middle, Right}` -> `Sekai Trace Note Red {Left, Middle, Right}` -> `NOTE_HEAD_RED`                                                                              |
+| Critical Trace            | `Sekai Critical Trace Note Basic`       | Slim         | `Sekai Critical Trace Note {Left, Middle, Right}` -> `Sekai Trace Note Yellow {Left, Middle, Right}` -> `NOTE_HEAD_YELLOW`                                                                                                                            |
+| Critical Trace Flick      | `Sekai Critical Trace Flick Note Basic` | Slim         | `Sekai Critical Trace Flick Note {Left, Middle, Right}` -> `Sekai Critical Trace Note {Left, Middle, Right}` -> `Sekai Trace Note Yellow {Left, Middle, Right}` -> `NOTE_HEAD_YELLOW`                                                                 |
+| Critical Trace Down Flick | `Sekai Critical Trace Flick Note Basic` | Slim         | `Sekai Critical Trace Down Flick Note {Left, Middle, Right}` -> `Sekai Critical Trace Flick Note {Left, Middle, Right}` -> `Sekai Critical Trace Note {Left, Middle, Right}` -> `Sekai Trace Note Yellow {Left, Middle, Right}` -> `NOTE_HEAD_YELLOW` |
+| Damage                    | `Sekai Damage Note Basic`               | Slim         | `Sekai Damage Note {Left, Middle, Right}` -> `Sekai Trace Note Purple {Left, Middle, Right}` -> `NOTE_HEAD_PURPLE`                                                                                                                                    |
+
+#### Slide Tick Diamonds
+
+| Tick Type                      | Precedence                                                                                                                                                                |
+|--------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Normal Slide Tick              | `Sekai Normal Slide Diamond` -> `Sekai Diamond Green` -> `NOTE_TICK_GREEN`                                                                                                |
+| Critical Slide Tick            | `Sekai Critical Slide Diamond` -> `Sekai Diamond Yellow` -> `NOTE_TICK_YELLOW`                                                                                            |
+| Trace Tick (Green)             | `Sekai Normal Trace Diamond` -> `Sekai Trace Diamond Green` -> `NOTE_TICK_GREEN`                                                                                          |
+| Trace Flick Tick               | `Sekai Trace Flick Diamond` -> `Sekai Trace Diamond Red` -> `NOTE_TICK_RED`                                                                                               |
+| Trace Down Flick Tick          | `Sekai Trace Down Flick Diamond` -> `Sekai Trace Flick Diamond` -> `Sekai Trace Diamond Red` -> `NOTE_TICK_RED`                                                           |
+| Critical Trace Tick            | `Sekai Critical Trace Diamond` -> `Sekai Trace Diamond Yellow` -> `NOTE_TICK_YELLOW`                                                                                      |
+| Critical Trace Flick Tick      | `Sekai Critical Trace Flick Diamond` -> `Sekai Critical Trace Diamond` -> `Sekai Trace Diamond Yellow` -> `NOTE_TICK_YELLOW`                                              |
+| Critical Trace Down Flick Tick | `Sekai Critical Trace Down Flick Diamond` -> `Sekai Critical Trace Flick Diamond` -> `Sekai Critical Trace Diamond` -> `Sekai Trace Diamond Yellow` -> `NOTE_TICK_YELLOW` |
+
+#### Active Slide Connectors
+
+| Connector | Precedence                                                                                                                                                |
+|-----------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Normal    | `Sekai Normal Active Slide Connection {Normal, Active}` -> `Sekai Active Slide Connection {Green, Green Active}` -> `NOTE_CONNECTION_GREEN_SEAMLESS`      |
+| Critical  | `Sekai Critical Active Slide Connection {Normal, Active}` -> `Sekai Active Slide Connection {Yellow, Yellow Active}` -> `NOTE_CONNECTION_YELLOW_SEAMLESS` |
+
+#### Slots & Slot Glows
+
+| Note Type               | Slot Precedence                                                                                                                              | Slot Glow Precedence                                                                                                                                                  |
+|-------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Tap                     | `Sekai Slot Normal` -> `Sekai Slot Cyan`                                                                                                     | `Sekai Slot Glow Normal` -> `Sekai Slot Glow Cyan`                                                                                                                    |
+| Slide                   | `Sekai Slot Slide` -> `Sekai Slot Green`                                                                                                     | `Sekai Slot Glow Slide` -> `Sekai Slot Glow Green`                                                                                                                    |
+| Flick                   | `Sekai Slot Flick` -> `Sekai Slot Red`                                                                                                       | `Sekai Slot Glow Flick` -> `Sekai Slot Glow Red`                                                                                                                      |
+| Down Flick              | `Sekai Slot Down Flick` -> `Sekai Slot Flick` -> `Sekai Slot Red`                                                                            | `Sekai Slot Glow Down Flick` -> `Sekai Slot Glow Flick` -> `Sekai Slot Glow Red`                                                                                      |
+| Critical                | `Sekai Slot Critical` -> `Sekai Slot Yellow`                                                                                                 | `Sekai Slot Glow Critical` -> `Sekai Slot Glow Yellow`                                                                                                                |
+| Critical Slide          | `Sekai Slot Critical Slide` -> `Sekai Slot Yellow Slider` -> `Sekai Slot Critical` -> `Sekai Slot Yellow`                                    | `Sekai Slot Glow Critical Slide` -> `Sekai Slot Glow Yellow Slider Tap` -> `Sekai Slot Glow Critical` -> `Sekai Slot Glow Yellow`                                     |
+| Critical Flick          | `Sekai Slot Critical Flick` -> `Sekai Slot Yellow Flick` -> `Sekai Slot Critical` -> `Sekai Slot Yellow`                                     | `Sekai Slot Glow Critical Flick` -> `Sekai Slot Glow Yellow Flick` -> `Sekai Slot Glow Critical` -> `Sekai Slot Glow Yellow`                                          |
+| Critical Down Flick     | `Sekai Slot Critical Down Flick` -> `Sekai Slot Critical Flick` -> `Sekai Slot Yellow Flick` -> `Sekai Slot Critical` -> `Sekai Slot Yellow` | `Sekai Slot Glow Critical Down Flick` -> `Sekai Slot Glow Critical Flick` -> `Sekai Slot Glow Yellow Flick` -> `Sekai Slot Glow Critical` -> `Sekai Slot Glow Yellow` |
+| Active Slide (Normal)   | --                                                                                                                                           | `Sekai Normal Slide Slot Glow` -> `Sekai Slot Glow Slide` -> `Sekai Slot Glow Green`                                                                                  |
+| Active Slide (Critical) | --                                                                                                                                           | `Sekai Critical Slide Slot Glow` -> `Sekai Slot Glow Critical Slide` -> `Sekai Slot Glow Yellow Slider Tap` -> `Sekai Slot Glow Critical` -> `Sekai Slot Glow Yellow` |
+
+| Connector   | Sprite                               |
+|-------------|--------------------------------------|
+| Green Hold  | `Sekai Slot Glow Green Slider Hold`  |
+| Yellow Hold | `Sekai Slot Glow Yellow Slider Hold` |
+
+#### Flick Arrows
+
+| Note Family                                                                             | Precedence                                                                                                                                                            |
+|-----------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Flick / Down Flick / Trace Flick / Trace Down Flick                                     | `Sekai Flick Arrow {Up, Up Left, Down, Down Left} {1..6}` -> `Sekai Flick Arrow Red {Up, Up Left, Down, Down Left} {1..6}` -> `DIRECTIONAL_MARKER_RED`                |
+| Critical Flick / Critical Down Flick / Critical Trace Flick / Critical Trace Down Flick | `Sekai Critical Flick Arrow {Up, Up Left, Down, Down Left} {1..6}` -> `Sekai Flick Arrow Yellow {Up, Up Left, Down, Down Left} {1..6}` -> `DIRECTIONAL_MARKER_YELLOW` |
+
+#### Guides
+
+| Color   | Precedence                                                  |
+|---------|-------------------------------------------------------------|
+| Green   | `Sekai Guide Green` -> `NOTE_CONNECTION_GREEN_SEAMLESS`     |
+| Yellow  | `Sekai Guide Yellow` -> `NOTE_CONNECTION_YELLOW_SEAMLESS`   |
+| Red     | `Sekai Guide Red` -> `NOTE_CONNECTION_RED_SEAMLESS`         |
+| Purple  | `Sekai Guide Purple` -> `NOTE_CONNECTION_PURPLE_SEAMLESS`   |
+| Cyan    | `Sekai Guide Cyan` -> `NOTE_CONNECTION_CYAN_SEAMLESS`       |
+| Blue    | `Sekai Guide Blue` -> `NOTE_CONNECTION_BLUE_SEAMLESS`       |
+| Neutral | `Sekai Guide Neutral` -> `NOTE_CONNECTION_NEUTRAL_SEAMLESS` |
+| Black   | `Sekai Guide Black` -> `NOTE_CONNECTION_NEUTRAL_SEAMLESS`   |
 
 ### Effect Clips
 
