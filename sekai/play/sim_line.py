@@ -4,7 +4,7 @@ from sonolus.script.runtime import time
 from sekai.debug import DISABLE_NOTES
 from sekai.lib import archetype_names
 from sekai.lib.sim_line import draw_sim_line
-from sekai.lib.timescale import group_hide_notes
+from sekai.lib.timescale import group_hide_notes, update_timescale_group
 from sekai.play.note import BaseNote
 
 
@@ -31,6 +31,10 @@ class SimLine(PlayArchetype):
         if DISABLE_NOTES:
             return False
         return time() >= self.spawn_time
+
+    def update_sequential(self):
+        update_timescale_group(self.left.timescale_group)
+        update_timescale_group(self.right.timescale_group)
 
     def update_parallel(self):
         if self.left.is_despawned or self.right.is_despawned or time() > self.left.target_time:

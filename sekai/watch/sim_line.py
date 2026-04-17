@@ -4,7 +4,7 @@ from sonolus.script.runtime import is_replay
 from sekai.debug import DISABLE_NOTES
 from sekai.lib import archetype_names
 from sekai.lib.sim_line import draw_sim_line
-from sekai.lib.timescale import group_hide_notes
+from sekai.lib.timescale import group_hide_notes, update_timescale_group
 from sekai.watch.note import WatchBaseNote
 
 
@@ -34,6 +34,10 @@ class WatchSimLine(WatchArchetype):
 
     def despawn_time(self) -> float:
         return self.end_time
+
+    def update_sequential(self):
+        update_timescale_group(self.left.timescale_group)
+        update_timescale_group(self.right.timescale_group)
 
     def update_parallel(self):
         if group_hide_notes(self.left.timescale_group) or group_hide_notes(self.right.timescale_group):
