@@ -233,8 +233,8 @@ class ScaledTimeToFirstTime(Record):
                 case _:
                     assert_never(self.last_ease)
             skip_scaled_time = change.timescale_skip * 60 / beat_to_bpm(change.beat)
-            if (next_scaled_time <= scaled_time <= next_scaled_time + change.timescale_skip) or (
-                next_scaled_time + change.timescale_skip <= scaled_time <= next_scaled_time
+            if (next_scaled_time <= scaled_time <= next_scaled_time + skip_scaled_time) or (
+                next_scaled_time + skip_scaled_time <= scaled_time <= next_scaled_time
             ):
                 return next_time
             self.last_timescale = next_timescale
