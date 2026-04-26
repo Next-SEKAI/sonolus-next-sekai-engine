@@ -110,9 +110,8 @@ class BaseNote(PlayArchetype):
 
     should_play_hit_effects: bool = entity_memory()
 
-    hitbox: Quad = entity_memory()
-    hitbox_lane: float = entity_memory()
-    hitbox_size: float = entity_memory()
+    hitbox_l: float = entity_memory()
+    hitbox_r: float = entity_memory()
 
     end_time: float = exported()
     played_hit_effects: bool = exported()
@@ -278,10 +277,8 @@ class BaseNote(PlayArchetype):
                     current_ref @= current.next_ref
             hitbox_l -= leniency
             hitbox_r += leniency
-            self.hitbox = layout_hitbox(hitbox_l, hitbox_r)
-            if SHOW_TICK_HITBOX_SIZE:
-                self.hitbox_lane = (hitbox_l + hitbox_r) / 2
-                self.hitbox_size = (hitbox_r - hitbox_l) / 2
+            self.hitbox_l = hitbox_l
+            self.hitbox_r = hitbox_r
 
     def update_sequential(self):
         if self.despawn:
@@ -384,8 +381,8 @@ class BaseNote(PlayArchetype):
         if SHOW_TICK_HITBOX_SIZE and self.kind in {NoteKind.NORM_TICK, NoteKind.CRIT_TICK, NoteKind.HIDE_TICK}:
             draw_note(
                 NoteKind.DAMAGE,
-                self.hitbox_lane,
-                self.hitbox_size,
+                (self.hitbox_l + self.hitbox_r) / 2,
+                (self.hitbox_r - self.hitbox_l) / 2,
                 self.progress,
                 self.direction,
                 self.target_time,
@@ -731,6 +728,10 @@ class BaseNote(PlayArchetype):
     def post_judge(self):
         if self.should_play_hit_effects:
             PlayLevelMemory.last_note_sfx_time = time()
+
+    @property
+    def hitbox(self) -> Quad:
+        return layout_hitbox(self.hitbox_l, self.hitbox_r)
 
     @property
     def progress(self) -> float:

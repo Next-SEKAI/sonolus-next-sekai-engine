@@ -81,8 +81,8 @@ class WatchBaseNote(WatchArchetype):
 
     active_connector_info: ActiveConnectorInfo = shared_memory()
 
-    hitbox_lane: float = entity_memory()
-    hitbox_size: float = entity_memory()
+    hitbox_l: float = entity_memory()
+    hitbox_r: float = entity_memory()
 
     end_time: float = imported()
     played_hit_effects: bool = imported()
@@ -278,8 +278,8 @@ class WatchBaseNote(WatchArchetype):
                 current_ref @= current.next_ref
             hitbox_l -= leniency
             hitbox_r += leniency
-            self.hitbox_lane = (hitbox_l + hitbox_r) / 2
-            self.hitbox_size = (hitbox_r - hitbox_l) / 2
+            self.hitbox_l = hitbox_l
+            self.hitbox_r = hitbox_r
 
     def update_sequential(self):
         update_timescale_group(self.timescale_group)
@@ -296,8 +296,8 @@ class WatchBaseNote(WatchArchetype):
         if SHOW_TICK_HITBOX_SIZE and self.kind in {NoteKind.NORM_TICK, NoteKind.CRIT_TICK, NoteKind.HIDE_TICK}:
             draw_note(
                 NoteKind.DAMAGE,
-                self.hitbox_lane,
-                self.hitbox_size,
+                (self.hitbox_l + self.hitbox_r) / 2,
+                (self.hitbox_r - self.hitbox_l) / 2,
                 self.progress,
                 self.direction,
                 self.target_time,
