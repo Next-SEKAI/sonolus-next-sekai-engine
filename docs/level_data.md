@@ -7,18 +7,19 @@ Handles common initialization logic for the engine. Must appear exactly once as 
 ### Fields
 
 * **initialLife (int)**: The initial life value for the level. Defaults to 1000.
-* **firstZoom (ref?[ZoomChange])**: An optional reference to the first **ZoomChange** entity.
+* **firstCamera (ref?[CameraChange])**: An optional reference to the first **CameraChange** entity.
 
-## ZoomChange
+## CameraChange
 
-A zoom event. The presence of at least one **ZoomChange** entity enables dynamic stages.
+A camera change event. The presence of at least one **CameraChange** entity enables dynamic stages.
 
 ### Fields
 
 * **#BEAT (float)**
-* **zoom (float)**
+* **lane (float)**: Horizontal camera position in stage lanes. Positive values pan the camera to the right (drawn objects shift left). Defaults to 0.
+* **size (float)**: Visible width of the field, in lanes (half-width). A `size` of 6 covers the full default stage; smaller values zoom in (e.g. `size=3` is 2x zoom). Defaults to 6.
 * **ease (EaseType)**
-* **next (ref?[ZoomChange])**: A reference to the next **ZoomChange** event.
+* **next (ref?[CameraChange])**: A reference to the next **CameraChange** event.
 
 ## Stage
 

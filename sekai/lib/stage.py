@@ -492,7 +492,7 @@ def draw_dynamic_stage(
             )
 
     thickness_scale = clamp(1 / travel, 1, 4) if travel > 0 else 4
-    judgment_divider_size = transformed_vec_at(0.014 * thickness_scale, travel).x
+    judgment_divider_size = 0.014 * thickness_scale * travel * DynamicLayout.w_scale
 
     def layout_judgment_divider(lane: float):
         b = transformed_vec_at(lane, (1 + DynamicLayout.note_h - DynamicLayout.note_h / f + 0.001) * travel)

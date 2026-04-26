@@ -37,13 +37,14 @@ from sekai.play.common import PlayLevelMemory
 from sekai.play.static_stage import StageMemory
 
 
-class ZoomChange(PlayArchetype, BaseEvent):
-    name = archetype_names.ZOOM_CHANGE
+class CameraChange(PlayArchetype, BaseEvent):
+    name = archetype_names.CAMERA_CHANGE
 
     beat: StandardImport.BEAT
-    zoom: float = imported()
+    lane: float = imported()
+    size: float = imported()
     ease: EaseType = imported()
-    next_ref: EntityRef[ZoomChange] = imported(name="next")
+    next_ref: EntityRef[CameraChange] = imported(name="next")
 
     time: float = entity_data()
 

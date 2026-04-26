@@ -17,13 +17,14 @@ from sekai.lib.stage import (
 )
 
 
-class PreviewZoomChange(PreviewArchetype, BaseEvent):
-    name = archetype_names.ZOOM_CHANGE
+class PreviewCameraChange(PreviewArchetype, BaseEvent):
+    name = archetype_names.CAMERA_CHANGE
 
     beat: StandardImport.BEAT
-    zoom: float = imported()
+    lane: float = imported()
+    size: float = imported()
     ease: EaseType = imported()
-    next_ref: EntityRef[PreviewZoomChange] = imported(name="next")
+    next_ref: EntityRef[PreviewCameraChange] = imported(name="next")
 
     time: float = entity_data()
 

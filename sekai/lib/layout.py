@@ -10,6 +10,7 @@ from sonolus.script.globals import level_data, level_memory
 from sonolus.script.interval import clamp, lerp, remap, unlerp
 from sonolus.script.num import Num
 from sonolus.script.quad import Quad, QuadLike, Rect
+from sonolus.script.record import Record
 from sonolus.script.runtime import aspect_ratio, is_play, is_watch, screen, time
 from sonolus.script.values import swap
 from sonolus.script.vec import Vec2
@@ -66,8 +67,14 @@ class DynamicLayout:
     t: float
     w_scale: float
     h_scale: float
+    x_translate: float
     note_h: float
     scaled_note_h: float
+
+
+class CameraInfo(Record):
+    lane: float
+    size: float
 
 
 def init_layout():
@@ -107,61 +114,73 @@ def init_layout():
     Layout.flick_speed_threshold = 2 * DynamicLayout.w_scale
 
 
-class ZoomChangeLike(Protocol):
+class CameraChangeLike(Protocol):
     time: float
-    zoom: float
+    lane: float
+    size: float
     ease: EaseType
     next_ref: EntityRef
 
     @classmethod
-    def at(cls, index: int) -> ZoomChangeLike: ...
+    def at(cls, index: int) -> CameraChangeLike: ...
 
     @property
     def index(self) -> int: ...
 
 
 class InitializationLike(Protocol):
-    first_zoom_ref: EntityRef
+    first_camera_ref: EntityRef
 
     @classmethod
     def at(cls, index: int) -> InitializationLike: ...
 
 
-def _zoom_change_archetype() -> type[ZoomChangeLike]:
-    return cast(type[ZoomChangeLike], get_archetype_by_name(archetype_names.ZOOM_CHANGE))
+def _camera_change_archetype() -> type[CameraChangeLike]:
+    return cast(type[CameraChangeLike], get_archetype_by_name(archetype_names.CAMERA_CHANGE))
 
 
 def _initialization_archetype() -> type[InitializationLike]:
     return cast(type[InitializationLike], get_archetype_by_name(archetype_names.INITIALIZATION))
 
 
-def get_zoom(target_time: float | None = None) -> float:
-    first_zoom_ref = _initialization_archetype().at(0).first_zoom_ref
-    if first_zoom_ref.index <= 0:
-        return 1.0
+def get_camera_info(target_time: float | None = None) -> CameraInfo:
+    result = +CameraInfo
+    first_camera_ref = _initialization_archetype().at(0).first_camera_ref
+    if first_camera_ref.index <= 0:
+        result @= CameraInfo(lane=0.0, size=6.0)
+        return result
     t = time() if target_time is None else target_time
-    zoom_a_ref, zoom_b_ref = query_event_list(first_zoom_ref, t, lambda e: e.time)
-    zoom_archetype = _zoom_change_archetype()
-    if zoom_a_ref.index > 0:
-        zoom_a = get_event_as(zoom_a_ref, zoom_archetype)
-        if zoom_b_ref.index > 0:
-            zoom_b = get_event_as(zoom_b_ref, zoom_archetype)
-            t_a = zoom_a.time
-            t_b = zoom_b.time
-            if t_b > t_a:
-                p = ease(zoom_b.ease, (t - t_a) / (t_b - t_a))
-                return lerp(zoom_a.zoom, zoom_b.zoom, p)
-        return zoom_a.zoom
-    if zoom_b_ref.index > 0:
-        return get_event_as(zoom_b_ref, zoom_archetype).zoom
-    return 1.0
+    camera_a_ref, camera_b_ref = query_event_list(first_camera_ref, t, lambda e: e.time)
+    camera_archetype = _camera_change_archetype()
+    if camera_a_ref.index > 0:
+        camera_a = get_event_as(camera_a_ref, camera_archetype)
+        if camera_b_ref.index > 0:
+            camera_b = get_event_as(camera_b_ref, camera_archetype)
+            if camera_b.time > camera_a.time:
+                p = ease(camera_b.ease, unlerp(camera_a.time, camera_b.time, t))
+                result @= CameraInfo(
+                    lane=lerp(camera_a.lane, camera_b.lane, p),
+                    size=lerp(camera_a.size, camera_b.size, p),
+                )
+                return result
+        result @= CameraInfo(lane=camera_a.lane, size=camera_a.size)
+        return result
+    if camera_b_ref.index > 0:
+        camera_b = get_event_as(camera_b_ref, camera_archetype)
+        result @= CameraInfo(lane=camera_b.lane, size=camera_b.size)
+        return result
+    result @= CameraInfo(lane=0.0, size=6.0)
+    return result
 
 
 def refresh_layout():
+    camera = +CameraInfo
     if is_play() or is_watch():
-        zoom = get_zoom()
+        camera @= get_camera_info()
     else:
-        zoom = 1.0
+        camera @= CameraInfo(lane=0.0, size=6.0)
+
+    zoom = 6.0 / camera.size
 
     t = Layout.field_h * (0.5 + 1.15875 * (47 / 1176))
     b = Layout.field_h * (0.5 - 1.15875 * (803 / 1176))
@@ -170,6 +189,7 @@ def refresh_layout():
     DynamicLayout.t = t
     DynamicLayout.w_scale = w
     DynamicLayout.h_scale = b - t
+    DynamicLayout.x_translate = -camera.lane * w
     DynamicLayout.note_h = NOTE_H * (0.6 * zoom + 0.4)
     DynamicLayout.scaled_note_h = DynamicLayout.note_h * DynamicLayout.h_scale
 
@@ -230,7 +250,7 @@ def get_alpha(target_time: float, now: float | None = None) -> float:
 
 def transform_vec(v: Vec2) -> Vec2:
     return Vec2(
-        v.x * DynamicLayout.w_scale,
+        v.x * DynamicLayout.w_scale + DynamicLayout.x_translate,
         v.y * DynamicLayout.h_scale + DynamicLayout.t,
     )
 
@@ -250,9 +270,9 @@ def transformed_vec_at(lane: float, travel: float = 1.0) -> Vec2:
 
 def touch_to_lane(pos: Vec2) -> float:
     if Options.hitbox_mode == HitboxMode.VERTICAL:
-        return pos.x / DynamicLayout.w_scale
+        return (pos.x - DynamicLayout.x_translate) / DynamicLayout.w_scale
     y_raw = (pos.y - DynamicLayout.t) / DynamicLayout.h_scale
-    x_raw = pos.x / DynamicLayout.w_scale
+    x_raw = (pos.x - DynamicLayout.x_translate) / DynamicLayout.w_scale
     return x_raw / y_raw
 
 
@@ -513,8 +533,8 @@ def layout_slot_glow_effect(lane: float, size: float, height: float, y_offset: f
     h = 4.25 * DynamicLayout.w_scale * Options.slot_effect_size * travel
     l_min = transformed_vec_at(lane - size, travel)
     r_min = transformed_vec_at(lane + size, travel)
-    l_max = (l_min + Vec2(0, h)) * Vec2(s, 1)
-    r_max = (r_min + Vec2(0, h)) * Vec2(s, 1)
+    l_max = transformed_vec_at((lane - size) * s, travel) + Vec2(0, h)
+    r_max = transformed_vec_at((lane + size) * s, travel) + Vec2(0, h)
     return Quad(
         bl=l_min,
         br=r_min,

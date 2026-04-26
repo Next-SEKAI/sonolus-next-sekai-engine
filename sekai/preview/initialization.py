@@ -9,7 +9,7 @@ from sekai.lib.level_config import EngineRevision, init_level_config
 from sekai.lib.particle import init_particles
 from sekai.lib.skin import ActiveSkin, init_skin
 from sekai.lib.ui import init_ui
-from sekai.preview.dynamic_stage import PreviewZoomChange
+from sekai.preview.dynamic_stage import PreviewCameraChange
 from sekai.preview.layout import (
     PREVIEW_COLUMN_SECS,
     PreviewData,
@@ -25,7 +25,7 @@ class PreviewInitialization(PreviewArchetype):
     name = archetype_names.INITIALIZATION
 
     revision: EngineRevision = imported(name="revision", default=EngineRevision.LATEST)
-    first_zoom_ref: EntityRef[PreviewZoomChange] = imported(name="firstZoom")
+    first_camera_ref: EntityRef[PreviewCameraChange] = imported(name="firstCamera")
 
     @callback(order=1)
     def preprocess(self):
@@ -34,7 +34,7 @@ class PreviewInitialization(PreviewArchetype):
         init_skin()
         init_particles()
         init_preview_layout()
-        init_event_list(self.first_zoom_ref)
+        init_event_list(self.first_camera_ref)
 
     def render(self):
         draw_preview_stage()

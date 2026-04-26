@@ -7,11 +7,11 @@ from sekai.lib.skin import BaseSkin
 from sekai.watch.bpm_change import WatchBpmChange
 from sekai.watch.connector import WATCH_CONNECTOR_ARCHETYPES
 from sekai.watch.dynamic_stage import (
+    WatchCameraChange,
     WatchDynamicStage,
     WatchStageMaskChange,
     WatchStagePivotChange,
     WatchStageStyleChange,
-    WatchZoomChange,
 )
 from sekai.watch.initialization import WatchInitialization
 from sekai.watch.note import WATCH_NOTE_ARCHETYPES
@@ -24,7 +24,7 @@ from sekai.watch.update_spawn import update_spawn
 watch_mode = WatchMode(
     archetypes=[
         WatchInitialization,
-        WatchZoomChange,
+        WatchCameraChange,
         WatchDynamicStage,
         WatchStageMaskChange,
         WatchStagePivotChange,

@@ -30,13 +30,14 @@ from sekai.lib.stage import (
 )
 
 
-class WatchZoomChange(WatchArchetype, BaseEvent):
-    name = archetype_names.ZOOM_CHANGE
+class WatchCameraChange(WatchArchetype, BaseEvent):
+    name = archetype_names.CAMERA_CHANGE
 
     beat: StandardImport.BEAT
-    zoom: float = imported()
+    lane: float = imported()
+    size: float = imported()
     ease: EaseType = imported()
-    next_ref: EntityRef[WatchZoomChange] = imported(name="next")
+    next_ref: EntityRef[WatchCameraChange] = imported(name="next")
 
     time: float = entity_data()
 

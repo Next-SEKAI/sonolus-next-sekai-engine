@@ -10,7 +10,7 @@ from sekai.lib.particle import init_particles
 from sekai.lib.skin import init_skin
 from sekai.lib.ui import init_ui
 from sekai.play.common import init_play_common
-from sekai.play.dynamic_stage import ZoomChange
+from sekai.play.dynamic_stage import CameraChange
 from sekai.play.input_manager import InputManager
 from sekai.play.note import NOTE_ARCHETYPES
 from sekai.play.static_stage import StaticStage
@@ -21,7 +21,7 @@ class Initialization(PlayArchetype):
 
     revision: EngineRevision = imported(name="revision", default=EngineRevision.SONOLUS_1_1_0)
     initial_life: int = imported(name="initialLife", default=1000)
-    first_zoom_ref: EntityRef[ZoomChange] = imported(name="firstZoom")
+    first_camera_ref: EntityRef[CameraChange] = imported(name="firstCamera")
 
     replay_revision: EngineRevision = exported(name="replayRevision")
 
@@ -36,7 +36,7 @@ class Initialization(PlayArchetype):
         init_score(NOTE_ARCHETYPES)
         init_life(NOTE_ARCHETYPES, self.initial_life)
         init_play_common()
-        init_event_list(self.first_zoom_ref)
+        init_event_list(self.first_camera_ref)
 
     def initialize(self):
         StaticStage.spawn()

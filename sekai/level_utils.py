@@ -19,11 +19,11 @@ from sekai.lib.stage import DivisionParity, JudgeLineColor, StageBorderStyle
 from sekai.play.bpm_change import BpmChange
 from sekai.play.connector import Connector
 from sekai.play.dynamic_stage import (
+    CameraChange,
     DynamicStage,
     StageMaskChange,
     StagePivotChange,
     StageStyleChange,
-    ZoomChange,
 )
 from sekai.play.initialization import Initialization
 from sekai.play.note import NOTE_ARCHETYPES, BaseNote
@@ -128,9 +128,10 @@ class LevelStage:
 
 
 @dataclass
-class LevelZoomChange:
+class LevelCameraChange:
     beat: float
-    zoom: float
+    lane: float = 0.0
+    size: float = 6.0
     ease: EaseType = EaseType.LINEAR
 
 
@@ -157,7 +158,7 @@ class LevelSlide:
     notes: list[LevelNote] = field(default_factory=list)
 
 
-type LevelEntities = LevelBpmChange | LevelTimescaleGroup | LevelNote | LevelSlide | LevelStage | LevelZoomChange
+type LevelEntities = LevelBpmChange | LevelTimescaleGroup | LevelNote | LevelSlide | LevelStage | LevelCameraChange
 
 
 def _apply_ease(ease_type: EaseType, x: float) -> float:
@@ -213,7 +214,7 @@ def build_level(
     bpm_changes: list[LevelBpmChange] = []
     level_ts_groups: list[LevelTimescaleGroup] = []
     level_stages: list[LevelStage] = []
-    level_zoom_changes: list[LevelZoomChange] = []
+    level_camera_changes: list[LevelCameraChange] = []
     top_notes: list[LevelNote] = []
     slides: list[LevelSlide] = []
 
@@ -224,8 +225,8 @@ def build_level(
             level_ts_groups.append(entity)
         elif isinstance(entity, LevelStage):
             level_stages.append(entity)
-        elif isinstance(entity, LevelZoomChange):
-            level_zoom_changes.append(entity)
+        elif isinstance(entity, LevelCameraChange):
+            level_camera_changes.append(entity)
         elif isinstance(entity, LevelNote):
             top_notes.append(entity)
         elif isinstance(entity, LevelSlide):
@@ -258,7 +259,7 @@ def build_level(
         stage_map[id(level_stage)] = stage
         out_entities.extend(stage_entities)
 
-    first_zoom = _build_zoom_changes(level_zoom_changes, out_entities)
+    first_camera = _build_camera_changes(level_camera_changes, out_entities)
 
     note_entities: list[BaseNote] = []
     slide_head_tail: dict[int, tuple[BaseNote, BaseNote]] = {}
@@ -353,8 +354,8 @@ def build_level(
         revision=EngineRevision.LATEST,
         initial_life=1000,
     )
-    if first_zoom is not None:
-        initialization.first_zoom_ref = first_zoom.ref()
+    if first_camera is not None:
+        initialization.first_camera_ref = first_camera.ref()
     out_entities.insert(0, initialization)
 
     sorted_entities = sorted(
@@ -455,15 +456,18 @@ def _build_stage(level_stage: LevelStage) -> tuple[DynamicStage, list[PlayArchet
     return stage, extra
 
 
-def _build_zoom_changes(level_zooms: list[LevelZoomChange], out_entities: list[PlayArchetype]) -> ZoomChange | None:
-    if not level_zooms:
+def _build_camera_changes(
+    level_cameras: list[LevelCameraChange], out_entities: list[PlayArchetype]
+) -> CameraChange | None:
+    if not level_cameras:
         return None
-    zoom_entities = [
-        ZoomChange(beat=z.beat, zoom=z.zoom, ease=z.ease) for z in sorted(level_zooms, key=lambda z: z.beat)
+    camera_entities = [
+        CameraChange(beat=c.beat, lane=c.lane, size=c.size, ease=c.ease)
+        for c in sorted(level_cameras, key=lambda c: c.beat)
     ]
-    _chain_next_refs(zoom_entities)
-    out_entities.extend(zoom_entities)
-    return zoom_entities[0]
+    _chain_next_refs(camera_entities)
+    out_entities.extend(camera_entities)
+    return camera_entities[0]
 
 
 def _chain_next_refs(events: list) -> None:
