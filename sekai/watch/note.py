@@ -57,7 +57,6 @@ class WatchBaseNote(WatchArchetype):
     timescale_group: StandardImport.TIMESCALE_GROUP
     stage_ref: EntityRef[WatchDynamicStage] = imported(name="stage")
     lane: float = imported()
-    rel_lane: float = imported(name="relLane")
     size: float = imported()
     direction: FlickDirection = imported()
     active_head_ref: EntityRef[WatchBaseNote] = imported(name="activeHead")
@@ -74,6 +73,7 @@ class WatchBaseNote(WatchArchetype):
 
     kind: NoteKind = entity_data()
     data_init_done: bool = entity_data()
+    rel_lane: float = entity_data()
     target_time: float = entity_data()
     visual_start_time: float = entity_data()
     start_time: float = entity_data()
@@ -109,6 +109,10 @@ class WatchBaseNote(WatchArchetype):
             self.target_scaled_time = group_time_to_scaled_time(self.timescale_group, self.target_time)
             self.visual_start_time = get_visual_spawn_time(self.timescale_group, self.target_scaled_time)
             self.start_time = self.visual_start_time
+
+        if self.stage_ref.index > 0:
+            self.rel_lane = self.lane
+            self.lane += get_stage_props(self.stage_ref.get(), self.target_time).pivot_lane
 
         if self.next_ref.index > 0:
             self.next_ref.get().prev_ref = self.ref()

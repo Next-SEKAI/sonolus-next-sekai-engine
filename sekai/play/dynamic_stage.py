@@ -20,6 +20,7 @@ from sekai.lib.baseevent import BaseEvent, init_event_list
 from sekai.lib.ease import EaseType
 from sekai.lib.layout import layout_hitbox, preempt_time, touch_to_lane
 from sekai.lib.level_config import LevelConfig
+from sekai.lib.options import Options
 from sekai.lib.stage import (
     DivisionParity,
     JudgeLineColor,
@@ -52,6 +53,8 @@ class CameraChange(PlayArchetype, BaseEvent):
     def preprocess(self):
         LevelConfig.dynamic_stages = True
         self.time = beat_to_time(self.beat)
+        if Options.mirror:
+            self.lane *= -1
 
     def spawn_order(self) -> float:
         return 1e8
@@ -170,6 +173,8 @@ class StageMaskChange(PlayArchetype, BaseEvent):
     @callback(order=-2)
     def preprocess(self):
         self.time = beat_to_time(self.beat)
+        if Options.mirror:
+            self.lane *= -1
 
     def spawn_order(self) -> float:
         return 1e8
@@ -198,6 +203,8 @@ class StagePivotChange(PlayArchetype, BaseEvent):
     def preprocess(self):
         self.time = beat_to_time(self.beat)
         self.y_offset = self.abs_y_offset + self.y_beat_offset * 60 / beat_to_bpm(self.beat) / preempt_time()
+        if Options.mirror:
+            self.lane *= -1
 
     def spawn_order(self) -> float:
         return 1e8
@@ -225,6 +232,8 @@ class StageStyleChange(PlayArchetype, BaseEvent):
     @callback(order=-2)
     def preprocess(self):
         self.time = beat_to_time(self.beat)
+        if Options.mirror:
+            self.left_border_style, self.right_border_style = self.right_border_style, self.left_border_style
 
     def spawn_order(self) -> float:
         return 1e8

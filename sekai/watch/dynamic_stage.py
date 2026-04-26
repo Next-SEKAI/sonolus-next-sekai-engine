@@ -17,6 +17,7 @@ from sekai.lib.baseevent import BaseEvent, init_event_list
 from sekai.lib.ease import EaseType
 from sekai.lib.layout import preempt_time
 from sekai.lib.level_config import LevelConfig
+from sekai.lib.options import Options
 from sekai.lib.stage import (
     DivisionParity,
     JudgeLineColor,
@@ -45,6 +46,8 @@ class WatchCameraChange(WatchArchetype, BaseEvent):
     def preprocess(self):
         LevelConfig.dynamic_stages = True
         self.time = beat_to_time(self.beat)
+        if Options.mirror:
+            self.lane *= -1
 
 
 class WatchDynamicStage(WatchArchetype):
@@ -107,6 +110,8 @@ class WatchStageMaskChange(WatchArchetype, BaseEvent):
     @callback(order=-2)
     def preprocess(self):
         self.time = beat_to_time(self.beat)
+        if Options.mirror:
+            self.lane *= -1
 
 
 class WatchStagePivotChange(WatchArchetype, BaseEvent):
@@ -129,6 +134,8 @@ class WatchStagePivotChange(WatchArchetype, BaseEvent):
     def preprocess(self):
         self.time = beat_to_time(self.beat)
         self.y_offset = self.abs_y_offset + self.y_beat_offset * 60 / beat_to_bpm(self.beat) / preempt_time()
+        if Options.mirror:
+            self.lane *= -1
 
 
 class WatchStageStyleChange(WatchArchetype, BaseEvent):
@@ -150,3 +157,5 @@ class WatchStageStyleChange(WatchArchetype, BaseEvent):
     @callback(order=-2)
     def preprocess(self):
         self.time = beat_to_time(self.beat)
+        if Options.mirror:
+            self.left_border_style, self.right_border_style = self.right_border_style, self.left_border_style

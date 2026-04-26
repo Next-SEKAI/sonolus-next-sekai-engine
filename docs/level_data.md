@@ -140,8 +140,7 @@ Comprised of many archetypes according to the following naming scheme:
 * **#BEAT (float)**
 * **#TIMESCALE_GROUP (ref[#TIMESCALE_GROUP])**: The timescale group of the note.
 * **stage (ref?[Stage])**: An optional reference to the **Stage** entity this note belongs to.
-* **lane (float)**: The lane for the center of the note, centered at 0. Typical values range from -5.5 to 5.5 since the edges of the stage are at lane -6 and 6 (a note with a lane of 6 would be centered on the stage edge).
-* **relLane (float)**: The lane of this note, relative to the pivot's lane at this note's beat. Positive if the note is to the right of the pivot. Ignored if the note does not reference a stage.
+* **lane (float)**: The lane for the center of the note. When **stage** is set, this is interpreted relative to the pivot's lane at this note's beat (positive if the note is to the right of the pivot). When **stage** is not set, this is centered at 0 with typical values from -5.5 to 5.5 (the edges of the stage are at lane -6 and 6).
 * **size (float)**: The size in lanes of *half* the note. E.g. a note of size 1 would take up two lanes and have an extent of (lane - size) to (lane + size). Typically ranges from 0.5 to 6.
 * **direction (Direction)**: The direction of the note, for flicks. Has no effect on other notes. Takes on one of the following values:
   * UP_OMNI = 0

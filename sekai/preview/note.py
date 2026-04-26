@@ -26,6 +26,7 @@ from sekai.lib.note import (
 )
 from sekai.lib.options import Options
 from sekai.lib.skin import ArrowRenderType, ArrowSpriteSet, BodyRenderType, BodySpriteSet
+from sekai.lib.stage import get_stage_props
 from sekai.play.note import derive_note_archetypes
 from sekai.preview.dynamic_stage import PreviewDynamicStage
 from sekai.preview.layout import (
@@ -47,7 +48,6 @@ class PreviewBaseNote(PreviewArchetype):
     beat: StandardImport.BEAT
     stage_ref: EntityRef[PreviewDynamicStage] = imported(name="stage")
     lane: float = imported()
-    rel_lane: float = imported(name="relLane")
     size: float = imported()
     direction: FlickDirection = imported()
     active_head_ref: EntityRef[PreviewBaseNote] = imported(name="activeHead")
@@ -58,9 +58,12 @@ class PreviewBaseNote(PreviewArchetype):
     segment_layer: ConnectorLayer = imported(name="segmentLayer")
     attach_head_ref: EntityRef[PreviewBaseNote] = imported(name="attachHead")
     attach_tail_ref: EntityRef[PreviewBaseNote] = imported(name="attachTail")
+    next_ref: EntityRef[PreviewBaseNote] = imported(name="next")
+    prev_ref: EntityRef[PreviewBaseNote] = imported(name="prev")
 
     kind: NoteKind = entity_data()
     data_init_done: bool = entity_data()
+    rel_lane: float = entity_data()
     target_time: float = entity_data()
 
     def init_data(self):
@@ -76,6 +79,13 @@ class PreviewBaseNote(PreviewArchetype):
             self.direction = mirror_flick_direction(self.direction)
 
         self.target_time = beat_to_time(self.beat)
+
+        if self.stage_ref.index > 0:
+            self.rel_lane = self.lane
+            self.lane += get_stage_props(self.stage_ref.get(), self.target_time).pivot_lane
+
+        if self.next_ref.index > 0:
+            self.next_ref.get().prev_ref = self.ref()
 
     def preprocess(self):
         self.init_data()
