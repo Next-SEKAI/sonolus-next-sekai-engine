@@ -194,7 +194,7 @@ def _pivot_lane_at(level_stage: LevelStage, beat: float) -> float:
         return pivots[0].lane
     if pivot_b is None or pivot_b.beat == pivot_a.beat:
         return pivot_a.lane
-    frac = _apply_ease(pivot_b.ease, (beat - pivot_a.beat) / (pivot_b.beat - pivot_a.beat))
+    frac = _apply_ease(pivot_a.ease, (beat - pivot_a.beat) / (pivot_b.beat - pivot_a.beat))
     return pivot_a.lane + (pivot_b.lane - pivot_a.lane) * frac
 
 

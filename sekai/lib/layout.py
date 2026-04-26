@@ -157,7 +157,7 @@ def get_camera_info(target_time: float | None = None) -> CameraInfo:
         if camera_b_ref.index > 0:
             camera_b = get_event_as(camera_b_ref, camera_archetype)
             if camera_b.time > camera_a.time:
-                p = ease(camera_b.ease, unlerp(camera_a.time, camera_b.time, t))
+                p = ease(camera_a.ease, unlerp(camera_a.time, camera_b.time, t))
                 result @= CameraInfo(
                     lane=lerp(camera_a.lane, camera_b.lane, p),
                     size=lerp(camera_a.size, camera_b.size, p),

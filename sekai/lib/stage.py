@@ -236,7 +236,7 @@ def get_stage_props(stage: DynamicStageLike, target_time: float | None = None) -
             t_a = mask_a.time
             t_b = mask_b.time
             if t_b > t_a:
-                p = ease(mask_b.ease, (t - t_a) / (t_b - t_a))
+                p = ease(mask_a.ease, (t - t_a) / (t_b - t_a))
                 result.lane = lerp(mask_a.lane, mask_b.lane, p)
                 result.width = lerp(mask_a.size, mask_b.size, p)
     elif mask_b_ref.index > 0:
@@ -258,7 +258,7 @@ def get_stage_props(stage: DynamicStageLike, target_time: float | None = None) -
             t_a = pivot_a.time
             t_b = pivot_b.time
             if t_b > t_a:
-                p = ease(pivot_b.ease, (t - t_a) / (t_b - t_a))
+                p = ease(pivot_a.ease, (t - t_a) / (t_b - t_a))
                 result.pivot_lane = lerp(pivot_a.lane, pivot_b.lane, p)
                 result.division.end.size = int(pivot_b.division_size)
                 result.division.end.parity = pivot_b.division_parity
@@ -290,7 +290,7 @@ def get_stage_props(stage: DynamicStageLike, target_time: float | None = None) -
             t_a = style_a.time
             t_b = style_b.time
             if t_b > t_a:
-                p = ease(style_b.ease, (t - t_a) / (t_b - t_a))
+                p = ease(style_a.ease, (t - t_a) / (t_b - t_a))
                 result.judge_line_color.end = style_b.judge_line_color
                 result.judge_line_color.progress = p
                 result.left_border_style.end = style_b.left_border_style
