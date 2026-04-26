@@ -18,7 +18,7 @@ from sonolus.script.array import Dim
 from sonolus.script.bucket import Bucket, Judgment
 from sonolus.script.containers import VarArray
 from sonolus.script.globals import level_memory
-from sonolus.script.interval import Interval, lerp, remap_clamped, unlerp, unlerp_clamped
+from sonolus.script.interval import Interval, lerp, remap_clamped, unlerp_clamped
 from sonolus.script.quad import Quad
 from sonolus.script.runtime import Touch, delta_time, input_offset, offset_adjusted_time, time, touches
 from sonolus.script.timing import beat_to_time
@@ -27,7 +27,7 @@ from sekai.debug import DISABLE_NOTES, SHOW_TICK_HITBOX_SIZE
 from sekai.lib import archetype_names
 from sekai.lib.buckets import WINDOW_SCALE, SekaiWindow
 from sekai.lib.connector import ActiveConnectorInfo, ConnectorKind, ConnectorLayer
-from sekai.lib.ease import EaseType, ease
+from sekai.lib.ease import EaseType, ease, unlerp_epsilon
 from sekai.lib.layout import FlickDirection, Layout, layout_hitbox, progress_to
 from sekai.lib.note import (
     NoteEffectKind,
@@ -226,7 +226,8 @@ class BaseNote(PlayArchetype):
                     if not current.is_attached:
                         if current.target_time <= window_start:
                             ease_progress = ease(
-                                current.connector_ease, unlerp(current.target_time, last_time, window_start)
+                                current.connector_ease,
+                                unlerp_epsilon(current.target_time, last_time, window_start),
                             )
                             lane = lerp(current.lane, last_lane, ease_progress)
                             size = lerp(current.size, last_size, ease_progress)
@@ -260,7 +261,7 @@ class BaseNote(PlayArchetype):
                     current = current_ref.get()
                     if not current.is_attached:
                         if current.target_time >= window_end:
-                            ease_progress = ease(last_ease, unlerp(last_time, current.target_time, window_end))
+                            ease_progress = ease(last_ease, unlerp_epsilon(last_time, current.target_time, window_end))
                             lane = lerp(last_lane, current.lane, ease_progress)
                             size = lerp(last_size, current.size, ease_progress)
                             hitbox_l = min(hitbox_l, lane - size)

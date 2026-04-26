@@ -12,13 +12,13 @@ from sonolus.script.archetype import (
     shared_memory,
 )
 from sonolus.script.bucket import Judgment
-from sonolus.script.interval import lerp, remap_clamped, unlerp, unlerp_clamped
+from sonolus.script.interval import lerp, remap_clamped, unlerp_clamped
 from sonolus.script.runtime import is_replay, is_skip, time
 from sonolus.script.timing import beat_to_time
 
 from sekai.debug import DISABLE_NOTES, SHOW_TICK_HITBOX_SIZE
 from sekai.lib.connector import ActiveConnectorInfo, ConnectorKind, ConnectorLayer
-from sekai.lib.ease import EaseType, ease
+from sekai.lib.ease import EaseType, ease, unlerp_epsilon
 from sekai.lib.layout import FlickDirection, progress_to
 from sekai.lib.note import (
     NoteEffectKind,
@@ -226,7 +226,8 @@ class WatchBaseNote(WatchArchetype):
                 if not current.is_attached:
                     if current.target_time <= window_start:
                         ease_progress = ease(
-                            current.connector_ease, unlerp(current.target_time, last_time, window_start)
+                            current.connector_ease,
+                            unlerp_epsilon(current.target_time, last_time, window_start),
                         )
                         lane = lerp(current.lane, last_lane, ease_progress)
                         size = lerp(current.size, last_size, ease_progress)
@@ -260,7 +261,7 @@ class WatchBaseNote(WatchArchetype):
                 current = current_ref.get()
                 if not current.is_attached:
                     if current.target_time >= window_end:
-                        ease_progress = ease(last_ease, unlerp(last_time, current.target_time, window_end))
+                        ease_progress = ease(last_ease, unlerp_epsilon(last_time, current.target_time, window_end))
                         lane = lerp(last_lane, current.lane, ease_progress)
                         size = lerp(last_size, current.size, ease_progress)
                         hitbox_l = min(hitbox_l, lane - size)
