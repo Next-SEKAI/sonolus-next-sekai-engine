@@ -129,7 +129,7 @@ for i, beat in enumerate(regular_beats):
     elif is_last:
         kind = NoteKind.NORM_TAIL_TAP
     else:
-        kind = NoteKind.NORM_TRACE
+        kind = NoteKind.NORM_TICK
     slide_notes.append(
         LevelNote(
             beat=beat,
@@ -139,7 +139,7 @@ for i, beat in enumerate(regular_beats):
             stage=stage,
             is_separator=is_first or is_last,
             segment_kind=ConnectorKind.ACTIVE_NORMAL,
-            connector_ease=EaseType.IN_QUAD,
+            connector_ease=EaseType.IN_OUT_QUAD,
         )
     )
     if not is_last:
@@ -151,7 +151,7 @@ for i, beat in enumerate(regular_beats):
                     beat=beat + frac * (next_beat - beat),
                     lane=0.0,
                     size=0.0,
-                    kind=NoteKind.NORM_TRACE,
+                    kind=NoteKind.NORM_TICK,
                     stage=None,
                     attach=slide,
                 )
@@ -218,7 +218,7 @@ guide_slide.notes = [
         stage=guide_stage,
         is_separator=True,
         segment_kind=ConnectorKind.GUIDE_RED,
-        connector_ease=EaseType.IN_QUAD,
+        connector_ease=EaseType.IN_OUT_QUAD,
     )
     for i, beat in enumerate(regular_beats)
 ]

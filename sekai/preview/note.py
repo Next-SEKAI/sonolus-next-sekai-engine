@@ -3,12 +3,12 @@ from __future__ import annotations
 from typing import cast
 
 from sonolus.script.archetype import EntityRef, PreviewArchetype, StandardImport, entity_data, imported
-from sonolus.script.interval import unlerp_clamped
+from sonolus.script.interval import lerp, unlerp_clamped
 from sonolus.script.sprite import Sprite
 from sonolus.script.timing import beat_to_time
 
 from sekai.lib.connector import ConnectorKind, ConnectorLayer
-from sekai.lib.ease import EaseType
+from sekai.lib.ease import EaseType, ease
 from sekai.lib.layer import (
     LAYER_NOTE_ARROW,
     LAYER_NOTE_TICK,
@@ -98,10 +98,10 @@ class PreviewBaseNote(PreviewArchetype):
             self.connector_ease = attach_head.connector_ease
             lane, size = get_attach_params(
                 ease_type=attach_head.connector_ease,
-                head_lane=attach_head.lane,
+                head_lane=attach_head._basic_visual_lane_at(self.target_time),
                 head_size=attach_head.size,
                 head_target_time=attach_head.target_time,
-                tail_lane=attach_tail.lane,
+                tail_lane=attach_tail._basic_visual_lane_at(self.target_time),
                 tail_size=attach_tail.size,
                 tail_target_time=attach_tail.target_time,
                 target_time=self.target_time,
@@ -141,6 +141,31 @@ class PreviewBaseNote(PreviewArchetype):
             )
         else:
             return 1.0
+
+    def _basic_visual_lane_at(self, t: float) -> float:
+        if self.stage_ref.index <= 0:
+            return self.lane
+        return get_stage_props(self.stage_ref.get(), t).pivot_lane + self.rel_lane
+
+    def visual_lane_at(self, t: float) -> float:
+        if self.is_attached:
+            head = self.attach_head_ref.get()
+            tail = self.attach_tail_ref.get()
+            note_ease_frac = unlerp_clamped(head.target_time, tail.target_time, self.target_time)
+            current_tail_lane = tail._basic_visual_lane_at(t)
+            if t >= head.target_time:
+                now_ease_frac = unlerp_clamped(head.target_time, tail.target_time, t)
+                eased_now_ease_frac = ease(self.connector_ease, now_ease_frac)
+                eased_note_ease_frac = ease(self.connector_ease, note_ease_frac)
+                current_head_lane = lerp(
+                    head._basic_visual_lane_at(t), tail._basic_visual_lane_at(t), eased_now_ease_frac
+                )
+                note_interp_frac = unlerp_clamped(eased_now_ease_frac, 1.0, eased_note_ease_frac)
+                return lerp(current_head_lane, current_tail_lane, note_interp_frac)
+            else:
+                current_head_lane = head._basic_visual_lane_at(t)
+                return lerp(current_head_lane, current_tail_lane, ease(self.connector_ease, note_ease_frac))
+        return self._basic_visual_lane_at(t)
 
 
 def draw_note(kind: NoteKind, lane: float, size: float, direction: FlickDirection, target_time: float):
