@@ -5,7 +5,7 @@ from typing import Literal, assert_never
 from sonolus.script.archetype import EntityRef
 from sonolus.script.easing import ease_out_cubic
 from sonolus.script.effect import Effect, LoopedEffectHandle
-from sonolus.script.interval import clamp, lerp, remap, remap_clamped, unlerp_clamped
+from sonolus.script.interval import clamp, lerp, remap_clamped, unlerp_clamped
 from sonolus.script.particle import Particle, ParticleHandle
 from sonolus.script.quad import Quad, QuadLike
 from sonolus.script.record import Record
@@ -269,7 +269,7 @@ def draw_connector(
     segment_tail_alpha: float,
     layer: ConnectorLayer,
 ):
-    if time() < head_target_time and (
+    if (
         (head_progress < Layout.progress_start and tail_progress < Layout.progress_start)
         or (head_progress > Layout.progress_cutoff and tail_progress > Layout.progress_cutoff)
         or head_progress == tail_progress
@@ -347,12 +347,7 @@ def draw_connector(
 
     if time() >= tail_target_time:
         return
-    if time() >= head_target_time:
-        head_frac = unlerp_clamped(head_target_time, tail_target_time, time())
-        head_progress = remap(head_frac, 1.0, 1.0, tail_progress, 0.0)
-        start_progress = clamp(1.0, Layout.progress_start, Layout.progress_cutoff)  # Accounts for hidden
-    else:
-        start_progress = clamp(head_progress, Layout.progress_start, Layout.progress_cutoff)
+    start_progress = clamp(head_progress, Layout.progress_start, Layout.progress_cutoff)
     end_progress = clamp(tail_progress, Layout.progress_start, Layout.progress_cutoff)
     start_frac = unlerp_clamped(head_progress, tail_progress, start_progress)
     end_frac = unlerp_clamped(head_progress, tail_progress, end_progress)

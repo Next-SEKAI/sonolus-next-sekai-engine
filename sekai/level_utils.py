@@ -225,7 +225,7 @@ def build_level(
     first_camera = _build_camera_changes(level_camera_changes, out_entities)
 
     note_entities: list[BaseNote] = []
-    slide_head_tail: dict[int, tuple[BaseNote, BaseNote]] = {}
+    slide_non_attached: dict[int, list[BaseNote]] = {}
 
     def emit_note(level_note: LevelNote, force_separator: bool = False) -> BaseNote:
         ts_group = resolve_ts_group(level_note.timescale_group)
@@ -249,39 +249,46 @@ def build_level(
         out_entities.append(note)
         return note
 
-    for level_note in top_notes:
-        emit_note(level_note)
-
     pending_attachments: list[tuple[BaseNote, LevelSlide]] = []
-    notes_by_level: dict[int, BaseNote] = {}
+
+    for level_note in top_notes:
+        note = emit_note(level_note)
+        if level_note.attach is not None:
+            pending_attachments.append((note, level_note.attach))
 
     for slide in slides:
         if len(slide.notes) < 2:
             raise ValueError("LevelSlide must contain at least two notes")
+        last_index = len(slide.notes) - 1
         built: list[BaseNote] = []
+        non_attached: list[BaseNote] = []
         for i, ln in enumerate(slide.notes):
-            is_endpoint = i == 0 or i == len(slide.notes) - 1
+            is_endpoint = i in (0, last_index)
             note = emit_note(ln, force_separator=is_endpoint)
             built.append(note)
-            notes_by_level[id(ln)] = note
-            if ln.attach is not None:
+            if ln.attach is None:
+                non_attached.append(note)
+            else:
                 pending_attachments.append((note, ln.attach))
 
-        head = built[0]
-        tail = built[-1]
-        slide_head_tail[id(slide)] = (head, tail)
-        head.next_ref = tail.ref()
+        for prev_note, next_note in itertools.pairwise(non_attached):
+            prev_note.next_ref = next_note.ref()
+        slide_non_attached[id(slide)] = non_attached
 
-        separator_indices = [
-            i for i, ln in enumerate(slide.notes) if i == 0 or i == len(slide.notes) - 1 or ln.is_separator
-        ]
-        for a, b in itertools.pairwise(separator_indices):
-            seg_head = built[a]
-            seg_tail = built[b]
+        separator_indices = sorted(i for i, ln in enumerate(slide.notes) if i in (0, last_index) or ln.is_separator)
+        separator_index_set = set(separator_indices)
+        boundary_indices = [i for i, ln in enumerate(slide.notes) if i in separator_index_set or ln.attach is None]
+        for a, b in itertools.pairwise(boundary_indices):
             seg_kind = slide.notes[a].segment_kind
+            if seg_kind == ConnectorKind.NONE:
+                continue
+            seg_head_idx = a if a in separator_index_set else max(s for s in separator_indices if s < a)
+            seg_tail_idx = b if b in separator_index_set else min(s for s in separator_indices if s > b)
+            seg_head = built[seg_head_idx]
+            seg_tail = built[seg_tail_idx]
             connector = Connector(
-                head_ref=head.ref(),
-                tail_ref=tail.ref(),
+                head_ref=built[a].ref(),
+                tail_ref=built[b].ref(),
                 segment_head_ref=seg_head.ref(),
                 segment_tail_ref=seg_tail.ref(),
             )
@@ -296,9 +303,18 @@ def build_level(
             out_entities.append(connector)
 
     for note, slide in pending_attachments:
-        head, tail = slide_head_tail[id(slide)]
-        note.attach_head_ref = head.ref()
-        note.attach_tail_ref = tail.ref()
+        candidates = slide_non_attached[id(slide)]
+        attach_head: BaseNote | None = None
+        attach_tail: BaseNote | None = None
+        for cand in candidates:
+            if cand.beat <= note.beat and (attach_head is None or cand.beat > attach_head.beat):
+                attach_head = cand
+            if cand.beat >= note.beat and (attach_tail is None or cand.beat < attach_tail.beat):
+                attach_tail = cand
+        if attach_head is None or attach_tail is None:
+            raise ValueError(f"Attached note at beat {note.beat} is outside the non-attached span of its slide")
+        note.attach_head_ref = attach_head.ref()
+        note.attach_tail_ref = attach_tail.ref()
         note.is_attached = True
 
     out_entities.extend(BpmChange(beat=level_bpm.beat, bpm=level_bpm.bpm) for level_bpm in bpm_changes)

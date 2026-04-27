@@ -18,7 +18,7 @@ from sonolus.script.timing import beat_to_time
 
 from sekai.debug import DISABLE_NOTES, SHOW_TICK_HITBOX_SIZE
 from sekai.lib.connector import ActiveConnectorInfo, ConnectorKind, ConnectorLayer
-from sekai.lib.ease import EaseType, ease, unlerp_epsilon
+from sekai.lib.ease import EaseType, ease
 from sekai.lib.layout import FlickDirection, progress_to
 from sekai.lib.note import (
     NoteEffectKind,
@@ -28,7 +28,6 @@ from sekai.lib.note import (
     get_leniency,
     get_note_bucket,
     get_note_effect_kind,
-    get_note_window,
     get_visual_spawn_time,
     is_head,
     map_note_kind,
@@ -133,10 +132,10 @@ class WatchBaseNote(WatchArchetype):
             self.connector_ease = attach_head.connector_ease
             lane, size = get_attach_params(
                 ease_type=attach_head.connector_ease,
-                head_lane=attach_head.lane,
+                head_lane=attach_head._basic_visual_lane_at(self.target_time),
                 head_size=attach_head.size,
                 head_target_time=attach_head.target_time,
-                tail_lane=attach_tail.lane,
+                tail_lane=attach_tail._basic_visual_lane_at(self.target_time),
                 tail_size=attach_tail.size,
                 tail_target_time=attach_tail.target_time,
                 target_time=self.target_time,
@@ -154,7 +153,7 @@ class WatchBaseNote(WatchArchetype):
                     schedule_note_sfx(self.effect_kind, self.judgment, self.end_time)
                 schedule_note_slot_effects(
                     self.kind,
-                    self._visual_lane_at(self.end_time),
+                    self.visual_lane_at(self.end_time),
                     self.size,
                     self.end_time,
                     self.direction,
@@ -169,7 +168,7 @@ class WatchBaseNote(WatchArchetype):
                 schedule_note_sfx(self.effect_kind, Judgment.PERFECT, self.target_time)
                 schedule_note_slot_effects(
                     self.kind,
-                    self._visual_lane_at(self.target_time),
+                    self.visual_lane_at(self.target_time),
                     self.size,
                     self.target_time,
                     self.direction,
@@ -179,6 +178,11 @@ class WatchBaseNote(WatchArchetype):
                 )
 
         self.result.target_time = self.target_time
+
+        if SHOW_TICK_HITBOX_SIZE and self.kind in {NoteKind.NORM_TICK, NoteKind.CRIT_TICK, NoteKind.HIDE_TICK}:
+            leniency = get_leniency(self.kind)
+            self.hitbox_l = self.lane - self.size - leniency
+            self.hitbox_r = self.lane + self.size + leniency
 
         if self.stage_ref.index > 0:
             stage = self.stage_ref.get()
@@ -198,88 +202,6 @@ class WatchBaseNote(WatchArchetype):
             return self.end_time
         else:
             return self.target_time
-
-    def initialize(self):
-        if SHOW_TICK_HITBOX_SIZE and self.kind in {NoteKind.NORM_TICK, NoteKind.CRIT_TICK, NoteKind.HIDE_TICK}:
-            leniency = get_leniency(self.kind)
-            hitbox_l = self.lane - self.size
-            hitbox_r = self.lane + self.size
-            judgment_window = get_note_window(self.kind)
-            window_start = self.target_time + judgment_window.good.start
-            window_end = self.target_time + judgment_window.good.end
-
-            # Scan backward to cover connector positions from window start to this tick
-            current_ref = +EntityRef[WatchBaseNote]
-            if self.is_attached:
-                current_ref @= self.attach_head_ref
-                attach_tail = self.attach_tail_ref.get()
-                last_lane = attach_tail.lane
-                last_size = attach_tail.size
-                last_time = attach_tail.target_time
-            else:
-                current_ref @= self.prev_ref
-                last_lane = self.lane
-                last_size = self.size
-                last_time = self.target_time
-            while current_ref.index > 0:
-                current = current_ref.get()
-                if not current.is_attached:
-                    if current.target_time <= window_start:
-                        ease_progress = ease(
-                            current.connector_ease,
-                            unlerp_epsilon(current.target_time, last_time, window_start),
-                        )
-                        lane = lerp(current.lane, last_lane, ease_progress)
-                        size = lerp(current.size, last_size, ease_progress)
-                        hitbox_l = min(hitbox_l, lane - size)
-                        hitbox_r = max(hitbox_r, lane + size)
-                        break
-                    lane = current.lane
-                    size = current.size
-                    hitbox_l = min(hitbox_l, lane - size)
-                    hitbox_r = max(hitbox_r, lane + size)
-                    last_lane = lane
-                    last_size = size
-                    last_time = current.target_time
-                current_ref @= current.prev_ref
-
-            # Scan forward to cover connector positions from this tick to window end
-            if self.is_attached:
-                current_ref @= self.attach_tail_ref
-                attach_head = self.attach_head_ref.get()
-                last_lane = attach_head.lane
-                last_size = attach_head.size
-                last_time = attach_head.target_time
-                last_ease = attach_head.connector_ease
-            else:
-                current_ref @= self.next_ref
-                last_lane = self.lane
-                last_size = self.size
-                last_time = self.target_time
-                last_ease = self.connector_ease
-            while current_ref.index > 0:
-                current = current_ref.get()
-                if not current.is_attached:
-                    if current.target_time >= window_end:
-                        ease_progress = ease(last_ease, unlerp_epsilon(last_time, current.target_time, window_end))
-                        lane = lerp(last_lane, current.lane, ease_progress)
-                        size = lerp(last_size, current.size, ease_progress)
-                        hitbox_l = min(hitbox_l, lane - size)
-                        hitbox_r = max(hitbox_r, lane + size)
-                        break
-                    lane = current.lane
-                    size = current.size
-                    hitbox_l = min(hitbox_l, lane - size)
-                    hitbox_r = max(hitbox_r, lane + size)
-                    last_lane = lane
-                    last_size = size
-                    last_time = current.target_time
-                    last_ease = current.connector_ease
-                current_ref @= current.next_ref
-            hitbox_l -= leniency
-            hitbox_r += leniency
-            self.hitbox_l = hitbox_l
-            self.hitbox_r = hitbox_r
 
     def update_sequential(self):
         update_timescale_group(self.timescale_group)
@@ -331,10 +253,30 @@ class WatchBaseNote(WatchArchetype):
                 half_offset=self.visual_half_offset,
             )
 
-    def _visual_lane_at(self, t: float) -> float:
+    def _basic_visual_lane_at(self, t: float) -> float:
         if self.stage_ref.index <= 0:
             return self.lane
         return get_stage_props(self.stage_ref.get(), t).pivot_lane + self.rel_lane
+
+    def visual_lane_at(self, t: float) -> float:
+        if self.is_attached:
+            head = self.attach_head_ref.get()
+            tail = self.attach_tail_ref.get()
+            note_ease_frac = unlerp_clamped(head.target_time, tail.target_time, self.target_time)
+            current_tail_lane = tail._basic_visual_lane_at(t)
+            if t >= head.target_time:
+                now_ease_frac = unlerp_clamped(head.target_time, tail.target_time, t)
+                eased_now_ease_frac = ease(self.connector_ease, now_ease_frac)
+                eased_note_ease_frac = ease(self.connector_ease, note_ease_frac)
+                current_head_lane = lerp(
+                    head._basic_visual_lane_at(t), tail._basic_visual_lane_at(t), eased_now_ease_frac
+                )
+                note_interp_frac = unlerp_clamped(eased_now_ease_frac, 1.0, eased_note_ease_frac)
+                return lerp(current_head_lane, current_tail_lane, note_interp_frac)
+            else:
+                current_head_lane = head._basic_visual_lane_at(t)
+                return lerp(current_head_lane, current_tail_lane, ease(self.connector_ease, note_ease_frac))
+        return self._basic_visual_lane_at(t)
 
     def _stage_y_offset_at(self, t: float) -> float:
         if self.stage_ref.index <= 0:
@@ -354,10 +296,7 @@ class WatchBaseNote(WatchArchetype):
 
     @property
     def visual_lane(self) -> float:
-        if self.stage_ref.index > 0:
-            return self.stage_ref.get().props.pivot_lane + self.rel_lane
-        else:
-            return self.lane
+        return self.visual_lane_at(time())
 
     @property
     def visual_y_offset(self) -> float:
