@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import assert_never
 
 from sonolus.script.archetype import EntityRef, WatchArchetype, callback, entity_data, entity_memory, imported
-from sonolus.script.interval import Interval
+from sonolus.script.interval import Interval, lerp, remap_clamped, unlerp_clamped
 from sonolus.script.particle import ParticleHandle
 from sonolus.script.runtime import is_replay, is_skip, time
 
@@ -24,7 +24,7 @@ from sekai.lib.connector import (
     update_circular_connector_particle,
     update_linear_connector_particle,
 )
-from sekai.lib.ease import EaseType
+from sekai.lib.ease import EaseType, ease
 from sekai.lib.note import draw_slide_note_head, get_attach_params
 from sekai.lib.options import Options
 from sekai.lib.streams import Streams
@@ -112,16 +112,40 @@ class WatchConnector(WatchArchetype):
                 return
             if self.active_tail_ref.index > 0 and time() >= self.active_tail.despawn_time():
                 return
+            if time() >= head.target_time:
+                head_progress = 1.0
+                head_target_time = time()
+                if self.ease_type == EaseType.NONE:
+                    head_lane = head.lane
+                    head_size = head.size
+                    head_ease_frac = head.head_ease_frac
+                else:
+                    head_ease_frac = remap_clamped(
+                        head.target_time, tail.target_time, head.head_ease_frac, tail.tail_ease_frac, time()
+                    )
+                    head_interp_frac = unlerp_clamped(
+                        ease(self.ease_type, head.head_ease_frac),
+                        ease(self.ease_type, tail.tail_ease_frac),
+                        ease(self.ease_type, head_ease_frac),
+                    )
+                    head_lane = lerp(head.lane, tail.lane, head_interp_frac)
+                    head_size = lerp(head.size, tail.size, head_interp_frac)
+            else:
+                head_lane = head.visual_lane
+                head_size = head.size
+                head_progress = head.progress
+                head_target_time = head.target_time
+                head_ease_frac = head.head_ease_frac
             draw_connector(
                 kind=self.kind,
                 visual_state=visual_state,
                 ease_type=self.ease_type,
-                head_lane=head.lane,
-                head_size=head.size,
-                head_progress=head.progress,
-                head_target_time=head.target_time,
-                head_ease_frac=head.head_ease_frac,
-                tail_lane=tail.lane,
+                head_lane=head_lane,
+                head_size=head_size,
+                head_progress=head_progress,
+                head_target_time=head_target_time,
+                head_ease_frac=head_ease_frac,
+                tail_lane=tail.visual_lane,
                 tail_size=tail.size,
                 tail_progress=tail.progress,
                 tail_target_time=tail.target_time,

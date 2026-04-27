@@ -767,12 +767,32 @@ class BaseNote(PlayArchetype):
                 group_force_note_speed(self.timescale_group),
             )
 
+    def _basic_visual_lane_at(self, t: float) -> float:
+        if self.stage_ref.index <= 0:
+            return self.lane
+        return get_stage_props(self.stage_ref.get(), t).pivot_lane + self.rel_lane
+
+    def visual_lane_at(self, t: float) -> float:
+        if self.is_attached:
+            head = self.attach_head_ref.get()
+            tail = self.attach_tail_ref.get()
+            note_ease_frac = unlerp_clamped(head.target_time, tail.target_time, self.target_time)
+            current_tail_lane = tail._basic_visual_lane_at(t)
+            if t >= head.target_time:
+                now_ease_frac = unlerp_clamped(head.target_time, tail.target_time, t)
+                eased_now_ease_frac = ease(self.connector_ease, now_ease_frac)
+                eased_note_ease_frac = ease(self.connector_ease, note_ease_frac)
+                current_head_lane = lerp(head.lane, tail.lane, eased_now_ease_frac)
+                note_interp_frac = unlerp_clamped(eased_now_ease_frac, 1.0, eased_note_ease_frac)
+                return lerp(current_head_lane, current_tail_lane, note_interp_frac)
+            else:
+                current_head_lane = head._basic_visual_lane_at(t)
+                return lerp(current_head_lane, current_tail_lane, ease(self.connector_ease, note_ease_frac))
+        return self._basic_visual_lane_at(t)
+
     @property
     def visual_lane(self) -> float:
-        if self.stage_ref.index > 0:
-            return self.stage_ref.get().props.pivot_lane + self.rel_lane
-        else:
-            return self.lane
+        return self.visual_lane_at(time())
 
     @property
     def visual_y_offset(self) -> float:
