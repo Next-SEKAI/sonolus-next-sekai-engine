@@ -188,7 +188,7 @@ class Connector(PlayArchetype):
                 head_progress = 1.0
                 head_target_time = time()
                 if self.ease_type == EaseType.NONE:
-                    head_lane = head.lane
+                    head_lane = head.visual_lane
                     head_size = head.size
                     head_ease_frac = head.head_ease_frac
                 else:
@@ -200,7 +200,7 @@ class Connector(PlayArchetype):
                         ease(self.ease_type, tail.tail_ease_frac),
                         ease(self.ease_type, head_ease_frac),
                     )
-                    head_lane = lerp(head.lane, tail.lane, head_interp_frac)
+                    head_lane = lerp(head.visual_lane, tail.visual_lane, head_interp_frac)
                     head_size = lerp(head.size, tail.size, head_interp_frac)
             else:
                 head_lane = head.visual_lane
@@ -235,10 +235,10 @@ class Connector(PlayArchetype):
         tail = self.tail_ref.get().effective_attach_tail
         return get_attach_params(
             ease_type=self.ease_type,
-            head_lane=head.lane,
+            head_lane=head._basic_visual_lane_at(target_time),
             head_size=head.size,
             head_target_time=head.target_time,
-            tail_lane=tail.lane,
+            tail_lane=tail._basic_visual_lane_at(target_time),
             tail_size=tail.size,
             tail_target_time=tail.target_time,
             target_time=target_time,

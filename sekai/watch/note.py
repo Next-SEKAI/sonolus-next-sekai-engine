@@ -346,7 +346,9 @@ class WatchBaseNote(WatchArchetype):
                 now_ease_frac = unlerp_clamped(head.target_time, tail.target_time, t)
                 eased_now_ease_frac = ease(self.connector_ease, now_ease_frac)
                 eased_note_ease_frac = ease(self.connector_ease, note_ease_frac)
-                current_head_lane = lerp(head.lane, tail.lane, eased_now_ease_frac)
+                current_head_lane = lerp(
+                    head._basic_visual_lane_at(t), tail._basic_visual_lane_at(t), eased_now_ease_frac
+                )
                 note_interp_frac = unlerp_clamped(eased_now_ease_frac, 1.0, eased_note_ease_frac)
                 return lerp(current_head_lane, current_tail_lane, note_interp_frac)
             else:
