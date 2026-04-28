@@ -43,10 +43,10 @@ class SimLine(PlayArchetype):
         if group_hide_notes(self.left.timescale_group) or group_hide_notes(self.right.timescale_group):
             return
         draw_sim_line(
-            left_lane=self.left.lane,
+            left_lane=self.left.visual_lane,
             left_progress=self.left.progress,
             left_target_time=self.left.target_time,
-            right_lane=self.right.lane,
+            right_lane=self.right.visual_lane,
             right_progress=self.right.progress,
             right_target_time=self.right.target_time,
         )
