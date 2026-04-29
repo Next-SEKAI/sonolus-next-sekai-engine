@@ -337,7 +337,12 @@ def draw_note(
 
 
 def draw_slide_note_head(
-    kind: NoteKind, connector_kind: ActiveConnectorKind, lane: float, size: float, target_time: float
+    kind: NoteKind,
+    connector_kind: ActiveConnectorKind,
+    lane: float,
+    size: float,
+    target_time: float,
+    y_offset: float = 0.0,
 ):
     if Options.hidden > 0:
         return
@@ -348,9 +353,10 @@ def draw_slide_note_head(
             kind = note_kind_as_critical(kind)
         case _:
             assert_never(connector_kind)
+    travel = approach(1.0 - y_offset)
     sprite_set = get_note_sprite_set(kind, FlickDirection.UP_OMNI)
-    draw_note_body(sprite_set.body, kind, lane, size, 1.0, target_time)
-    draw_note_tick(sprite_set.tick, lane, 1.0, target_time)
+    draw_note_body(sprite_set.body, kind, lane, size, travel, target_time)
+    draw_note_tick(sprite_set.tick, lane, travel, target_time)
 
 
 def note_kind_as_normal(kind: NoteKind) -> NoteKind:

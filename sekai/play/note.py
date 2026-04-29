@@ -718,11 +718,25 @@ class BaseNote(PlayArchetype):
         return self.visual_lane_at(time())
 
     @property
-    def visual_y_offset(self) -> float:
+    def _basic_visual_y_offset(self) -> float:
         if self.stage_ref.index > 0:
             return self.stage_ref.get().props.y_offset
         else:
             return 0.0
+
+    @property
+    def visual_y_offset(self) -> float:
+        if self.is_attached:
+            head = self.attach_head_ref.get()
+            tail = self.attach_tail_ref.get()
+            return remap_clamped(
+                head.target_time,
+                tail.target_time,
+                head._basic_visual_y_offset,
+                tail._basic_visual_y_offset,
+                self.target_time,
+            )
+        return self._basic_visual_y_offset
 
     @property
     def visual_pivot_lane(self) -> float:

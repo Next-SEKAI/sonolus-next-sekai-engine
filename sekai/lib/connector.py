@@ -496,6 +496,7 @@ def draw_connector(
 class ActiveConnectorInfo(Record):
     visual_lane: float
     visual_size: float
+    visual_y_offset: float
     input_lane: float
     input_size: float
     active_start_time: float

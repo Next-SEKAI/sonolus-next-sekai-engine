@@ -152,8 +152,17 @@ class Connector(PlayArchetype):
                     self.active_connector_info.last_active_time = time()
             if time() in self.visual_active_interval:
                 visual_lane, visual_size = self.get_attached_params(time())
+                head = self.head
+                tail = self.tail
                 self.active_connector_info.visual_lane = visual_lane
                 self.active_connector_info.visual_size = visual_size
+                self.active_connector_info.visual_y_offset = remap_clamped(
+                    head.target_time,
+                    tail.target_time,
+                    head.visual_y_offset,
+                    tail.visual_y_offset,
+                    time(),
+                )
                 self.active_connector_info.connector_kind = self.kind
             if group_hide_notes(self.segment_head.timescale_group):
                 self.active_connector_info.connector_kind = ConnectorKind.NONE
@@ -370,6 +379,7 @@ class SlideManager(PlayArchetype):
                     info.visual_lane,
                     info.visual_size,
                     self.active_head.target_time,
+                    info.visual_y_offset,
                 )
             case _:
                 pass

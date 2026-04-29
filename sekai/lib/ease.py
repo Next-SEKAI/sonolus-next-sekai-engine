@@ -2,13 +2,6 @@ from enum import IntEnum
 from typing import assert_never
 
 from sonolus.script.easing import ease_in_out_quad, ease_in_quad, ease_out_in_quad, ease_out_quad, linstep
-from sonolus.script.interval import unlerp
-
-
-def unlerp_epsilon(a: float, b: float, x: float) -> float:
-    if abs(b - a) < 1e-6:
-        return 0.5
-    return unlerp(a, b, x)
 
 
 class EaseType(IntEnum):

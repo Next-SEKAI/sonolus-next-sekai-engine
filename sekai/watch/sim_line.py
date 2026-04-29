@@ -49,6 +49,8 @@ class WatchSimLine(WatchArchetype):
             right_lane=self.right.visual_lane,
             right_progress=self.right.progress,
             right_target_time=self.right.target_time,
+            left_y_offset=self.left.visual_y_offset,
+            right_y_offset=self.right.visual_y_offset,
         )
 
     @property
