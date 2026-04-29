@@ -156,6 +156,8 @@ class WatchConnector(WatchArchetype):
                 segment_tail_target_time=segment_tail.target_time,
                 segment_tail_alpha=segment_tail.segment_alpha,
                 layer=segment_head.segment_layer,
+                head_y_offset=head.visual_y_offset,
+                tail_y_offset=tail.visual_y_offset,
             )
 
     def get_attached_params(self, target_time: float) -> tuple[float, float]:
