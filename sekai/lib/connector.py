@@ -254,12 +254,12 @@ def draw_connector(
     ease_type: EaseType,
     head_lane: float,
     head_size: float,
-    head_progress: float,
+    head_visual_progress: float,
     head_target_time: float,
     head_ease_frac: float,
     tail_lane: float,
     tail_size: float,
-    tail_progress: float,
+    tail_visual_progress: float,
     tail_target_time: float,
     tail_ease_frac: float,
     segment_head_target_time: float,
@@ -268,13 +268,11 @@ def draw_connector(
     segment_tail_target_time: float,
     segment_tail_alpha: float,
     layer: ConnectorLayer,
-    head_y_offset: float = 0.0,
-    tail_y_offset: float = 0.0,
 ):
     if (
-        (head_progress < Layout.progress_start and tail_progress < Layout.progress_start)
-        or (head_progress > Layout.progress_cutoff and tail_progress > Layout.progress_cutoff)
-        or head_progress == tail_progress
+        (head_visual_progress < Layout.progress_start and tail_visual_progress < Layout.progress_start)
+        or (head_visual_progress > Layout.progress_cutoff and tail_visual_progress > Layout.progress_cutoff)
+        or head_visual_progress == tail_visual_progress
     ):
         return
 
@@ -349,20 +347,18 @@ def draw_connector(
 
     if time() >= tail_target_time:
         return
-    start_progress = clamp(head_progress, Layout.progress_start, Layout.progress_cutoff)
-    end_progress = clamp(tail_progress, Layout.progress_start, Layout.progress_cutoff)
-    start_frac = unlerp_clamped(head_progress, tail_progress, start_progress)
-    end_frac = unlerp_clamped(head_progress, tail_progress, end_progress)
+    start_visual_progress = clamp(head_visual_progress, Layout.progress_start, Layout.progress_cutoff)
+    end_visual_progress = clamp(tail_visual_progress, Layout.progress_start, Layout.progress_cutoff)
+    start_frac = unlerp_clamped(head_visual_progress, tail_visual_progress, start_visual_progress)
+    end_frac = unlerp_clamped(head_visual_progress, tail_visual_progress, end_visual_progress)
     start_ease_frac = lerp(head_ease_frac, tail_ease_frac, start_frac)
     end_ease_frac = lerp(head_ease_frac, tail_ease_frac, end_frac)
     eased_head_ease_frac = ease(ease_type, head_ease_frac)
     eased_tail_ease_frac = ease(ease_type, tail_ease_frac)
     start_interp_frac = unlerp_clamped(eased_head_ease_frac, eased_tail_ease_frac, ease(ease_type, start_ease_frac))
     end_interp_frac = unlerp_clamped(eased_head_ease_frac, eased_tail_ease_frac, ease(ease_type, end_ease_frac))
-    start_y_offset = lerp(head_y_offset, tail_y_offset, start_frac)
-    end_y_offset = lerp(head_y_offset, tail_y_offset, end_frac)
-    start_travel = approach(start_progress - start_y_offset)
-    end_travel = approach(end_progress - end_y_offset)
+    start_travel = approach(start_visual_progress)
+    end_travel = approach(end_visual_progress)
     start_lane = lerp(head_lane, tail_lane, start_interp_frac)
     end_lane = lerp(head_lane, tail_lane, end_interp_frac)
     start_size = max(1e-3, lerp(head_size, tail_size, start_interp_frac))  # Lightweight rendering needs >0 size.
@@ -413,9 +409,8 @@ def draw_connector(
             for r in (0.25, 0.75):
                 ease_frac = lerp(start_ease_frac, end_ease_frac, r)
                 interp_frac = unlerp_clamped(eased_head_ease_frac, eased_tail_ease_frac, ease(ease_type, ease_frac))
-                progress = lerp(start_progress, end_progress, r)
-                y_offset = lerp(start_y_offset, end_y_offset, r)
-                travel = approach(progress - y_offset)
+                visual_progress = lerp(start_visual_progress, end_visual_progress, r)
+                travel = approach(visual_progress)
                 lane = lerp(ref_head_lane, ref_tail_lane, interp_frac)
                 pos = transformed_vec_at(lane, travel)
                 ref_pos = lerp(start_ref, end_ref, unlerp_clamped(start_travel, end_travel, travel))
@@ -448,9 +443,8 @@ def draw_connector(
         next_frac = lerp(start_frac, end_frac, segment_frac)
         next_ease_frac = lerp(start_ease_frac, end_ease_frac, segment_frac)
         next_interp_frac = unlerp_clamped(eased_head_ease_frac, eased_tail_ease_frac, ease(ease_type, next_ease_frac))
-        next_progress = lerp(start_progress, end_progress, segment_frac)
-        next_y_offset = lerp(head_y_offset, tail_y_offset, next_frac)
-        next_travel = approach(next_progress - next_y_offset)
+        next_visual_progress = lerp(start_visual_progress, end_visual_progress, segment_frac)
+        next_travel = approach(next_visual_progress)
         next_lane = lerp(head_lane, tail_lane, next_interp_frac)
         next_size = max(1e-3, lerp(head_size, tail_size, next_interp_frac))
         next_alpha = lerp(head_alpha, tail_alpha, next_frac)

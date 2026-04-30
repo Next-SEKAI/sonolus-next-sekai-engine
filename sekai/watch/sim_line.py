@@ -44,13 +44,11 @@ class WatchSimLine(WatchArchetype):
             return
         draw_sim_line(
             left_lane=self.left.visual_lane,
-            left_progress=self.left.progress,
+            left_visual_progress=self.left.visual_progress,
             left_target_time=self.left.target_time,
             right_lane=self.right.visual_lane,
-            right_progress=self.right.progress,
+            right_visual_progress=self.right.visual_progress,
             right_target_time=self.right.target_time,
-            left_y_offset=self.left.visual_y_offset,
-            right_y_offset=self.right.visual_y_offset,
         )
 
     @property

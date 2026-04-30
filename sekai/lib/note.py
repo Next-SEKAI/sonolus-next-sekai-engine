@@ -322,14 +322,13 @@ def draw_note(
     kind: NoteKind,
     lane: float,
     size: float,
-    progress: float,
+    visual_progress: float,
     direction: FlickDirection,
     target_time: float,
-    y_offset: float = 0.0,
 ):
-    if not Layout.progress_start <= progress <= Layout.progress_cutoff:
+    if not Layout.progress_start <= visual_progress <= Layout.progress_cutoff:
         return
-    travel = approach(progress - y_offset)
+    travel = approach(visual_progress)
     sprite_set = get_note_sprite_set(kind, direction)
     draw_note_body(sprite_set.body, kind, lane, size, travel, target_time)
     draw_note_arrow(sprite_set.arrow, kind, lane, size, travel, target_time, direction)
@@ -342,7 +341,7 @@ def draw_slide_note_head(
     lane: float,
     size: float,
     target_time: float,
-    y_offset: float = 0.0,
+    visual_progress: float = 1.0,
 ):
     if Options.hidden > 0:
         return
@@ -353,7 +352,7 @@ def draw_slide_note_head(
             kind = note_kind_as_critical(kind)
         case _:
             assert_never(connector_kind)
-    travel = approach(1.0 - y_offset)
+    travel = approach(visual_progress)
     sprite_set = get_note_sprite_set(kind, FlickDirection.UP_OMNI)
     draw_note_body(sprite_set.body, kind, lane, size, travel, target_time)
     draw_note_tick(sprite_set.tick, lane, travel, target_time)

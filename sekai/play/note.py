@@ -304,19 +304,17 @@ class BaseNote(PlayArchetype):
                 NoteKind.DAMAGE,
                 (self.hitbox_l + self.hitbox_r) / 2,
                 (self.hitbox_r - self.hitbox_l) / 2,
-                self.progress,
+                self.visual_progress,
                 self.direction,
                 self.target_time,
-                y_offset=self.visual_y_offset,
             )
         draw_note(
             self.kind,
             self.visual_lane,
             self.size,
-            self.progress,
+            self.visual_progress,
             self.direction,
             self.target_time,
-            y_offset=self.visual_y_offset,
         )
 
     def should_do_delayed_trigger(self) -> bool:
@@ -687,6 +685,10 @@ class BaseNote(PlayArchetype):
                 group_scaled_time(self.timescale_group),
                 group_force_note_speed(self.timescale_group),
             )
+
+    @property
+    def visual_progress(self) -> float:
+        return self.progress - self.visual_y_offset
 
     def _basic_visual_lane_at(self, t: float) -> float:
         if self.stage_ref.index <= 0:

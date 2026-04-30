@@ -194,7 +194,7 @@ class Connector(PlayArchetype):
             if self.active_tail_ref.index > 0 and self.active_tail.is_despawned:
                 return
             if time() >= head.target_time:
-                head_progress = 1.0
+                head_visual_progress = 1.0 - head.visual_y_offset
                 head_target_time = time()
                 if self.ease_type == EaseType.NONE:
                     head_lane = head.visual_lane
@@ -214,7 +214,7 @@ class Connector(PlayArchetype):
             else:
                 head_lane = head.visual_lane
                 head_size = head.size
-                head_progress = head.progress
+                head_visual_progress = head.visual_progress
                 head_target_time = head.target_time
                 head_ease_frac = head.head_ease_frac
             draw_connector(
@@ -223,12 +223,12 @@ class Connector(PlayArchetype):
                 ease_type=self.ease_type,
                 head_lane=head_lane,
                 head_size=head_size,
-                head_progress=head_progress,
+                head_visual_progress=head_visual_progress,
                 head_target_time=head_target_time,
                 head_ease_frac=head_ease_frac,
                 tail_lane=tail.visual_lane,
                 tail_size=tail.size,
-                tail_progress=tail.progress,
+                tail_visual_progress=tail.visual_progress,
                 tail_target_time=tail.target_time,
                 tail_ease_frac=tail.tail_ease_frac,
                 segment_head_target_time=segment_head.target_time,
@@ -237,8 +237,6 @@ class Connector(PlayArchetype):
                 segment_tail_target_time=segment_tail.target_time,
                 segment_tail_alpha=segment_tail.segment_alpha,
                 layer=segment_head.segment_layer,
-                head_y_offset=head.visual_y_offset,
-                tail_y_offset=tail.visual_y_offset,
             )
 
     def get_attached_params(self, target_time: float) -> tuple[float, float]:
@@ -379,7 +377,7 @@ class SlideManager(PlayArchetype):
                     info.visual_lane,
                     info.visual_size,
                     self.active_head.target_time,
-                    info.visual_y_offset,
+                    1.0 - info.visual_y_offset,
                 )
             case _:
                 pass

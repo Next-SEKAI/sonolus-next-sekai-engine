@@ -220,19 +220,17 @@ class WatchBaseNote(WatchArchetype):
                 NoteKind.DAMAGE,
                 (self.hitbox_l + self.hitbox_r) / 2,
                 (self.hitbox_r - self.hitbox_l) / 2,
-                self.progress,
+                self.visual_progress,
                 self.direction,
                 self.target_time,
-                y_offset=self.visual_y_offset,
             )
         draw_note(
             self.kind,
             self.visual_lane,
             self.size,
-            self.progress,
+            self.visual_progress,
             self.direction,
             self.target_time,
-            y_offset=self.visual_y_offset,
         )
 
     def terminate(self):
@@ -367,6 +365,10 @@ class WatchBaseNote(WatchArchetype):
                 group_scaled_time(self.timescale_group),
                 group_force_note_speed(self.timescale_group),
             )
+
+    @property
+    def visual_progress(self) -> float:
+        return self.progress - self.visual_y_offset
 
     @property
     def head_ease_frac(self) -> float:
