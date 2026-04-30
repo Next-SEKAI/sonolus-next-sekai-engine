@@ -513,10 +513,11 @@ def update_circular_connector_particle(
     kind: ActiveConnectorKind,
     lane: float,
     replace: bool,
+    y_offset: float = 0.0,
 ):
     if not Options.note_effect_enabled:
         return
-    layout = layout_circular_effect(lane, w=3.5, h=2.1)
+    layout = layout_circular_effect(lane, w=3.5, h=2.1, y_offset=y_offset)
     if replace or handle.id == 0:
         particle = +Particle(-1)
         match kind:
@@ -536,10 +537,11 @@ def update_linear_connector_particle(
     kind: ActiveConnectorKind,
     lane: float,
     replace: bool,
+    y_offset: float = 0.0,
 ):
     if not Options.note_effect_enabled:
         return
-    layout = layout_linear_effect(lane, shear=0)
+    layout = layout_linear_effect(lane, shear=0, y_offset=y_offset)
     particle = +Particle
     if replace or handle.id == 0:
         match kind:
@@ -557,10 +559,11 @@ def update_linear_connector_particle(
 def spawn_linear_connector_trail_particle(
     kind: ActiveConnectorKind,
     lane: float,
+    y_offset: float = 0.0,
 ):
     if not Options.note_effect_enabled:
         return
-    layout = layout_linear_effect(lane, shear=0)
+    layout = layout_linear_effect(lane, shear=0, y_offset=y_offset)
     particle = +Particle
     match kind:
         case ConnectorKind.ACTIVE_NORMAL | ConnectorKind.ACTIVE_FAKE_NORMAL:
@@ -576,6 +579,7 @@ def spawn_connector_slot_particles(
     kind: ActiveConnectorKind,
     lane: float,
     size: float,
+    y_offset: float = 0.0,
 ):
     if not Options.note_effect_enabled:
         return
@@ -588,7 +592,7 @@ def spawn_connector_slot_particles(
         case _:
             assert_never(kind)
     for slot_lane in iter_slot_lanes(lane, size):
-        layout = layout_linear_effect(slot_lane, shear=0)
+        layout = layout_linear_effect(slot_lane, shear=0, y_offset=y_offset)
         particle.spawn(layout, duration=0.5 / Options.effect_animation_speed)
 
 
@@ -597,6 +601,7 @@ def draw_connector_slot_glow_effect(
     start_time: float,
     lane: float,
     size: float,
+    y_offset: float = 0.0,
 ):
     sprite = +Sprite
     match kind:
@@ -607,7 +612,7 @@ def draw_connector_slot_glow_effect(
         case _:
             assert_never(kind)
     height = (3.25 + (cos((time() - start_time) * 8 * pi) + 1) / 2) / 4.25
-    layout = layout_slot_glow_effect(lane, size, height)
+    layout = layout_slot_glow_effect(lane, size, height, y_offset=y_offset)
     z = get_z(LAYER_SLOT_GLOW_EFFECT, start_time, lane, invert_time=True)
     a = remap_clamped(start_time, start_time + 0.25, 0.0, 0.3, time())
     sprite.draw(layout, z=z, a=a)

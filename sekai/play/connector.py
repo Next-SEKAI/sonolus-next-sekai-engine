@@ -329,12 +329,14 @@ class SlideManager(PlayArchetype):
                     info.connector_kind,
                     info.visual_lane,
                     replace,
+                    info.visual_y_offset,
                 )
                 update_linear_connector_particle(
                     self.linear_particle,
                     info.connector_kind,
                     info.visual_lane,
                     replace,
+                    info.visual_y_offset,
                 )
                 update_connector_sfx(self.sfx, info.connector_kind, replace)
                 if self.last_effect_kind != info.connector_kind:
@@ -346,16 +348,22 @@ class SlideManager(PlayArchetype):
                         self.next_trail_spawn_time + trail_period,
                         time() + trail_period / 2,
                     )
-                    spawn_linear_connector_trail_particle(info.connector_kind, info.visual_lane)
+                    spawn_linear_connector_trail_particle(info.connector_kind, info.visual_lane, info.visual_y_offset)
                 slot_period = CONNECTOR_SLOT_SPAWN_PERIOD / Options.effect_animation_speed
                 if time() >= self.next_slot_spawn_time:
                     self.next_slot_spawn_time = max(
                         self.next_slot_spawn_time + slot_period,
                         time() + slot_period / 2,
                     )
-                    spawn_connector_slot_particles(info.connector_kind, info.visual_lane, info.visual_size)
+                    spawn_connector_slot_particles(
+                        info.connector_kind, info.visual_lane, info.visual_size, info.visual_y_offset
+                    )
                 draw_connector_slot_glow_effect(
-                    info.connector_kind, info.active_start_time, info.visual_lane, info.visual_size
+                    info.connector_kind,
+                    info.active_start_time,
+                    info.visual_lane,
+                    info.visual_size,
+                    info.visual_y_offset,
                 )
             case _:
                 destroy_looped_sfx(self.sfx)

@@ -321,12 +321,14 @@ class WatchSlideManager(WatchArchetype):
                     connector_kind,
                     info.visual_lane,
                     replace,
+                    info.visual_y_offset,
                 )
                 update_linear_connector_particle(
                     self.linear_particle,
                     connector_kind,
                     info.visual_lane,
                     replace,
+                    info.visual_y_offset,
                 )
                 trail_period = CONNECTOR_TRAIL_SPAWN_PERIOD / Options.effect_animation_speed
                 if time() >= self.next_trail_spawn_time:
@@ -334,16 +336,22 @@ class WatchSlideManager(WatchArchetype):
                         self.next_trail_spawn_time + trail_period,
                         time() + trail_period / 2,
                     )
-                    spawn_linear_connector_trail_particle(connector_kind, info.visual_lane)
+                    spawn_linear_connector_trail_particle(connector_kind, info.visual_lane, info.visual_y_offset)
                 slot_period = CONNECTOR_SLOT_SPAWN_PERIOD / Options.effect_animation_speed
                 if time() >= self.next_slot_spawn_time:
                     self.next_slot_spawn_time = max(
                         self.next_slot_spawn_time + slot_period,
                         time() + slot_period / 2,
                     )
-                    spawn_connector_slot_particles(connector_kind, info.visual_lane, info.visual_size)
+                    spawn_connector_slot_particles(
+                        connector_kind, info.visual_lane, info.visual_size, info.visual_y_offset
+                    )
                 draw_connector_slot_glow_effect(
-                    connector_kind, self.active_head.target_time, info.visual_lane, info.visual_size
+                    connector_kind,
+                    self.active_head.target_time,
+                    info.visual_lane,
+                    info.visual_size,
+                    info.visual_y_offset,
                 )
             case _:
                 destroy_looped_particle(self.circular_particle)
