@@ -85,10 +85,12 @@ An event that controls the visual style of a stage.
   * DEFAULT = 0
   * LIGHT = 1
   * DISABLED = 2
+  * MEDIUM = 3
 * **rightBorderStyle (StageBorderStyle)**:
   * DEFAULT = 0
   * LIGHT = 1
   * DISABLED = 2
+  * MEDIUM = 3
 * **alpha (float)**
 * **laneAlpha (float)**
 * **judgeLineAlpha (float)**

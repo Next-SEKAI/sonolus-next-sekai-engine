@@ -60,6 +60,7 @@ class StageBorderStyle(IntEnum):
     DEFAULT = 0
     LIGHT = 1
     DISABLED = 2
+    MEDIUM = 3
 
 
 class Transition[T](Record):
@@ -436,9 +437,12 @@ def draw_dynamic_stage(
 
     def draw_left_border(style: StageBorderStyle, z: float, a: float):
         match style:
-            case StageBorderStyle.DEFAULT:
-                layout_b = layout_lane_by_edges(l - 0.08, l)  # Artificially thicken the top so it renders better
-                layout_t = layout_lane_by_edges(l - 0.64, l)
+            case StageBorderStyle.DEFAULT | StageBorderStyle.MEDIUM:
+                scale = 0.5 if style == StageBorderStyle.MEDIUM else 1.0
+                layout_b = layout_lane_by_edges(
+                    l - 0.08 * scale, l
+                )  # Artificially thicken the top so it renders better
+                layout_t = layout_lane_by_edges(l - 0.64 * scale, l)
                 ActiveSkin.stage_border.draw(
                     Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br), z=z, a=a
                 )
@@ -455,9 +459,10 @@ def draw_dynamic_stage(
 
     def draw_right_border(style: StageBorderStyle, z: float, a: float):
         match style:
-            case StageBorderStyle.DEFAULT:
-                layout_b = layout_lane_by_edges(r + 0.08, r)  # Flip horizontally
-                layout_t = layout_lane_by_edges(r + 0.64, r)
+            case StageBorderStyle.DEFAULT | StageBorderStyle.MEDIUM:
+                scale = 0.5 if style == StageBorderStyle.MEDIUM else 1.0
+                layout_b = layout_lane_by_edges(r + 0.08 * scale, r)  # Flip horizontally
+                layout_t = layout_lane_by_edges(r + 0.64 * scale, r)
                 ActiveSkin.stage_border.draw(
                     Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br), z=z, a=a
                 )
@@ -522,7 +527,7 @@ def draw_dynamic_stage(
 
     def draw_left_judgment_border(sprites: JudgmentSpriteSet, style: StageBorderStyle, z: float, a: float):
         match style:
-            case StageBorderStyle.DEFAULT:
+            case StageBorderStyle.DEFAULT | StageBorderStyle.MEDIUM:
                 layout = perspective_rect(
                     l,
                     l + 1 / f / 2,
@@ -541,7 +546,7 @@ def draw_dynamic_stage(
 
     def draw_right_judgment_border(sprites: JudgmentSpriteSet, style: StageBorderStyle, z: float, a: float):
         match style:
-            case StageBorderStyle.DEFAULT:
+            case StageBorderStyle.DEFAULT | StageBorderStyle.MEDIUM:
                 layout = perspective_rect(
                     r - 1 / f / 2,
                     r,
