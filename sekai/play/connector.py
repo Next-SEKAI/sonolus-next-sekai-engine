@@ -240,6 +240,7 @@ class Connector(PlayArchetype):
                 segment_tail_target_time=segment_tail.target_time,
                 segment_tail_alpha=segment_tail.segment_alpha,
                 layer=segment_head.segment_layer,
+                bypass_tail_target_time_check=segment_head.segment_through_judge_line,
             )
 
     def get_attached_params(self, target_time: float) -> tuple[float, float]:

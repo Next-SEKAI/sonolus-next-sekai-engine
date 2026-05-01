@@ -294,6 +294,7 @@ def draw_connector(
     segment_tail_target_time: float,
     segment_tail_alpha: float,
     layer: ConnectorLayer,
+    bypass_tail_target_time_check: bool = False,
 ):
     if (
         (head_visual_progress < Layout.progress_start and tail_visual_progress < Layout.progress_start)
@@ -371,7 +372,7 @@ def draw_connector(
         segment_head_target_time, segment_tail_target_time, segment_head_alpha, segment_tail_alpha, tail_target_time
     )
 
-    if time() >= tail_target_time:
+    if time() >= tail_target_time and not bypass_tail_target_time_check:
         return
     start_visual_progress = clamp(head_visual_progress, Layout.progress_start, Layout.progress_cutoff)
     end_visual_progress = clamp(tail_visual_progress, Layout.progress_start, Layout.progress_cutoff)
