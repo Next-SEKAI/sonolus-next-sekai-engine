@@ -17,10 +17,12 @@ from sekai.lib.buckets import SLIDE_TICK_JUDGMENT_WINDOW
 from sekai.lib.ease import EaseType, ease
 from sekai.lib.effect import Effects
 from sekai.lib.layer import (
-    LAYER_ACTIVE_SIDE_CONNECTOR_BOTTOM,
-    LAYER_ACTIVE_SIDE_CONNECTOR_TOP,
+    LAYER_ACTIVE_SLIDE_CONNECTOR_BOTTOM,
+    LAYER_ACTIVE_SLIDE_CONNECTOR_TOP,
+    LAYER_ACTIVE_SLIDE_CONNECTOR_UNDER,
     LAYER_GUIDE_CONNECTOR_BOTTOM,
     LAYER_GUIDE_CONNECTOR_TOP,
+    LAYER_GUIDE_CONNECTOR_UNDER,
     LAYER_SLOT_GLOW_EFFECT,
     get_z,
 )
@@ -67,6 +69,7 @@ class ConnectorKind(IntEnum):
 class ConnectorLayer(IntEnum):
     TOP = 0
     BOTTOM = 1
+    UNDER = 2
 
 
 ActiveConnectorKind = Literal[
@@ -138,22 +141,33 @@ def get_connector_z(kind: ConnectorKind, target_time: float, lane: float, active
             | ConnectorKind.ACTIVE_CRITICAL
             | ConnectorKind.ACTIVE_FAKE_CRITICAL
         ):
-            if layer == ConnectorLayer.TOP:
-                return get_z(
-                    LAYER_ACTIVE_SIDE_CONNECTOR_TOP,
-                    time=target_time,
-                    lane=lane,
-                    etc=get_active_connector_z_offset(kind, active),
-                    invert_time=True,
-                )
-            else:
-                return get_z(
-                    LAYER_ACTIVE_SIDE_CONNECTOR_BOTTOM,
-                    time=target_time,
-                    lane=lane,
-                    etc=get_active_connector_z_offset(kind, active),
-                    invert_time=True,
-                )
+            match layer:
+                case ConnectorLayer.TOP:
+                    return get_z(
+                        LAYER_ACTIVE_SLIDE_CONNECTOR_TOP,
+                        time=target_time,
+                        lane=lane,
+                        etc=get_active_connector_z_offset(kind, active),
+                        invert_time=True,
+                    )
+                case ConnectorLayer.BOTTOM:
+                    return get_z(
+                        LAYER_ACTIVE_SLIDE_CONNECTOR_BOTTOM,
+                        time=target_time,
+                        lane=lane,
+                        etc=get_active_connector_z_offset(kind, active),
+                        invert_time=True,
+                    )
+                case ConnectorLayer.UNDER:
+                    return get_z(
+                        LAYER_ACTIVE_SLIDE_CONNECTOR_UNDER,
+                        time=target_time,
+                        lane=lane,
+                        etc=get_active_connector_z_offset(kind, active),
+                        invert_time=True,
+                    )
+                case _:
+                    assert_never(layer)
         case (
             ConnectorKind.GUIDE_NEUTRAL
             | ConnectorKind.GUIDE_RED
@@ -164,22 +178,33 @@ def get_connector_z(kind: ConnectorKind, target_time: float, lane: float, active
             | ConnectorKind.GUIDE_CYAN
             | ConnectorKind.GUIDE_BLACK
         ):
-            if layer == ConnectorLayer.TOP:
-                return get_z(
-                    LAYER_GUIDE_CONNECTOR_TOP,
-                    time=target_time,
-                    lane=lane,
-                    etc=kind - ConnectorKind.GUIDE_NEUTRAL,
-                    invert_time=True,
-                )
-            else:
-                return get_z(
-                    LAYER_GUIDE_CONNECTOR_BOTTOM,
-                    time=target_time,
-                    lane=lane,
-                    etc=kind - ConnectorKind.GUIDE_NEUTRAL,
-                    invert_time=True,
-                )
+            match layer:
+                case ConnectorLayer.TOP:
+                    return get_z(
+                        LAYER_GUIDE_CONNECTOR_TOP,
+                        time=target_time,
+                        lane=lane,
+                        etc=kind - ConnectorKind.GUIDE_NEUTRAL,
+                        invert_time=True,
+                    )
+                case ConnectorLayer.BOTTOM:
+                    return get_z(
+                        LAYER_GUIDE_CONNECTOR_BOTTOM,
+                        time=target_time,
+                        lane=lane,
+                        etc=kind - ConnectorKind.GUIDE_NEUTRAL,
+                        invert_time=True,
+                    )
+                case ConnectorLayer.UNDER:
+                    return get_z(
+                        LAYER_GUIDE_CONNECTOR_UNDER,
+                        time=target_time,
+                        lane=lane,
+                        etc=kind - ConnectorKind.GUIDE_NEUTRAL,
+                        invert_time=True,
+                    )
+                case _:
+                    assert_never(layer)
         case ConnectorKind.NONE:
             return 0.0
         case _:
