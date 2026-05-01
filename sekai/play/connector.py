@@ -13,6 +13,7 @@ from sekai.debug import DISABLE_NOTES
 from sekai.lib import archetype_names
 from sekai.lib.connector import (
     CONNECTOR_SLOT_SPAWN_PERIOD,
+    CONNECTOR_THROUGH_JUDGE_LINE_DESPAWN_DELAY,
     CONNECTOR_TRAIL_SPAWN_PERIOD,
     ActiveConnectorInfo,
     ConnectorKind,
@@ -76,6 +77,8 @@ class Connector(PlayArchetype):
             tail.start_time,
         )
         self.end_time = max(self.visual_active_interval.end, self.input_active_interval.end)
+        if self.segment_head.segment_through_judge_line:
+            self.end_time += CONNECTOR_THROUGH_JUDGE_LINE_DESPAWN_DELAY
         self.last_visual_state = ConnectorVisualState.WAITING
 
         if Options.auto_sfx and self.head_ref.index == self.segment_head_ref.index:
@@ -168,7 +171,7 @@ class Connector(PlayArchetype):
                 self.active_connector_info.connector_kind = ConnectorKind.NONE
 
     def update_parallel(self):
-        if time() < self.visual_active_interval.end:
+        if time() < self.visual_active_interval.end or self.segment_head.segment_through_judge_line:
             head = self.head
             tail = self.tail
             segment_head = self.segment_head

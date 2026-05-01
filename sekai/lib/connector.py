@@ -46,6 +46,7 @@ from sekai.lib.timescale import iter_timescale_changes_in_group_from_time
 
 CONNECTOR_TRAIL_SPAWN_PERIOD = 0.1
 CONNECTOR_SLOT_SPAWN_PERIOD = 0.2
+CONNECTOR_THROUGH_JUDGE_LINE_DESPAWN_DELAY = 5.0
 
 
 class ConnectorKind(IntEnum):
