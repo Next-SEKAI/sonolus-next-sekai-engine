@@ -79,6 +79,7 @@ class BaseNote(PlayArchetype):
     segment_kind: ConnectorKind = imported(name="segmentKind")
     segment_alpha: float = imported(name="segmentAlpha")
     segment_layer: ConnectorLayer = imported(name="segmentLayer")
+    segment_through_judge_line: bool = imported(name="segmentThroughJudgeLine")
     attach_head_ref: EntityRef[BaseNote] = imported(name="attachHead")
     attach_tail_ref: EntityRef[BaseNote] = imported(name="attachTail")
     next_ref: EntityRef[BaseNote] = imported(name="next")

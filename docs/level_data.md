@@ -180,6 +180,8 @@ Comprised of many archetypes according to the following naming scheme:
 * **segmentLayer**: The z-layer the guide connector should be drawn at. Takes on one of the following values:
   * TOP = 0
   * BOTTOM = 1
+  * UNDER = 2
+* **segmentThroughJudgeLine**: Whether connectors in this segment should draw themselves passing through the judge line rather than cutting off there. Defaults to false.
 * **attachHead (ref?[Note])**: The optional head the note attaches to for its **lane**, **size**, and **effective timescale**.
 * **attachTail (ref?[Note])**: The optional tail the note attaches to for its **lane**, **size**, and **effective timescale**.
 * **effectKind (EffectKind)**: What kind of sound effect the note plays when hit. Takes on one of the following values:

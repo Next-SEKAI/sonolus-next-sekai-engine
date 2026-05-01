@@ -193,7 +193,7 @@ class Connector(PlayArchetype):
                 return
             if self.active_tail_ref.index > 0 and self.active_tail.is_despawned:
                 return
-            if time() >= head.target_time:
+            if time() >= head.target_time and not segment_head.segment_through_judge_line:
                 head_visual_progress = 1.0 - head.visual_y_offset
                 head_target_time = time()
                 if self.ease_type == EaseType.NONE:

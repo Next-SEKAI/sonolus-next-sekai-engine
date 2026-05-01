@@ -149,6 +149,7 @@ class LevelNote:
     segment_kind: ConnectorKind = ConnectorKind.NONE
     segment_alpha: float = 1.0
     segment_layer: ConnectorLayer = ConnectorLayer.TOP
+    segment_through_judge_line: bool = False
     connector_ease: EaseType = EaseType.LINEAR
     attach: LevelSlide | None = None
 
@@ -240,6 +241,7 @@ def build_level(
             "segment_kind": level_note.segment_kind,
             "segment_alpha": level_note.segment_alpha,
             "segment_layer": level_note.segment_layer,
+            "segment_through_judge_line": level_note.segment_through_judge_line,
             "timescale_group": ts_group.ref(),
         }
         if level_note.stage is not None:
