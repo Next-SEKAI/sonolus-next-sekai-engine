@@ -86,9 +86,9 @@ def preassign_taps():
     for i, touch in enumerate(touches()):
         if touch.started:
             available_tap_indexes.add(i)
-    for use_leniency in (False, True):
-        for current_i in range(len(active_input_taps)):
-            current = active_input_taps[current_i].get()
+    for current_i in range(len(active_input_taps)):
+        current = active_input_taps[current_i].get()
+        for use_leniency in (False, True):
             if current.captured_touch_id != 0:
                 continue
             leniency = get_leniency(current.kind) if use_leniency else 0.0
@@ -96,8 +96,8 @@ def preassign_taps():
             current_r = current.lane + current.size
             hitbox_l = current_l - leniency
             hitbox_r = current_r + leniency
-            # Earlier notes in this pass have already been processed — if they could capture a tap,
-            # they would have done so already. Neighbors captured in the base pass are also skipped.
+            # Earlier notes have already been processed — if they could capture a tap,
+            # they would have done so already.
             for other_i in range(current_i + 1, len(active_input_taps)):
                 other = active_input_taps[other_i].get()
                 if other.target_time - current.target_time > SIMULTANEOUS_THRESHOLD:
@@ -134,9 +134,9 @@ def preassign_releases():
     for i, touch in enumerate(touches()):
         if touch.ended:
             active_release_indexes.add(i)
-    for use_leniency in (False, True):
-        for current_i in range(len(active_input_releases)):
-            current = active_input_releases[current_i].get()
+    for current_i in range(len(active_input_releases)):
+        current = active_input_releases[current_i].get()
+        for use_leniency in (False, True):
             if current.captured_touch_id != 0:
                 continue
             leniency = get_leniency(current.kind) if use_leniency else 0.0
