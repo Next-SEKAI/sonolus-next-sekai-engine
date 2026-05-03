@@ -535,7 +535,7 @@ def draw_dynamic_stage(
                     1 + DynamicLayout.note_h - DynamicLayout.note_h / f,
                     travel,
                 )
-                sprites.judgment_edge.draw(layout, z=z, a=a)
+                sprites.judgment_edge_left.draw(layout, z=z, a=a)
             case StageBorderStyle.LIGHT:
                 layout = layout_judgment_divider(l)
                 sprites.judgment_edge.draw(layout, z=z, a=a)
@@ -548,13 +548,13 @@ def draw_dynamic_stage(
         match style:
             case StageBorderStyle.DEFAULT | StageBorderStyle.MEDIUM:
                 layout = perspective_rect(
-                    r - 1 / f / 2,
                     r,
+                    r - 1 / f / 2,
                     1 - DynamicLayout.note_h + DynamicLayout.note_h / f,
                     1 + DynamicLayout.note_h - DynamicLayout.note_h / f,
                     travel,
                 )
-                sprites.judgment_edge.draw(layout, z=z, a=a)
+                sprites.judgment_edge_left.draw(layout, z=z, a=a)
             case StageBorderStyle.LIGHT:
                 layout = layout_judgment_divider(r)
                 sprites.judgment_edge.draw(layout, z=z, a=a)
@@ -565,11 +565,11 @@ def draw_dynamic_stage(
 
     def draw_gradient(sprites: JudgmentSpriteSet, z: float, a: float):
         layout = perspective_rect(
-            l, lane, 1 + DynamicLayout.note_h - DynamicLayout.note_h / f, 1 + DynamicLayout.note_h, travel
+            l, lane, 1 + DynamicLayout.note_h, 1 + DynamicLayout.note_h - DynamicLayout.note_h / f, travel
         )
         sprites.judgment_gradient.draw(layout, z=z, a=a)
         layout = perspective_rect(
-            r, lane, 1 + DynamicLayout.note_h - DynamicLayout.note_h / f, 1 + DynamicLayout.note_h, travel
+            r, lane, 1 + DynamicLayout.note_h, 1 + DynamicLayout.note_h - DynamicLayout.note_h / f, travel
         )
         sprites.judgment_gradient.draw(layout, z=z, a=a)
         layout = perspective_rect(
