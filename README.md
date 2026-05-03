@@ -44,7 +44,7 @@ Shorthand used in the tables:
 | Stage Border             | `Sekai Stage Border`                                                |
 | Lane Background          | `Sekai Lane Background`                                             |
 | Lane Divider             | `Sekai Lane Divider`                                                |
-| Judgment Line Background | `Sekai Judgment Background`                                         |
+| Judgment Line Background | `Sekai Judgment Background <Color>` -> `Sekai Judgment Background`  |
 | Judgment Gradient        | `Sekai Judgment Gradient <Color>`                                   |
 | Judgment Edge            | `Sekai Judgment Edge <Color>`                                       |
 | Judgment Edge Left       | `Sekai Judgment Edge Left <Color>` -> `Sekai Judgment Edge <Color>` |

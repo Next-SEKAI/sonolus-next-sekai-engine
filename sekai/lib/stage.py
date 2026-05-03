@@ -400,7 +400,7 @@ def draw_dynamic_stage(
     sprites_b = get_judgment_sprites(judge_line_color.end)
     p_sprites = judge_line_color.progress
 
-    if not sprites_b.available:
+    if not ActiveSkin.lane_background.is_available:
         draw_fallback_stage(
             lane,
             width,
@@ -418,20 +418,21 @@ def draw_dynamic_stage(
     travel = approach(1 - y_offset)
     l = lane - width
     r = lane + width
-    z_bg0 = get_z_alt(LAYER_STAGE, order * 14)
-    z_bg1 = get_z_alt(LAYER_STAGE, order * 14 + 1)
-    z_lane0 = get_z_alt(LAYER_STAGE, order * 14 + 2)
-    z_lane1 = get_z_alt(LAYER_STAGE, order * 14 + 3)
-    z_a0 = get_z_alt(LAYER_STAGE, order * 14 + 4)
-    z_a1 = get_z_alt(LAYER_STAGE, order * 14 + 5)
-    z_a2 = get_z_alt(LAYER_STAGE, order * 14 + 6)
-    z_a3 = get_z_alt(LAYER_STAGE, order * 14 + 7)
-    z_b0 = get_z_alt(LAYER_STAGE, order * 14 + 8)
-    z_b1 = get_z_alt(LAYER_STAGE, order * 14 + 9)
-    z_b2 = get_z_alt(LAYER_STAGE, order * 14 + 10)
-    z_b3 = get_z_alt(LAYER_STAGE, order * 14 + 11)
-    z_a4 = get_z_alt(LAYER_STAGE, order * 14 + 12)
-    z_b4 = get_z_alt(LAYER_STAGE, order * 14 + 13)
+    z_bg0 = get_z_alt(LAYER_STAGE, order * 15)
+    z_bg1_a = get_z_alt(LAYER_STAGE, order * 15 + 1)
+    z_bg1_b = get_z_alt(LAYER_STAGE, order * 15 + 2)
+    z_lane0 = get_z_alt(LAYER_STAGE, order * 15 + 3)
+    z_lane1 = get_z_alt(LAYER_STAGE, order * 15 + 4)
+    z_a0 = get_z_alt(LAYER_STAGE, order * 15 + 5)
+    z_a1 = get_z_alt(LAYER_STAGE, order * 15 + 6)
+    z_a2 = get_z_alt(LAYER_STAGE, order * 15 + 7)
+    z_a3 = get_z_alt(LAYER_STAGE, order * 15 + 8)
+    z_b0 = get_z_alt(LAYER_STAGE, order * 15 + 9)
+    z_b1 = get_z_alt(LAYER_STAGE, order * 15 + 10)
+    z_b2 = get_z_alt(LAYER_STAGE, order * 15 + 11)
+    z_b3 = get_z_alt(LAYER_STAGE, order * 15 + 12)
+    z_a4 = get_z_alt(LAYER_STAGE, order * 15 + 13)
+    z_b4 = get_z_alt(LAYER_STAGE, order * 15 + 14)
 
     f = 5  # sizing factor for judge line border
 
@@ -609,9 +610,12 @@ def draw_dynamic_stage(
                 draw_dividers(division.end.size, division.end.parity, pivot_lane, z_lane1, la * p_div)
 
     ja = a * judge_line_alpha
-    ActiveSkin.judgment_background.draw(
-        perspective_rect(l, r, 1 - DynamicLayout.note_h, 1 + DynamicLayout.note_h, travel), z=z_bg1, a=ja
-    )
+    bg_layout = perspective_rect(l, r, 1 - DynamicLayout.note_h, 1 + DynamicLayout.note_h, travel)
+    if sprites_same:
+        sprites_a.judgment_background.draw(bg_layout, z=z_bg1_a, a=ja)
+    else:
+        sprites_a.judgment_background.draw(bg_layout, z=z_bg1_a, a=ja * (1 - p_sprites))
+        sprites_b.judgment_background.draw(bg_layout, z=z_bg1_b, a=ja * p_sprites)
 
     p_left = left_border_style.progress
     p_right = right_border_style.progress
