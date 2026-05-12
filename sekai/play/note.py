@@ -95,6 +95,7 @@ class BaseNote(PlayArchetype):
     visual_start_time: float = entity_data()
     start_time: float = entity_data()
     target_scaled_time: CompositeTime = entity_data()
+    target_y_offset: float = entity_data()
 
     judgment_window: SekaiWindow = shared_memory()
     input_interval: Interval = shared_memory()
@@ -158,6 +159,8 @@ class BaseNote(PlayArchetype):
 
         self.best_touch_time = DEFAULT_BEST_TOUCH_TIME
 
+        self.target_y_offset = self._basic_target_y_offset
+
         if self.is_attached:
             attach_head = self.attach_head_ref.get()
             attach_tail = self.attach_tail_ref.get()
@@ -178,6 +181,13 @@ class BaseNote(PlayArchetype):
             self.size = size
             self.visual_start_time = min(attach_head.visual_start_time, attach_tail.visual_start_time)
             self.start_time = min(self.visual_start_time, self.input_interval.start)
+            self.target_y_offset = remap_clamped(
+                attach_head.target_time,
+                attach_tail.target_time,
+                attach_head.y_offset_at(self.target_time),
+                attach_tail.y_offset_at(self.target_time),
+                self.target_time,
+            )
 
         if is_head(self.kind):
             self.active_connector_info.input_lane = self.lane
@@ -769,20 +779,6 @@ class BaseNote(PlayArchetype):
     @property
     def _basic_target_y_offset(self) -> float:
         return self.y_offset_at(self.target_time)
-
-    @property
-    def target_y_offset(self) -> float:
-        if self.is_attached:
-            head = self.attach_head_ref.get()
-            tail = self.attach_tail_ref.get()
-            return remap_clamped(
-                head.target_time,
-                tail.target_time,
-                head._basic_target_y_offset,
-                tail._basic_target_y_offset,
-                self.target_time,
-            )
-        return self._basic_target_y_offset
 
     @property
     def visual_pivot_lane(self) -> float:

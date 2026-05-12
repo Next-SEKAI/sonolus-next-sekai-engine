@@ -82,6 +82,7 @@ class WatchBaseNote(WatchArchetype):
     visual_start_time: float = entity_data()
     start_time: float = entity_data()
     target_scaled_time: CompositeTime = entity_data()
+    target_y_offset: float = entity_data()
 
     active_connector_info: ActiveConnectorInfo = shared_memory()
 
@@ -129,6 +130,8 @@ class WatchBaseNote(WatchArchetype):
 
         self.result.bucket = get_note_bucket(self.kind)
 
+        self.target_y_offset = self._basic_target_y_offset
+
         if self.is_attached:
             attach_head = self.attach_head_ref.get()
             attach_tail = self.attach_tail_ref.get()
@@ -149,6 +152,13 @@ class WatchBaseNote(WatchArchetype):
             self.size = size
             self.visual_start_time = min(attach_head.visual_start_time, attach_tail.visual_start_time)
             self.start_time = self.visual_start_time
+            self.target_y_offset = remap_clamped(
+                attach_head.target_time,
+                attach_tail.target_time,
+                attach_head.y_offset_at(self.target_time),
+                attach_tail.y_offset_at(self.target_time),
+                self.target_time,
+            )
 
         if is_replay():
             if self.played_hit_effects:
@@ -347,20 +357,6 @@ class WatchBaseNote(WatchArchetype):
     @property
     def _basic_target_y_offset(self) -> float:
         return self.y_offset_at(self.target_time)
-
-    @property
-    def target_y_offset(self) -> float:
-        if self.is_attached:
-            head = self.attach_head_ref.get()
-            tail = self.attach_tail_ref.get()
-            return remap_clamped(
-                head.target_time,
-                tail.target_time,
-                head._basic_target_y_offset,
-                tail._basic_target_y_offset,
-                self.target_time,
-            )
-        return self._basic_target_y_offset
 
     @property
     def visual_pivot_lane(self) -> float:
