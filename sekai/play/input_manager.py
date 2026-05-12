@@ -11,6 +11,7 @@ from sekai.lib import archetype_names
 from sekai.lib.buckets import SLIDE_END_LOCKOUT_DURATION
 from sekai.lib.layout import layout_note_hitbox, scale_hitbox_leniency
 from sekai.lib.note import get_leniency, is_head
+from sekai.lib.options import HitboxMode, Options
 from sekai.play import note
 
 # Notes within this threshold in seconds of each other in target time are considered simultaneous
@@ -86,6 +87,27 @@ def preassign_taps():
     for i, touch in enumerate(touches()):
         if touch.started:
             available_tap_indexes.add(i)
+    if Options.hitbox_mode == HitboxMode.DYNAMIC_VERTICAL:
+        for current_i in range(len(active_input_taps)):
+            current = active_input_taps[current_i].get()
+            if current.captured_touch_id != 0:
+                continue
+            hitbox_layout = layout_note_hitbox(
+                current.lane - current.size,
+                current.lane + current.size,
+                current.visual_y_offset,
+                strict=True,
+            )
+            for tap_i in available_tap_indexes:
+                touch = touches()[tap_i]
+                if hitbox_layout.contains_point(touch.position) and touch.time in current.unadjusted_input_interval:
+                    disallow_empty(touch)
+                    if not is_head(current.kind):
+                        disallow_release(touch, current.target_time + SLIDE_END_LOCKOUT_DURATION)
+                    current.captured_touch_id = touch.id
+                    current.captured_touch_time = min(touch.time, touch.start_time)
+                    available_tap_indexes.remove(tap_i)
+                    break
     for current_i in range(len(active_input_taps)):
         current = active_input_taps[current_i].get()
         for use_leniency in (False, True):
@@ -138,6 +160,37 @@ def preassign_releases():
     for i, touch in enumerate(touches()):
         if touch.ended:
             active_release_indexes.add(i)
+    if Options.hitbox_mode == HitboxMode.DYNAMIC_VERTICAL:
+        for current_i in range(len(active_input_releases)):
+            current = active_input_releases[current_i].get()
+            if current.captured_touch_id != 0:
+                continue
+            hitbox_layout = layout_note_hitbox(
+                current.lane - current.size,
+                current.lane + current.size,
+                current.visual_y_offset,
+                strict=True,
+            )
+            for release_i in active_release_indexes:
+                touch = touches()[release_i]
+                if current.active_head_ref.index > 0:
+                    active_connector_info = current.active_head_ref.get().active_connector_info
+                    connector_hitbox = active_connector_info.get_hitbox(get_leniency(current.kind))
+                    ignore_lockout = not any(
+                        not t.ended and connector_hitbox.contains_point(t.position) for t in touches()
+                    )
+                else:
+                    ignore_lockout = False
+                if (
+                    hitbox_layout.contains_point(touch.position)
+                    and (ignore_lockout or is_allowed_release(touch, current.target_time))
+                    and touch.time in current.unadjusted_input_interval
+                ):
+                    disallow_empty(touch)
+                    current.captured_touch_id = touch.id
+                    current.captured_touch_time = touch.time
+                    active_release_indexes.remove(release_i)
+                    break
     for current_i in range(len(active_input_releases)):
         current = active_input_releases[current_i].get()
         for use_leniency in (False, True):

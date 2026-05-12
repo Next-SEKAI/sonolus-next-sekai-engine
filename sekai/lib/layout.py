@@ -656,12 +656,13 @@ def layout_hitbox(
     return result
 
 
-def layout_note_hitbox(l: float, r: float, y_offset: float) -> Quad:
+def layout_note_hitbox(l: float, r: float, y_offset: float, strict: bool = False) -> Quad:
     result = +Quad
     if Options.hitbox_mode == HitboxMode.DYNAMIC_VERTICAL:
         y_clamped = clamp(y_offset, -0.1, 0.9)
         travel = approach(1 - y_clamped)
-        bl = transform_vec(Vec2(l * travel, travel + 0.25))
+        bottom_offset = 0.125 if strict else 0.25
+        bl = transform_vec(Vec2(l * travel, travel + bottom_offset))
         tr = transform_vec(Vec2(r * travel, travel - 0.5))
         result @= Rect(l=bl.x, r=tr.x, b=bl.y, t=tr.y).as_quad()
     else:

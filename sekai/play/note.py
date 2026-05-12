@@ -34,6 +34,7 @@ from sekai.lib.note import (
     NoteKind,
     draw_hitbox_frame,
     draw_note,
+    draw_strict_hitbox_frame,
     get_attach_params,
     get_leniency,
     get_note_bucket,
@@ -49,7 +50,7 @@ from sekai.lib.note import (
     play_note_hit_effects,
     schedule_note_auto_sfx,
 )
-from sekai.lib.options import Options
+from sekai.lib.options import HitboxMode, Options
 from sekai.lib.stage import DivisionParity, get_stage_props
 from sekai.lib.timescale import (
     CompositeTime,
@@ -297,6 +298,8 @@ class BaseNote(PlayArchetype):
             return
         if SHOW_HITBOX and self.is_scored and time() >= self.input_interval.start:
             draw_hitbox_frame(self.hitbox, self.target_time)
+            if Options.hitbox_mode == HitboxMode.DYNAMIC_VERTICAL:
+                draw_strict_hitbox_frame(self.strict_hitbox, self.target_time)
         if is_head(self.kind) and time() > self.target_time:
             return
         if group_hide_notes(self.timescale_group):
@@ -659,6 +662,15 @@ class BaseNote(PlayArchetype):
             self.lane - self.size - leniency,
             self.lane + self.size + leniency,
             self.visual_y_offset,
+        )
+
+    @property
+    def strict_hitbox(self) -> Quad:
+        return layout_note_hitbox(
+            self.lane - self.size,
+            self.lane + self.size,
+            self.visual_y_offset,
+            strict=True,
         )
 
     @property

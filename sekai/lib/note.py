@@ -335,6 +335,13 @@ def draw_hitbox_frame(hitbox: Quad, t: float):
     draw_hitbox_ring(middle, inner, ActiveSkin.guide_black, get_z(LAYER_GUIDE_CONNECTOR_OVER, t, etc=1))
 
 
+def draw_strict_hitbox_frame(hitbox: Quad, t: float):
+    middle = hitbox.scale_centered(Vec2(0.977, 0.977))
+    inner = hitbox.scale_centered(Vec2(0.950, 0.950))
+    draw_hitbox_ring(hitbox, middle, ActiveSkin.guide_red, get_z(LAYER_GUIDE_CONNECTOR_OVER, t, etc=2))
+    draw_hitbox_ring(middle, inner, ActiveSkin.guide_blue, get_z(LAYER_GUIDE_CONNECTOR_OVER, t, etc=3))
+
+
 def draw_note(
     kind: NoteKind,
     lane: float,
