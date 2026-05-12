@@ -9,7 +9,7 @@ from sonolus.script.runtime import Touch, touches
 
 from sekai.lib import archetype_names
 from sekai.lib.buckets import SLIDE_END_LOCKOUT_DURATION
-from sekai.lib.layout import layout_hitbox
+from sekai.lib.layout import layout_note_hitbox, scale_hitbox_leniency
 from sekai.lib.note import get_leniency, is_head
 from sekai.play import note
 
@@ -81,7 +81,7 @@ def update_input_state():
 
 def preassign_taps():
     active_input_taps = note.NoteMemory.active_tap_input_notes
-    active_input_taps.sort(key=lambda ref: ref.get().target_time)
+    active_input_taps.sort(key=lambda ref: (-ref.get().visual_y_offset, ref.get().target_time))
     available_tap_indexes = ArraySet[int, Dim[32]].new()
     for i, touch in enumerate(touches()):
         if touch.started:
@@ -91,7 +91,10 @@ def preassign_taps():
         for use_leniency in (False, True):
             if current.captured_touch_id != 0:
                 continue
-            leniency = get_leniency(current.kind) if use_leniency else 0.0
+            leniency = scale_hitbox_leniency(
+                get_leniency(current.kind) if use_leniency else 0.0,
+                current.visual_y_offset,
+            )
             current_l = current.lane - current.size
             current_r = current.lane + current.size
             hitbox_l = current_l - leniency
@@ -100,8 +103,9 @@ def preassign_taps():
             # they would have done so already.
             for other_i in range(current_i + 1, len(active_input_taps)):
                 other = active_input_taps[other_i].get()
+                if current.visual_y_offset - other.visual_y_offset > 0.001:
+                    break
                 if other.target_time - current.target_time > SIMULTANEOUS_THRESHOLD:
-                    # Since the notes are sorted by target time, we can stop checking further
                     break
                 if other.captured_touch_id != 0:
                     continue
@@ -114,7 +118,7 @@ def preassign_taps():
             if use_leniency:
                 hitbox_l = min(hitbox_l, current_l)
                 hitbox_r = max(hitbox_r, current_r)
-            hitbox_layout = layout_hitbox(hitbox_l, hitbox_r)
+            hitbox_layout = layout_note_hitbox(hitbox_l, hitbox_r, current.visual_y_offset)
             for tap_i in available_tap_indexes:
                 touch = touches()[tap_i]
                 if hitbox_layout.contains_point(touch.position) and touch.time in current.unadjusted_input_interval:
@@ -129,7 +133,7 @@ def preassign_taps():
 
 def preassign_releases():
     active_input_releases = note.NoteMemory.active_release_input_notes
-    active_input_releases.sort(key=lambda ref: ref.get().target_time)
+    active_input_releases.sort(key=lambda ref: (-ref.get().visual_y_offset, ref.get().target_time))
     active_release_indexes = ArraySet[int, Dim[32]].new()
     for i, touch in enumerate(touches()):
         if touch.ended:
@@ -139,13 +143,18 @@ def preassign_releases():
         for use_leniency in (False, True):
             if current.captured_touch_id != 0:
                 continue
-            leniency = get_leniency(current.kind) if use_leniency else 0.0
+            leniency = scale_hitbox_leniency(
+                get_leniency(current.kind) if use_leniency else 0.0,
+                current.visual_y_offset,
+            )
             current_l = current.lane - current.size
             current_r = current.lane + current.size
             hitbox_l = current_l - leniency
             hitbox_r = current_r + leniency
             for other_i in range(current_i + 1, len(active_input_releases)):
                 other = active_input_releases[other_i].get()
+                if current.visual_y_offset - other.visual_y_offset > 0.001:
+                    break
                 if other.target_time - current.target_time > SIMULTANEOUS_THRESHOLD:
                     break
                 if other.captured_touch_id != 0:
@@ -159,7 +168,7 @@ def preassign_releases():
             if use_leniency:
                 hitbox_l = min(hitbox_l, current_l)
                 hitbox_r = max(hitbox_r, current_r)
-            hitbox_layout = layout_hitbox(hitbox_l, hitbox_r)
+            hitbox_layout = layout_note_hitbox(hitbox_l, hitbox_r, current.visual_y_offset)
             for release_i in active_release_indexes:
                 touch = touches()[release_i]
                 if current.active_head_ref.index > 0:

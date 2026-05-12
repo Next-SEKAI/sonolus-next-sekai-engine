@@ -35,10 +35,11 @@ from sekai.lib.layout import (
     get_alpha,
     iter_slot_lanes,
     layout_circular_effect,
-    layout_hitbox,
     layout_linear_effect,
+    layout_note_hitbox,
     layout_slide_connector_segment,
     layout_slot_glow_effect,
+    scale_hitbox_leniency,
     transformed_vec_at,
 )
 from sekai.lib.options import Options
@@ -544,9 +545,11 @@ class ActiveConnectorInfo(Record):
     connector_kind: ConnectorKind
 
     def get_hitbox(self, leniency: float) -> Quad:
-        return layout_hitbox(
+        leniency = scale_hitbox_leniency(leniency, self.visual_y_offset)
+        return layout_note_hitbox(
             self.input_lane - self.input_size - leniency,
             self.input_lane + self.input_size + leniency,
+            self.visual_y_offset,
         )
 
     @property

@@ -32,6 +32,7 @@ class VibrateMode(IntEnum):
 class HitboxMode(IntEnum):
     ANGLED = 0
     VERTICAL = 1
+    DYNAMIC_VERTICAL = 2
 
 
 @options
@@ -256,10 +257,11 @@ class Options:
         scope="Next Sekai",
         values=[
             "Angled",
-            "Vertical",
+            "Fixed Vertical",
+            "Dynamic Vertical",
         ],
         advanced=True,
-        default=1,
+        default=2,
     )
     alternative_approach_curve: bool = toggle_option(
         name="Alternative Approach Curve",

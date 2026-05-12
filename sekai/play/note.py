@@ -28,7 +28,7 @@ from sekai.lib import archetype_names
 from sekai.lib.buckets import WINDOW_SCALE, SekaiWindow
 from sekai.lib.connector import ActiveConnectorInfo, ConnectorKind, ConnectorLayer
 from sekai.lib.ease import EaseType, ease
-from sekai.lib.layout import FlickDirection, Layout, layout_hitbox, progress_to
+from sekai.lib.layout import FlickDirection, Layout, layout_note_hitbox, progress_to, scale_hitbox_leniency
 from sekai.lib.note import (
     NoteEffectKind,
     NoteKind,
@@ -651,7 +651,12 @@ class BaseNote(PlayArchetype):
 
     @property
     def hitbox(self) -> Quad:
-        return layout_hitbox(self.hitbox_l, self.hitbox_r)
+        leniency = scale_hitbox_leniency(get_leniency(self.kind), self.visual_y_offset)
+        return layout_note_hitbox(
+            self.lane - self.size - leniency,
+            self.lane + self.size + leniency,
+            self.visual_y_offset,
+        )
 
     @property
     def progress(self) -> float:

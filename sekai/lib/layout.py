@@ -269,11 +269,11 @@ def transformed_vec_at(lane: float, travel: float = 1.0) -> Vec2:
 
 
 def touch_to_lane(pos: Vec2) -> float:
-    if Options.hitbox_mode == HitboxMode.VERTICAL:
-        return (pos.x - DynamicLayout.x_translate) / DynamicLayout.w_scale
-    y_raw = (pos.y - DynamicLayout.t) / DynamicLayout.h_scale
-    x_raw = (pos.x - DynamicLayout.x_translate) / DynamicLayout.w_scale
-    return x_raw / y_raw
+    if Options.hitbox_mode == HitboxMode.ANGLED:
+        y_raw = (pos.y - DynamicLayout.t) / DynamicLayout.h_scale
+        x_raw = (pos.x - DynamicLayout.x_translate) / DynamicLayout.w_scale
+        return x_raw / y_raw
+    return (pos.x - DynamicLayout.x_translate) / DynamicLayout.w_scale
 
 
 def perspective_vec(x: float, y: float, travel: float = 1.0) -> Vec2:
@@ -654,6 +654,26 @@ def layout_hitbox(
         tr = transform_vec(Vec2(r, LANE_HITBOX_T))
         result @= Rect(l=bl.x, r=tr.x, b=bl.y, t=tr.y).as_quad()
     return result
+
+
+def layout_note_hitbox(l: float, r: float, y_offset: float) -> Quad:
+    result = +Quad
+    if Options.hitbox_mode == HitboxMode.DYNAMIC_VERTICAL:
+        y_clamped = clamp(y_offset, -0.1, 0.9)
+        travel = approach(1 - y_clamped)
+        bl = transform_vec(Vec2(l * travel, travel + 0.25))
+        tr = transform_vec(Vec2(r * travel, travel - 0.5))
+        result @= Rect(l=bl.x, r=tr.x, b=bl.y, t=tr.y).as_quad()
+    else:
+        result @= layout_hitbox(l, r)
+    return result
+
+
+def scale_hitbox_leniency(leniency: float, y_offset: float) -> float:
+    if Options.hitbox_mode == HitboxMode.DYNAMIC_VERTICAL:
+        y_clamped = clamp(y_offset, -0.1, 0.9)
+        return leniency / approach(1 - y_clamped)
+    return leniency
 
 
 def iter_slot_lanes(lane: float, size: float, pivot_lane: float = 0.0, half_offset: bool = False):
