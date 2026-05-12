@@ -7,8 +7,10 @@ from sonolus.script.bucket import Bucket, Judgment
 from sonolus.script.easing import ease_in_cubic
 from sonolus.script.effect import Effect
 from sonolus.script.interval import lerp, remap_clamped
+from sonolus.script.quad import Quad
 from sonolus.script.runtime import is_tutorial, is_watch, level_life, level_score, time
 from sonolus.script.sprite import Sprite
+from sonolus.script.vec import Vec2
 
 from sekai.lib import archetype_names
 from sekai.lib.buckets import (
@@ -35,6 +37,7 @@ from sekai.lib.connector import ActiveConnectorKind, ConnectorKind
 from sekai.lib.ease import EaseType, ease
 from sekai.lib.effect import EMPTY_EFFECT, SFX_DISTANCE, Effects, first_available_effect
 from sekai.lib.layer import (
+    LAYER_GUIDE_CONNECTOR_OVER,
     LAYER_NOTE_ARROW,
     LAYER_NOTE_BODY,
     LAYER_NOTE_FLICK_BODY,
@@ -316,6 +319,20 @@ def get_attach_params(
     lane = lerp(head_lane, tail_lane, eased_frac)
     size = lerp(head_size, tail_size, eased_frac)
     return lane, size
+
+
+def draw_hitbox_ring(outer: Quad, inner: Quad, sprite: Sprite, z: float):
+    sprite.draw(Quad(bl=inner.tl, tl=outer.tl, tr=outer.tr, br=inner.tr), z=z, a=0.8)
+    sprite.draw(Quad(bl=outer.bl, tl=inner.bl, tr=inner.br, br=outer.br), z=z, a=0.8)
+    sprite.draw(Quad(bl=outer.bl, tl=outer.tl, tr=inner.tl, br=inner.bl), z=z, a=0.8)
+    sprite.draw(Quad(bl=inner.br, tl=inner.tr, tr=outer.tr, br=outer.br), z=z, a=0.8)
+
+
+def draw_hitbox_frame(hitbox: Quad, t: float):
+    middle = hitbox.scale_centered(Vec2(0.977, 0.977))
+    inner = hitbox.scale_centered(Vec2(0.950, 0.950))
+    draw_hitbox_ring(hitbox, middle, ActiveSkin.guide_neutral, get_z(LAYER_GUIDE_CONNECTOR_OVER, t, etc=0))
+    draw_hitbox_ring(middle, inner, ActiveSkin.guide_black, get_z(LAYER_GUIDE_CONNECTOR_OVER, t, etc=1))
 
 
 def draw_note(

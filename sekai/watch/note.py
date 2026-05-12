@@ -13,21 +13,24 @@ from sonolus.script.archetype import (
 )
 from sonolus.script.bucket import Judgment
 from sonolus.script.interval import lerp, remap_clamped, unlerp_clamped
+from sonolus.script.quad import Quad
 from sonolus.script.runtime import is_replay, is_skip, time
 from sonolus.script.timing import beat_to_time
 
-from sekai.debug import DISABLE_NOTES, SHOW_TICK_HITBOX_SIZE
+from sekai.debug import DISABLE_NOTES, SHOW_HITBOX, SHOW_TICK_HITBOX_SIZE
 from sekai.lib.connector import ActiveConnectorInfo, ConnectorKind, ConnectorLayer
 from sekai.lib.ease import EaseType, ease
-from sekai.lib.layout import FlickDirection, progress_to
+from sekai.lib.layout import FlickDirection, layout_note_hitbox, progress_to, scale_hitbox_leniency
 from sekai.lib.note import (
     NoteEffectKind,
     NoteKind,
+    draw_hitbox_frame,
     draw_note,
     get_attach_params,
     get_leniency,
     get_note_bucket,
     get_note_effect_kind,
+    get_note_window,
     get_visual_spawn_time,
     is_head,
     map_note_kind,
@@ -210,6 +213,8 @@ class WatchBaseNote(WatchArchetype):
     def update_parallel(self):
         if time() < self.visual_start_time:
             return
+        if SHOW_HITBOX and self.is_scored and time() in (get_note_window(self.kind).bad + self.target_time):
+            draw_hitbox_frame(self.hitbox, self.target_time)
         if is_head(self.kind) and time() > self.target_time:
             return
         if group_hide_notes(self.timescale_group):
@@ -292,6 +297,15 @@ class WatchBaseNote(WatchArchetype):
             return False
         division = get_stage_props(self.stage_ref.get(), t).division.start
         return division.parity == DivisionParity.ODD and division.size % 2 == 1
+
+    @property
+    def hitbox(self) -> Quad:
+        leniency = scale_hitbox_leniency(get_leniency(self.kind), self.visual_y_offset)
+        return layout_note_hitbox(
+            self.lane - self.size - leniency,
+            self.lane + self.size + leniency,
+            self.visual_y_offset,
+        )
 
     @property
     def visual_lane(self) -> float:

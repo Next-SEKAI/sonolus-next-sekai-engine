@@ -23,7 +23,7 @@ from sonolus.script.quad import Quad
 from sonolus.script.runtime import Touch, delta_time, input_offset, offset_adjusted_time, time, touches
 from sonolus.script.timing import beat_to_time
 
-from sekai.debug import DISABLE_NOTES, SHOW_TICK_HITBOX_SIZE
+from sekai.debug import DISABLE_NOTES, SHOW_HITBOX, SHOW_TICK_HITBOX_SIZE
 from sekai.lib import archetype_names
 from sekai.lib.buckets import WINDOW_SCALE, SekaiWindow
 from sekai.lib.connector import ActiveConnectorInfo, ConnectorKind, ConnectorLayer
@@ -32,6 +32,7 @@ from sekai.lib.layout import FlickDirection, Layout, layout_note_hitbox, progres
 from sekai.lib.note import (
     NoteEffectKind,
     NoteKind,
+    draw_hitbox_frame,
     draw_note,
     get_attach_params,
     get_leniency,
@@ -294,6 +295,8 @@ class BaseNote(PlayArchetype):
         if time() > self.input_interval.end:
             self.handle_late_miss()
             return
+        if SHOW_HITBOX and self.is_scored and time() >= self.input_interval.start:
+            draw_hitbox_frame(self.hitbox, self.target_time)
         if is_head(self.kind) and time() > self.target_time:
             return
         if group_hide_notes(self.timescale_group):
