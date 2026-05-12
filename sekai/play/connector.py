@@ -139,8 +139,17 @@ class Connector(PlayArchetype):
         if self.active_head_ref.index > 0:
             if time() in self.input_active_interval:
                 input_lane, input_size = self.get_attached_params(offset_adjusted_time())
+                head = self.head
+                tail = self.tail
                 self.active_connector_info.input_lane = input_lane
                 self.active_connector_info.input_size = input_size
+                self.active_connector_info.input_y_offset = remap_clamped(
+                    head.target_time,
+                    tail.target_time,
+                    head.y_offset_at(offset_adjusted_time()),
+                    tail.y_offset_at(offset_adjusted_time()),
+                    offset_adjusted_time(),
+                )
                 hitbox = self.active_connector_info.get_hitbox(CONNECTOR_LENIENCY)
                 for touch in touches():
                     if not touch.ended and hitbox.contains_point(touch.position):

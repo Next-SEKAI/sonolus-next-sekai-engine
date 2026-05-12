@@ -162,7 +162,7 @@ class WatchBaseNote(WatchArchetype):
                     self.size,
                     self.end_time,
                     self.direction,
-                    y_offset=self._stage_y_offset_at(self.end_time),
+                    y_offset=self.y_offset_at(self.end_time),
                     pivot_lane=self._stage_pivot_lane_at(self.end_time),
                     half_offset=self._stage_half_offset_at(self.end_time),
                 )
@@ -177,7 +177,7 @@ class WatchBaseNote(WatchArchetype):
                     self.size,
                     self.target_time,
                     self.direction,
-                    y_offset=self._stage_y_offset_at(self.target_time),
+                    y_offset=self.y_offset_at(self.target_time),
                     pivot_lane=self._stage_pivot_lane_at(self.target_time),
                     half_offset=self._stage_half_offset_at(self.target_time),
                 )
@@ -285,7 +285,7 @@ class WatchBaseNote(WatchArchetype):
                 return lerp(current_head_lane, current_tail_lane, ease(self.connector_ease, note_ease_frac))
         return self._basic_visual_lane_at(t)
 
-    def _stage_y_offset_at(self, t: float) -> float:
+    def y_offset_at(self, t: float) -> float:
         if self.stage_ref.index <= 0:
             return 0.0
         return get_stage_props(self.stage_ref.get(), t).y_offset
@@ -303,11 +303,11 @@ class WatchBaseNote(WatchArchetype):
 
     @property
     def hitbox(self) -> Quad:
-        leniency = scale_hitbox_leniency(get_leniency(self.kind), self.visual_y_offset)
+        leniency = scale_hitbox_leniency(get_leniency(self.kind), self.target_y_offset)
         return layout_note_hitbox(
             self.lane - self.size - leniency,
             self.lane + self.size + leniency,
-            self.visual_y_offset,
+            self.target_y_offset,
         )
 
     @property
@@ -315,7 +315,7 @@ class WatchBaseNote(WatchArchetype):
         return layout_note_hitbox(
             self.lane - self.size,
             self.lane + self.size,
-            self.visual_y_offset,
+            self.target_y_offset,
             strict=True,
         )
 
@@ -343,6 +343,24 @@ class WatchBaseNote(WatchArchetype):
                 self.target_time,
             )
         return self._basic_visual_y_offset
+
+    @property
+    def _basic_target_y_offset(self) -> float:
+        return self.y_offset_at(self.target_time)
+
+    @property
+    def target_y_offset(self) -> float:
+        if self.is_attached:
+            head = self.attach_head_ref.get()
+            tail = self.attach_tail_ref.get()
+            return remap_clamped(
+                head.target_time,
+                tail.target_time,
+                head._basic_target_y_offset,
+                tail._basic_target_y_offset,
+                self.target_time,
+            )
+        return self._basic_target_y_offset
 
     @property
     def visual_pivot_lane(self) -> float:

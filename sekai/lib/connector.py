@@ -540,16 +540,17 @@ class ActiveConnectorInfo(Record):
     visual_y_offset: float
     input_lane: float
     input_size: float
+    input_y_offset: float
     active_start_time: float
     last_active_time: float
     connector_kind: ConnectorKind
 
     def get_hitbox(self, leniency: float) -> Quad:
-        leniency = scale_hitbox_leniency(leniency, self.visual_y_offset)
+        leniency = scale_hitbox_leniency(leniency, self.input_y_offset)
         return layout_note_hitbox(
             self.input_lane - self.input_size - leniency,
             self.input_lane + self.input_size + leniency,
-            self.visual_y_offset,
+            self.input_y_offset,
         )
 
     @property

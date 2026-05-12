@@ -657,11 +657,11 @@ class BaseNote(PlayArchetype):
 
     @property
     def hitbox(self) -> Quad:
-        leniency = scale_hitbox_leniency(get_leniency(self.kind), self.visual_y_offset)
+        leniency = scale_hitbox_leniency(get_leniency(self.kind), self.target_y_offset)
         return layout_note_hitbox(
             self.lane - self.size - leniency,
             self.lane + self.size + leniency,
-            self.visual_y_offset,
+            self.target_y_offset,
         )
 
     @property
@@ -669,7 +669,7 @@ class BaseNote(PlayArchetype):
         return layout_note_hitbox(
             self.lane - self.size,
             self.lane + self.size,
-            self.visual_y_offset,
+            self.target_y_offset,
             strict=True,
         )
 
@@ -716,6 +716,11 @@ class BaseNote(PlayArchetype):
             return self.lane
         return get_stage_props(self.stage_ref.get(), t).pivot_lane + self.rel_lane
 
+    def y_offset_at(self, t: float) -> float:
+        if self.stage_ref.index <= 0:
+            return 0.0
+        return get_stage_props(self.stage_ref.get(), t).y_offset
+
     def visual_lane_at(self, t: float) -> float:
         if self.is_attached:
             head = self.attach_head_ref.get()
@@ -760,6 +765,24 @@ class BaseNote(PlayArchetype):
                 self.target_time,
             )
         return self._basic_visual_y_offset
+
+    @property
+    def _basic_target_y_offset(self) -> float:
+        return self.y_offset_at(self.target_time)
+
+    @property
+    def target_y_offset(self) -> float:
+        if self.is_attached:
+            head = self.attach_head_ref.get()
+            tail = self.attach_tail_ref.get()
+            return remap_clamped(
+                head.target_time,
+                tail.target_time,
+                head._basic_target_y_offset,
+                tail._basic_target_y_offset,
+                self.target_time,
+            )
+        return self._basic_target_y_offset
 
     @property
     def visual_pivot_lane(self) -> float:
