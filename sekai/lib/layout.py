@@ -50,6 +50,23 @@ STAGE_WIDTH_MID = (APPROACH_SCALE + 1) / 2
 # extent so it stays finite (instead of diverging) as tilt approaches 0.
 STAGE_TILT_VANISH_MIN = 0.3
 
+# Vertical (portrait) mode tuning.
+# Extra zoom applied to the flattened, rotated stage so the lanes/notes fill the portrait width.
+VERTICAL_STAGE_ZOOM = 2
+# Gap kept between the judge line and the near screen edge, as a fraction of the near-edge half-extent.
+VERTICAL_JUDGE_MARGIN_FRAC = 0.45
+# Extra note lead time in portrait (multiplies preempt time).
+VERTICAL_PREEMPT_MULTIPLIER = 1.2
+# Hitbox leniency multiplier (wider lane-direction tolerance in portrait).
+VERTICAL_HITBOX_LENIENCY_SCALE = 2
+# Hitbox vertical (travel-direction) extent multiplier in portrait.
+VERTICAL_HITBOX_HEIGHT_SCALE = 2.0
+# Lane drawing extension past the screen edges; hardcoded so lanes run well past the top.
+VERTICAL_VANISH_EXT = 2.0
+# Fixed drawing-progress bounds; cover overrides the start and hidden overrides the cutoff.
+VERTICAL_PROGRESS_START = -0.1
+VERTICAL_PROGRESS_CUTOFF = 2.0
+
 
 class FlickDirection(IntEnum):
     UP_OMNI = 0
@@ -91,6 +108,7 @@ class DynamicLayout:
     width_offset: float
     lane_t: float
     lane_b: float
+    vertical_top_travel: float
 
 
 class CameraInfo(Record):
@@ -104,8 +122,26 @@ class CameraInfo(Record):
     stage_tilt: float
 
 
+def is_vertical() -> bool:
+    return Options.vertical_mode and (is_play() or is_watch()) and not LevelConfig.dynamic_stages
+
+
 def init_layout():
-    if Options.lock_stage_aspect_ratio:
+    if is_vertical():
+        # The field is built in the un-rotated frame and then rotated 90deg, so field_w becomes the
+        # on-screen vertical extent and field_h the horizontal extent. Mirror the landscape logic
+        # with screen w/h swapped (screen().h == 2, screen().w == 2 * aspect_ratio()).
+        if Options.lock_stage_aspect_ratio:
+            if 1 / aspect_ratio() > TARGET_ASPECT_RATIO:
+                field_w = screen().w * TARGET_ASPECT_RATIO
+                field_h = screen().w
+            else:
+                field_w = screen().h
+                field_h = screen().h / TARGET_ASPECT_RATIO
+        else:
+            field_w = screen().h
+            field_h = screen().w
+    elif Options.lock_stage_aspect_ratio:
         if aspect_ratio() > TARGET_ASPECT_RATIO:
             field_w = screen().h * TARGET_ASPECT_RATIO
             field_h = screen().h
@@ -183,6 +219,20 @@ def _initialization_archetype() -> type[InitializationLike]:
 
 def get_camera_info(target_time: float | None = None, left_limit: bool = False) -> CameraInfo:
     result = +CameraInfo
+    if is_vertical():
+        # Non-dynamic charts have no camera events; report the fixed 90deg-left rotation and a flat
+        # (untilted) stage so the whole field renders rotated into portrait.
+        result @= CameraInfo(
+            lane=0.0,
+            size=6.0,
+            zoom=1.0,
+            zoom_target_lane=0.0,
+            zoom_target=Vec2(0.0, 0.0),
+            zoom_anchor=Vec2(0.0, 0.0),
+            rotate=-pi / 2,
+            stage_tilt=0.0,
+        )
+        return result
     first_camera_ref = _initialization_archetype().at(0).first_camera_ref
     if first_camera_ref.index <= 0:
         result @= CameraInfo(
@@ -319,6 +369,9 @@ def refresh_layout():
     DynamicLayout.width_offset = (1 - tilt) * STAGE_WIDTH_MID
     vanish_tilt = max(tilt, STAGE_TILT_VANISH_MIN)
     vanish_ext = (1 - vanish_tilt) * STAGE_WIDTH_MID / vanish_tilt
+    if is_vertical():
+        # Hardcode a large extension so the flat lanes are drawn well past the top of the screen.
+        vanish_ext = VERTICAL_VANISH_EXT
     DynamicLayout.lane_t = LANE_T - vanish_ext
     DynamicLayout.lane_b = LANE_B + vanish_ext
 
@@ -329,13 +382,39 @@ def refresh_layout():
     if is_play() or is_watch():
         apply_camera_zoom(camera.zoom, camera.zoom_target, camera.zoom_anchor, camera.rotate)
 
+    if is_vertical():
+        # Zoom the flattened, rotated stage so lanes/notes fill the portrait width.
+        DynamicLayout.w_scale *= VERTICAL_STAGE_ZOOM
+        DynamicLayout.h_scale *= VERTICAL_STAGE_ZOOM
+        # Pin the judge line near the bottom: travel=1 maps to pre-rotation y = t + h_scale, which
+        # after the 90deg rotation becomes the on-screen x = -(t + h_scale). Place it a small margin
+        # in from the near (right) screen edge instead of leaving it centered with a large gap.
+        judge_x = screen().r - VERTICAL_JUDGE_MARGIN_FRAC * screen().r
+        DynamicLayout.t = -judge_x - DynamicLayout.h_scale
+        # Travel at the far (top) edge of the screen, so the rescaled approach maps progress 0 there:
+        # after rotation on-screen x = -(travel * h_scale + t) and the far edge is x = -screen().r.
+        DynamicLayout.vertical_top_travel = (screen().r - DynamicLayout.t) / DynamicLayout.h_scale
+
     DynamicLayout.scaled_note_h = DynamicLayout.note_h * DynamicLayout.h_scale
 
-    if Options.stage_cover:
+    if is_vertical():
+        # Fixed bounds in this mode: notes draw from just above the top (-0.1) to well past the judge
+        # (2). Cover overrides the start (its boundary is at progress == stage_cover under the linear
+        # approach) and hidden overrides the cutoff (vanishing 'hidden' fraction before the judge).
+        if Options.stage_cover:
+            DynamicLayout.progress_start = Options.stage_cover
+        else:
+            DynamicLayout.progress_start = VERTICAL_PROGRESS_START
+        if Options.hidden:
+            DynamicLayout.progress_cutoff = 1.0 - Options.hidden
+        else:
+            DynamicLayout.progress_cutoff = VERTICAL_PROGRESS_CUTOFF
+    elif Options.stage_cover:
         DynamicLayout.progress_start = inverse_approach_tilt(Layout.cover_depth)
+        DynamicLayout.progress_cutoff = inverse_approach_tilt(Layout.cutoff_depth)
     else:
         DynamicLayout.progress_start = inverse_approach_tilt(Layout.cover_depth - vanish_ext)
-    DynamicLayout.progress_cutoff = inverse_approach_tilt(Layout.cutoff_depth)
+        DynamicLayout.progress_cutoff = inverse_approach_tilt(Layout.cutoff_depth)
 
 
 def camera_zoom_target_at(lane: float, size: float, target_lane: float, target_y: float, tilt: float) -> Vec2:
@@ -364,14 +443,28 @@ def apply_camera_zoom(zoom: float, target: Vec2, anchor: Vec2, rotate: float = 0
     bg = Layout.initial_background
     rot = -rotate
     DynamicLayout.rotate = rotate
-    set_background(
-        Quad(
-            bl=Vec2(zoom * (bg.bl.x - target.x) + anchor.x, zoom * (bg.bl.y - target.y) + anchor.y).rotate(rot),
-            br=Vec2(zoom * (bg.br.x - target.x) + anchor.x, zoom * (bg.br.y - target.y) + anchor.y).rotate(rot),
-            tl=Vec2(zoom * (bg.tl.x - target.x) + anchor.x, zoom * (bg.tl.y - target.y) + anchor.y).rotate(rot),
-            tr=Vec2(zoom * (bg.tr.x - target.x) + anchor.x, zoom * (bg.tr.y - target.y) + anchor.y).rotate(rot),
+    if is_vertical():
+        # Rotate the background to match the gameplay and scale it uniformly (preserving aspect) so
+        # it COVERS the portrait screen with no letterbox, cropping any overflow. Re-center on the
+        # origin first so the result stays centered regardless of the captured quad's position.
+        # After the 90deg turn the pre-rotation width becomes the vertical extent and the height the
+        # horizontal one, so cover = the larger of the two fill ratios.
+        bg_w = (bg.br - bg.bl).magnitude
+        bg_h = (bg.tl - bg.bl).magnitude
+        if bg_w > 1e-6 and bg_h > 1e-6:
+            scale = max(screen().h / bg_w, screen().w / bg_h)
+        else:
+            scale = 1.0
+        set_background(bg.translate(bg.center * -1.0).scale(Vec2(scale, scale)).rotate(rot))
+    else:
+        set_background(
+            Quad(
+                bl=Vec2(zoom * (bg.bl.x - target.x) + anchor.x, zoom * (bg.bl.y - target.y) + anchor.y).rotate(rot),
+                br=Vec2(zoom * (bg.br.x - target.x) + anchor.x, zoom * (bg.br.y - target.y) + anchor.y).rotate(rot),
+                tl=Vec2(zoom * (bg.tl.x - target.x) + anchor.x, zoom * (bg.tl.y - target.y) + anchor.y).rotate(rot),
+                tr=Vec2(zoom * (bg.tr.x - target.x) + anchor.x, zoom * (bg.tr.y - target.y) + anchor.y).rotate(rot),
+            )
         )
-    )
 
 
 def current_stage_tilt() -> float:
@@ -402,7 +495,19 @@ def approach_at_tilt(progress: float, tilt: float) -> float:
 
 
 def approach(progress: float) -> float:
+    if is_vertical():
+        # Linear, rescaled so progress 0 is the far (top) screen edge and progress 1 is the judge line.
+        return lerp(DynamicLayout.vertical_top_travel, 1.0, progress)
     return approach_at_tilt(progress, current_stage_tilt())
+
+
+def cover_far_depth() -> float:
+    # Depth that the stage cover / spawn boundary measures from. In vertical mode this is the top of
+    # the screen (so 0% cover sits at the top and lerps down to the judge line); otherwise the far
+    # APPROACH_SCALE depth.
+    if is_vertical():
+        return DynamicLayout.vertical_top_travel
+    return APPROACH_SCALE
 
 
 def inverse_approach_untilted(approach_value: float) -> float:
@@ -450,12 +555,13 @@ def progress_to(
 
 
 def preempt_time(force_speed: float = 0) -> float:
+    mult = VERTICAL_PREEMPT_MULTIPLIER if is_vertical() else 1.0
     if force_speed > 0:
-        return lerp(0.35, 4, unlerp(12, 1, force_speed) ** 1.31)
+        return mult * lerp(0.35, 4, unlerp(12, 1, force_speed) ** 1.31)
     raw = lerp(0.35, 4, unlerp(12, 1, Options.note_speed) ** 1.31)
     if Options.stage_cover_scroll_speed_compensation == StageCoverNoteSpeedCompensation.FIXED_ONLY:
-        return raw * (1 - Layout.approach_start)
-    return raw
+        return mult * raw * (1 - Layout.approach_start)
+    return mult * raw
 
 
 def get_alpha(target_time: float, now: float | None = None) -> float:
@@ -550,7 +656,7 @@ def layout_lane(lane: float, size: float, y_offset: float = 0.0) -> Quad:
 
 
 def layout_stage_cover(l: float = -6, r: float = 6) -> Quad:
-    b = lerp(APPROACH_SCALE, 1.0, Options.stage_cover)
+    b = lerp(cover_far_depth(), 1.0, Options.stage_cover)
     return perspective_rect(
         l=l,
         r=r,
@@ -560,7 +666,7 @@ def layout_stage_cover(l: float = -6, r: float = 6) -> Quad:
 
 
 def layout_stage_cover_and_line(l: float = -6, r: float = 6) -> tuple[Quad, Quad]:
-    b = lerp(APPROACH_SCALE, 1.0, Options.stage_cover)
+    b = lerp(cover_far_depth(), 1.0, Options.stage_cover)
     cover_b = b + 0.002
     return perspective_rect(
         l=l,
@@ -576,7 +682,7 @@ def layout_stage_cover_and_line(l: float = -6, r: float = 6) -> tuple[Quad, Quad
 
 
 def layout_full_width_stage_cover() -> Quad:
-    pre_b = lerp(APPROACH_SCALE, 1.0, Options.stage_cover) * DynamicLayout.h_scale + DynamicLayout.t
+    pre_b = lerp(cover_far_depth(), 1.0, Options.stage_cover) * DynamicLayout.h_scale + DynamicLayout.t
     big = 20.0
     rot = -DynamicLayout.rotate
     return Quad(
@@ -589,7 +695,7 @@ def layout_full_width_stage_cover() -> Quad:
 
 def layout_hidden_cover(l: float = -6, r: float = 6) -> Quad:
     b = 1 - DynamicLayout.note_h
-    t = min(b, max(lerp(1.0, APPROACH_SCALE, Options.hidden), lerp(APPROACH_SCALE, 1.0, Options.stage_cover)))
+    t = min(b, max(lerp(1.0, cover_far_depth(), Options.hidden), lerp(cover_far_depth(), 1.0, Options.stage_cover)))
     return perspective_rect(
         l=l,
         r=r,
@@ -921,6 +1027,8 @@ class Hitbox(Record):
 
 
 def compute_hitbox(lane: float, size: float, leniency: float, y_offset: float = 0.0) -> Hitbox:
+    if is_vertical():
+        leniency *= VERTICAL_HITBOX_LENIENCY_SCALE
     travel = approach(1 - y_offset)
     width_factor = tilt_width_factor(travel)
     l_x = (lane - size) * width_factor * DynamicLayout.w_scale + DynamicLayout.x_translate
@@ -936,6 +1044,8 @@ def compute_hitbox(lane: float, size: float, leniency: float, y_offset: float = 
         cover_travel = lerp(APPROACH_SCALE, 1.0, Options.stage_cover)
         vertical_half_lanes *= clamp((1 - cover_travel) / (1 - APPROACH_SCALE), 0, 1)
     vertical_extent = vertical_half_lanes * lane_w
+    if is_vertical():
+        vertical_extent *= VERTICAL_HITBOX_HEIGHT_SCALE
     rot = -DynamicLayout.rotate
     bl_x = l_x - leniency * lane_w
     br_x = r_x + leniency * lane_w

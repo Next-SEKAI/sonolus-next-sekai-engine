@@ -252,6 +252,11 @@ class Options:
         default=False,
         scope="Next Sekai",
     )
+    vertical_mode: bool = toggle_option(
+        name="Vertical Mode",
+        scope="Next Sekai",
+        default=False,
+    )
     disable_timescale: bool = toggle_option(
         name="Disable Timescale",
         standard=True,
@@ -309,5 +314,6 @@ class Options:
         "Guide Quality",
         "Note Margin",
         "Alternative Approach Curve",
+        "Vertical Mode",
         "Disable Timescale",
     )

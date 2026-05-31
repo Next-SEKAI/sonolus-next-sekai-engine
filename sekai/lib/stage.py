@@ -20,6 +20,7 @@ from sekai.lib.layout import (
     DynamicLayout,
     approach,
     current_stage_tilt,
+    is_vertical,
     layout_full_width_stage_cover,
     layout_hidden_cover,
     layout_lane,
@@ -389,7 +390,7 @@ def normalize_transition[T](value: Transition[T] | T) -> Transition[T]:
 def draw_basic_stage():
     if not Options.show_lane:
         return
-    if ActiveSkin.sekai_stage.is_available and not LevelConfig.dynamic_stages:
+    if ActiveSkin.sekai_stage.is_available and not LevelConfig.dynamic_stages and not is_vertical():
         draw_sekai_stage()
     else:
         draw_dynamic_stage(
