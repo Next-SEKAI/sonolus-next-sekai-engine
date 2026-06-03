@@ -48,7 +48,7 @@ STAGE_WIDTH_MID = (APPROACH_SCALE + 1) / 2
 # As tilt decreases, the perspective vanishing point (where the width factor reaches 0) recedes
 # upward and the stage top is extended toward it. This floors the effective tilt used for that
 # extent so it stays finite (instead of diverging) as tilt approaches 0.
-STAGE_TILT_VANISH_MIN = 0.3
+STAGE_TILT_VANISH_MIN = 0.25
 
 
 class FlickDirection(IntEnum):
@@ -316,8 +316,8 @@ def refresh_layout():
     DynamicLayout.width_offset = (1 - tilt) * STAGE_WIDTH_MID
     vanish_tilt = max(tilt, STAGE_TILT_VANISH_MIN)
     vanish_ext = (1 - vanish_tilt) * STAGE_WIDTH_MID / vanish_tilt
-    DynamicLayout.lane_t = LANE_T - vanish_ext
-    DynamicLayout.lane_b = LANE_B + vanish_ext
+    DynamicLayout.lane_t = LANE_T - vanish_ext * 0.95 + 0.01
+    DynamicLayout.lane_b = LANE_B + vanish_ext + 0.5
 
     base_note_h = NOTE_H * (0.6 * base.size_zoom + 0.4)
     flat_note_h = STAGE_WIDTH_MID * DynamicLayout.w_scale / (2 * abs(DynamicLayout.h_scale))
