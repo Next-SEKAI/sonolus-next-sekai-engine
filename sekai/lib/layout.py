@@ -48,7 +48,7 @@ STAGE_WIDTH_MID = (APPROACH_SCALE + 1) / 2
 # As tilt decreases, the perspective vanishing point (where the width factor reaches 0) recedes
 # upward and the stage top is extended toward it. This floors the effective tilt used for that
 # extent so it stays finite (instead of diverging) as tilt approaches 0.
-STAGE_TILT_VANISH_MIN = 0.25
+STAGE_TILT_VANISH_MIN = 0.2
 
 
 class FlickDirection(IntEnum):
@@ -92,6 +92,8 @@ class DynamicLayout:
     width_offset: float
     lane_t: float
     lane_b: float
+    stage_lane_t: float
+    stage_lane_b: float
 
 
 class CameraInfo(Record):
@@ -316,8 +318,14 @@ def refresh_layout():
     DynamicLayout.width_offset = (1 - tilt) * STAGE_WIDTH_MID
     vanish_tilt = max(tilt, STAGE_TILT_VANISH_MIN)
     vanish_ext = (1 - vanish_tilt) * STAGE_WIDTH_MID / vanish_tilt
-    DynamicLayout.lane_t = LANE_T - vanish_ext * 0.95 + 0.01
-    DynamicLayout.lane_b = LANE_B + vanish_ext + 0.5
+    DynamicLayout.lane_t = LANE_T - vanish_ext
+    DynamicLayout.lane_b = LANE_B + vanish_ext
+    if LevelConfig.dynamic_stages:
+        DynamicLayout.stage_lane_t = LANE_T - vanish_ext * 0.9
+        DynamicLayout.stage_lane_b = LANE_B + vanish_ext + 3
+    else:
+        DynamicLayout.stage_lane_t = LANE_T - vanish_ext
+        DynamicLayout.stage_lane_b = LANE_B + vanish_ext
 
     base_note_h = NOTE_H * (0.6 * base.size_zoom + 0.4)
     flat_note_h = STAGE_WIDTH_MID * DynamicLayout.w_scale / (2 * abs(DynamicLayout.h_scale))
@@ -539,12 +547,16 @@ def layout_sekai_stage() -> Quad:
     return transform_quad(rect)
 
 
-def layout_lane_by_edges(l: float, r: float, y_offset: float = 0.0) -> Quad:
-    return perspective_rect(l=l, r=r, t=DynamicLayout.lane_t, b=DynamicLayout.lane_b, travel=approach(1 - y_offset))
+def layout_stage_lane_by_edges(l: float, r: float, y_offset: float = 0.0) -> Quad:
+    return perspective_rect(
+        l=l, r=r, t=DynamicLayout.stage_lane_t, b=DynamicLayout.stage_lane_b, travel=approach(1 - y_offset)
+    )
 
 
-def layout_lane(lane: float, size: float, y_offset: float = 0.0) -> Quad:
-    return layout_lane_by_edges(lane - size, lane + size, y_offset=y_offset)
+def layout_particle_lane(lane: float, size: float, y_offset: float = 0.0) -> Quad:
+    return perspective_rect(
+        l=lane - size, r=lane + size, t=DynamicLayout.lane_t, b=DynamicLayout.lane_b, travel=approach(1 - y_offset)
+    )
 
 
 def layout_stage_cover(l: float = -6, r: float = 6) -> Quad:

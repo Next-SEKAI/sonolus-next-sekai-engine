@@ -56,8 +56,8 @@ from sekai.lib.layout import (
     layout_circular_effect,
     layout_flick_arrow,
     layout_flick_arrow_fallback,
-    layout_lane,
     layout_linear_effect,
+    layout_particle_lane,
     layout_regular_note_body,
     layout_regular_note_body_fallback,
     layout_rotated_linear_effect,
@@ -839,7 +839,7 @@ def play_note_hit_effects(
         lane_y_offset = (
             y_offset if kind in {NoteKind.CRIT_FLICK, NoteKind.CRIT_HEAD_FLICK, NoteKind.CRIT_TAIL_FLICK} else 0.0
         )
-        layout = layout_lane(lane, size, y_offset=lane_y_offset)
+        layout = layout_particle_lane(lane, size, y_offset=lane_y_offset)
         if particles.lane.is_available:
             particles.lane.spawn(layout, duration=1 / Options.effect_animation_speed)
         elif particles.lane_basic.is_available:

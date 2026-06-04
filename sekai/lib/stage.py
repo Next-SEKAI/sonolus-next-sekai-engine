@@ -22,11 +22,11 @@ from sekai.lib.layout import (
     current_stage_tilt,
     layout_full_width_stage_cover,
     layout_hidden_cover,
-    layout_lane,
-    layout_lane_by_edges,
+    layout_particle_lane,
     layout_sekai_stage,
     layout_stage_cover,
     layout_stage_cover_and_line,
+    layout_stage_lane_by_edges,
     perspective_rect,
     tilt_depth,
     tilt_widened_edge,
@@ -499,16 +499,16 @@ def draw_dynamic_stage(
         match style:
             case StageBorderStyle.DEFAULT | StageBorderStyle.MEDIUM:
                 scale = 0.5 if style == StageBorderStyle.MEDIUM else 1.0
-                layout_b = layout_lane_by_edges(
+                layout_b = layout_stage_lane_by_edges(
                     l - 0.08 * scale, l
                 )  # Artificially thicken the top so it renders better
-                layout_t = layout_lane_by_edges(tilt_widened_edge(l - 0.08 * scale, l - 0.64 * scale), l)
+                layout_t = layout_stage_lane_by_edges(tilt_widened_edge(l - 0.08 * scale, l - 0.64 * scale), l)
                 ActiveSkin.stage_border.draw(
                     Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br), z=z, a=a
                 )
             case StageBorderStyle.LIGHT:
-                layout_b = layout_lane_by_edges(l - 0.0125, l + 0.0125)
-                layout_t = layout_lane_by_edges(
+                layout_b = layout_stage_lane_by_edges(l - 0.0125, l + 0.0125)
+                layout_t = layout_stage_lane_by_edges(
                     tilt_widened_edge(l - 0.0125, l - 0.1), tilt_widened_edge(l + 0.0125, l + 0.1)
                 )
                 ActiveSkin.lane_divider.draw(
@@ -523,14 +523,14 @@ def draw_dynamic_stage(
         match style:
             case StageBorderStyle.DEFAULT | StageBorderStyle.MEDIUM:
                 scale = 0.5 if style == StageBorderStyle.MEDIUM else 1.0
-                layout_b = layout_lane_by_edges(r + 0.08 * scale, r)  # Flip horizontally
-                layout_t = layout_lane_by_edges(tilt_widened_edge(r + 0.08 * scale, r + 0.64 * scale), r)
+                layout_b = layout_stage_lane_by_edges(r + 0.08 * scale, r)  # Flip horizontally
+                layout_t = layout_stage_lane_by_edges(tilt_widened_edge(r + 0.08 * scale, r + 0.64 * scale), r)
                 ActiveSkin.stage_border.draw(
                     Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br), z=z, a=a
                 )
             case StageBorderStyle.LIGHT:
-                layout_b = layout_lane_by_edges(r - 0.0125, r + 0.0125)
-                layout_t = layout_lane_by_edges(
+                layout_b = layout_stage_lane_by_edges(r - 0.0125, r + 0.0125)
+                layout_t = layout_stage_lane_by_edges(
                     tilt_widened_edge(r - 0.0125, r - 0.1), tilt_widened_edge(r + 0.0125, r + 0.1)
                 )
                 ActiveSkin.lane_divider.draw(
@@ -554,8 +554,8 @@ def draw_dynamic_stage(
 
         for k in range(k_start, k_end + 1):
             pos = shifted_pivot + k * division_size
-            div_layout_b = layout_lane_by_edges(pos - 0.0125, pos + 0.0125)
-            div_layout_t = layout_lane_by_edges(
+            div_layout_b = layout_stage_lane_by_edges(pos - 0.0125, pos + 0.0125)
+            div_layout_t = layout_stage_lane_by_edges(
                 tilt_widened_edge(pos - 0.0125, pos - 0.1), tilt_widened_edge(pos + 0.0125, pos + 0.1)
             )
             ActiveSkin.lane_divider.draw(
@@ -648,7 +648,7 @@ def draw_dynamic_stage(
 
     if lane_alpha > 0:
         la = a * lane_alpha
-        ActiveSkin.lane_background.draw(layout_lane_by_edges(l, r), z=z_bg0, a=la)
+        ActiveSkin.lane_background.draw(layout_stage_lane_by_edges(l, r), z=z_bg0, a=la)
 
         p_left = left_border_style.progress
         if left_border_style.start == left_border_style.end:
@@ -775,13 +775,13 @@ def draw_fallback_stage(
     ja = a * judge_line_alpha
     if la > 0:
         # Artificially thicken the top so it renders better
-        layout_b = layout_lane_by_edges(l - 0.25, l)
-        layout_t = layout_lane_by_edges(tilt_widened_edge(l - 0.25, l - 1), l)
+        layout_b = layout_stage_lane_by_edges(l - 0.25, l)
+        layout_t = layout_stage_lane_by_edges(tilt_widened_edge(l - 0.25, l - 1), l)
         ActiveSkin.stage_left_border.draw(
             Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br), z=z_mid, a=la
         )
-        layout_b = layout_lane_by_edges(r, r + 0.25)
-        layout_t = layout_lane_by_edges(r, tilt_widened_edge(r + 0.25, r + 1))
+        layout_b = layout_stage_lane_by_edges(r, r + 0.25)
+        layout_t = layout_stage_lane_by_edges(r, tilt_widened_edge(r + 0.25, r + 1))
         ActiveSkin.stage_right_border.draw(
             Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br), z=z_mid, a=la
         )
@@ -795,9 +795,9 @@ def draw_fallback_stage(
             k_end = ceil((r - shifted_pivot - eps) / division_size) - 1
             for k in range(k_start, k_end + 1):
                 pos = shifted_pivot + k * division_size
-                ActiveSkin.lane.draw(layout_lane_by_edges(prev, pos), a=la, z=z_lo)
+                ActiveSkin.lane.draw(layout_stage_lane_by_edges(prev, pos), a=la, z=z_lo)
                 prev = pos
-        ActiveSkin.lane.draw(layout_lane_by_edges(prev, r), a=la, z=z_lo)
+        ActiveSkin.lane.draw(layout_stage_lane_by_edges(prev, r), a=la, z=z_lo)
 
     layout = perspective_rect(l, r, t=1 - nh, b=1 + nh, travel=travel)
     ActiveSkin.judgment_line.draw(layout, z=z_hi, a=ja)
@@ -872,5 +872,5 @@ def schedule_lane_sfx(lane: float, target_time: float):
 
 def play_lane_particle(lane: float):
     if Options.lane_effect_enabled:
-        layout = layout_lane(lane, 0.5)
+        layout = layout_particle_lane(lane, 0.5)
         ActiveParticles.lane.spawn(layout, duration=0.3 / Options.effect_animation_speed)
