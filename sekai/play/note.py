@@ -323,12 +323,12 @@ class BaseNote(PlayArchetype):
             self.target_time,
         )
         if Options.show_hitboxes and self.is_scored:
-            draw_start = min(self.input_interval.start, self.target_time - HITBOX_DRAW_MIN_EARLY_WINDOW)
-            if draw_start <= time() <= self.input_interval.end:
+            draw_start = min(self.unadjusted_input_interval.start, self.target_time - HITBOX_DRAW_MIN_EARLY_WINDOW)
+            if draw_start <= offset_adjusted_time() <= self.unadjusted_input_interval.end:
                 draw_hitbox_overlay(
                     self.hitbox,
                     has_tap_input(self.kind) or has_release_input(self.kind),
-                    unlerp_clamped(draw_start, self.target_time, time()),
+                    unlerp_clamped(draw_start, self.target_time, offset_adjusted_time()),
                 )
 
     def should_do_delayed_trigger(self) -> bool:
