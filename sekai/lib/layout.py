@@ -122,11 +122,12 @@ def init_layout():
     Layout.field_w = field_w
     Layout.field_h = field_h
 
+    bg = background()
     if is_play() or is_watch():
-        background_zoom = background_rotation_zoom(max_camera_abs_rotation())
+        background_zoom = background_rotation_zoom(bg, max_camera_abs_rotation())
     else:
         background_zoom = 1.0
-    Layout.initial_background = background().scale_centered(Vec2(background_zoom, background_zoom))
+    Layout.initial_background = bg.scale_centered(Vec2(background_zoom, background_zoom))
 
     Layout.approach_start = 0.0
 
@@ -202,13 +203,16 @@ def max_camera_abs_rotation() -> float:
     return result
 
 
-def background_rotation_zoom(max_rotation: float) -> float:
+def background_rotation_zoom(bg: QuadLike, max_rotation: float) -> float:
     theta = min(abs(max_rotation), pi / 2)
-    aspect = aspect_ratio()
-    k = max(aspect, 1.0 / aspect)
-    if theta >= atan(k):
-        return (1.0 + k * k) ** 0.5
-    return cos(theta) + k * sin(theta)
+    a = aspect_ratio()
+    b = 1.0
+    bw = abs(bg.br.x - bg.bl.x) / 2
+    bh = abs(bg.tl.y - bg.bl.y) / 2
+    diag = (a * a + b * b) ** 0.5
+    w_zoom = diag / bw if theta >= atan(b / a) else (a * cos(theta) + b * sin(theta)) / bw
+    h_zoom = diag / bh if theta >= atan(a / b) else (a * sin(theta) + b * cos(theta)) / bh
+    return max(w_zoom, h_zoom, 1.0)
 
 
 def get_camera_info(target_time: float | None = None, left_limit: bool = False) -> CameraInfo:
