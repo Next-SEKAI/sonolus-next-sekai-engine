@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from math import atan, ceil, floor, log, pi
+from math import atan, ceil, cos, floor, log, pi, sin
 from typing import Protocol, assert_never, cast
 
 from sonolus.script.archetype import EntityRef, get_archetype_by_name
@@ -107,7 +107,7 @@ class CameraInfo(Record):
     stage_tilt: float
 
 
-def init_layout(background_zoom: float = 1.0):
+def init_layout():
     if Options.lock_stage_aspect_ratio:
         if aspect_ratio() > TARGET_ASPECT_RATIO:
             field_w = screen().h * TARGET_ASPECT_RATIO
@@ -122,6 +122,10 @@ def init_layout(background_zoom: float = 1.0):
     Layout.field_w = field_w
     Layout.field_h = field_h
 
+    if is_play() or is_watch():
+        background_zoom = background_rotation_zoom(max_camera_abs_rotation())
+    else:
+        background_zoom = 1.0
     Layout.initial_background = background().scale_centered(Vec2(background_zoom, background_zoom))
 
     Layout.approach_start = 0.0
@@ -182,6 +186,29 @@ def _camera_change_archetype() -> type[CameraChangeLike]:
 
 def _initialization_archetype() -> type[InitializationLike]:
     return cast(type[InitializationLike], get_archetype_by_name(archetype_names.INITIALIZATION))
+
+
+def max_camera_abs_rotation() -> float:
+    result = 0.0
+    first_camera_ref = _initialization_archetype().at(0).first_camera_ref
+    if first_camera_ref.index <= 0:
+        return result
+    camera_archetype = _camera_change_archetype()
+    ref = +first_camera_ref
+    while ref.index > 0:
+        camera = get_event_as(ref, camera_archetype)
+        result = max(result, abs(camera.rotate))
+        ref.index = camera.next_ref.index
+    return result
+
+
+def background_rotation_zoom(max_rotation: float) -> float:
+    theta = min(abs(max_rotation), pi / 2)
+    aspect = aspect_ratio()
+    k = max(aspect, 1.0 / aspect)
+    if theta >= atan(k):
+        return (1.0 + k * k) ** 0.5
+    return cos(theta) + k * sin(theta)
 
 
 def get_camera_info(target_time: float | None = None, left_limit: bool = False) -> CameraInfo:
