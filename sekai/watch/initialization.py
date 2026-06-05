@@ -23,6 +23,7 @@ class WatchInitialization(WatchArchetype):
     revision: EngineRevision = imported(name="revision", default=EngineRevision.LATEST)
     replay_revision: EngineRevision = imported(name="replayRevision", default=EngineRevision.BASE)
     initial_life: int = imported(name="initialLife", default=1000)
+    background_zoom: float = imported(name="backgroundZoom", default=1.0)
     first_camera_ref: EntityRef[WatchCameraChange] = imported(name="firstCamera")
 
     @callback(order=-1)
@@ -30,7 +31,7 @@ class WatchInitialization(WatchArchetype):
         if is_replay():
             self.revision = self.replay_revision
         init_level_config(self.revision)
-        init_layout()
+        init_layout(self.background_zoom)
         init_ui()
         init_skin()
         init_particles()

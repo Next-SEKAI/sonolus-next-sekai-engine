@@ -21,6 +21,7 @@ class Initialization(PlayArchetype):
 
     revision: EngineRevision = imported(name="revision", default=EngineRevision.SONOLUS_1_1_0)
     initial_life: int = imported(name="initialLife", default=1000)
+    background_zoom: float = imported(name="backgroundZoom", default=1.0)
     first_camera_ref: EntityRef[CameraChange] = imported(name="firstCamera")
 
     replay_revision: EngineRevision = exported(name="replayRevision")
@@ -28,7 +29,7 @@ class Initialization(PlayArchetype):
     @callback(order=-1)
     def preprocess(self):
         init_level_config(self.revision)
-        init_layout()
+        init_layout(self.background_zoom)
         init_skin()
         init_particles()
         init_ui()

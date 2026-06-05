@@ -107,7 +107,7 @@ class CameraInfo(Record):
     stage_tilt: float
 
 
-def init_layout():
+def init_layout(background_zoom: float = 1.0):
     if Options.lock_stage_aspect_ratio:
         if aspect_ratio() > TARGET_ASPECT_RATIO:
             field_w = screen().h * TARGET_ASPECT_RATIO
@@ -122,7 +122,7 @@ def init_layout():
     Layout.field_w = field_w
     Layout.field_h = field_h
 
-    Layout.initial_background = background()
+    Layout.initial_background = background().scale_centered(Vec2(background_zoom, background_zoom))
 
     Layout.approach_start = 0.0
 

@@ -7,6 +7,7 @@ Handles common initialization logic for the engine. Must appear exactly once as 
 ### Fields
 
 * **initialLife (int)**: The initial life value for the level. Defaults to 1000.
+* **backgroundZoom (float)**: Zoom applied to the background, about its center, before any per-frame camera transforms. `1` is no zoom, `2` is 2x zoomed in. Defaults to 1.
 * **firstCamera (ref?[CameraChange])**: An optional reference to the first **CameraChange** entity.
 
 ## CameraChange
