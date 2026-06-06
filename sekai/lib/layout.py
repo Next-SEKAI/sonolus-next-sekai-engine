@@ -122,13 +122,6 @@ def init_layout():
     Layout.field_w = field_w
     Layout.field_h = field_h
 
-    bg = background()
-    if is_play() or is_watch():
-        background_zoom = background_rotation_zoom(bg, max_camera_abs_rotation())
-    else:
-        background_zoom = 1.0
-    Layout.initial_background = bg.scale_centered(Vec2(background_zoom, background_zoom))
-
     Layout.approach_start = 0.0
 
     # Fixed approach-curve depths for the cover/spawn and far cutoff boundaries. These are
@@ -147,6 +140,13 @@ def init_layout():
         target_travel = lerp(APPROACH_SCALE, 1.0, Options.stage_cover)
         candidate = inverse_approach_untilted(target_travel)
         Layout.approach_start = clamp(candidate, 0, 0.99)
+
+    bg = background()
+    if is_play() or is_watch():
+        background_zoom = background_camera_zoom(bg)
+    else:
+        background_zoom = 1.0
+    Layout.initial_background = bg.scale_centered(Vec2(background_zoom, background_zoom))
 
     refresh_layout()
 
@@ -203,16 +203,28 @@ def max_camera_abs_rotation() -> float:
     return result
 
 
-def background_rotation_zoom(bg: QuadLike, max_rotation: float) -> float:
-    theta = min(abs(max_rotation), pi / 2)
+def background_camera_zoom(bg: QuadLike) -> float:
+    first_camera_ref = _initialization_archetype().at(0).first_camera_ref
+    if first_camera_ref.index <= 0:
+        return 1.0
     a = aspect_ratio()
     b = 1.0
     bw = abs(bg.br.x - bg.bl.x) / 2
     bh = abs(bg.tl.y - bg.bl.y) / 2
+
+    theta = min(max_camera_abs_rotation(), pi / 2)
     diag = (a * a + b * b) ** 0.5
-    w_zoom = diag / bw if theta >= atan(b / a) else (a * cos(theta) + b * sin(theta)) / bw
-    h_zoom = diag / bh if theta >= atan(a / b) else (a * sin(theta) + b * cos(theta)) / bh
-    return max(w_zoom, h_zoom, 1.0)
+    cover_x = diag if theta >= atan(b / a) else a * cos(theta) + b * sin(theta)
+    cover_y = diag if theta >= atan(a / b) else a * sin(theta) + b * cos(theta)
+
+    raised_target = camera_zoom_target_at(0.0, 6.0, 0.0, 0.5, 0.0)
+    raised_anchor = camera_zoom_anchor(ZoomVerticalAlign.CENTER)
+    lane_target = camera_zoom_target_at(0.0, 6.0, 1.0, 0.0, 1.0)
+    lane_anchor = camera_zoom_anchor(ZoomVerticalAlign.DEFAULT)
+    margin_x = max(abs(raised_target.x - raised_anchor.x), abs(lane_target.x - lane_anchor.x))
+    margin_y = max(abs(raised_target.y - raised_anchor.y), abs(lane_target.y - lane_anchor.y))
+
+    return max((cover_x + margin_x) / bw, (cover_y + margin_y) / bh, 1.0)
 
 
 def get_camera_info(target_time: float | None = None, left_limit: bool = False) -> CameraInfo:
