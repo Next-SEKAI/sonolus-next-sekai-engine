@@ -1045,6 +1045,8 @@ def compute_hitbox(
     note_y = travel * transform.h_scale + transform.t
     # We intentionally don't adjust for tilt to give the same screen-space leniency at low tilt
     lane_w = transform.w_scale
+    # Dividing out size_zoom keeps the vertical extent constant in screen space regardless of camera size
+    vertical_lane_w = lane_w / transform.size_zoom
     vertical_half_lanes = 2.5 if LevelConfig.dynamic_stages else 5.0
     if (
         Options.stage_cover_scroll_speed_compensation != StageCoverNoteSpeedCompensation.OFF
@@ -1052,7 +1054,7 @@ def compute_hitbox(
     ):
         cover_travel = lerp(APPROACH_SCALE, 1.0, Options.stage_cover)
         vertical_half_lanes *= clamp((1 - cover_travel) / (1 - APPROACH_SCALE), 0, 1)
-    vertical_extent = vertical_half_lanes * lane_w
+    vertical_extent = vertical_half_lanes * vertical_lane_w
     rot = -transform.rotate
     bl_x = l_x - leniency * lane_w
     br_x = r_x + leniency * lane_w
