@@ -16,7 +16,7 @@ from sonolus.script.runtime import is_replay, is_skip, time
 from sonolus.script.timing import beat_to_time
 
 from sekai.debug import DISABLE_NOTES
-from sekai.lib.connector import ActiveConnectorInfo, ConnectorKind, ConnectorLayer
+from sekai.lib.connector import ActiveConnectorInfo, ConnectorKind, ConnectorLayer, SegmentPresentation
 from sekai.lib.ease import EaseType, ease
 from sekai.lib.layout import FlickDirection, Hitbox, compute_hitbox_at_time, progress_to
 from sekai.lib.note import (
@@ -68,6 +68,7 @@ class WatchBaseNote(WatchArchetype):
     segment_alpha: float = imported(name="segmentAlpha")
     segment_layer: ConnectorLayer = imported(name="segmentLayer")
     segment_through_judge_line: bool = imported(name="segmentThroughJudgeLine")
+    segment_presentation: SegmentPresentation = imported(name="segmentPresentation")
     attach_head_ref: EntityRef[WatchBaseNote] = imported(name="attachHead")
     attach_tail_ref: EntityRef[WatchBaseNote] = imported(name="attachTail")
     next_ref: EntityRef[WatchBaseNote] = imported(name="next")
