@@ -49,7 +49,7 @@ from sekai.lib.note import (
     schedule_note_auto_sfx,
 )
 from sekai.lib.options import Options
-from sekai.lib.stage import DivisionParity, get_stage_props
+from sekai.lib.stage import DivisionParity, JudgeLineStyle, get_stage_props, resolve_judge_line_style
 from sekai.lib.timescale import (
     CompositeTime,
     group_force_note_speed,
@@ -376,6 +376,7 @@ class BaseNote(PlayArchetype):
                 y_offset=self.visual_y_offset,
                 pivot_lane=self.visual_pivot_lane,
                 half_offset=self.visual_half_offset,
+                single_line=self.visual_single_line,
             )
         if self.is_scored:
             self.result.haptic = get_note_haptic_feedback(self.kind, self.result.judgment)
@@ -780,6 +781,13 @@ class BaseNote(PlayArchetype):
         if self.stage_ref.index > 0:
             division = self.stage_ref.get().props.division.start
             return division.parity == DivisionParity.ODD and division.size % 2 == 1
+        else:
+            return False
+
+    @property
+    def visual_single_line(self) -> bool:
+        if self.stage_ref.index > 0:
+            return resolve_judge_line_style(self.stage_ref.get().props.judge_line_style) == JudgeLineStyle.SINGLE_LINE
         else:
             return False
 

@@ -15,6 +15,7 @@ from sekai.lib.options import Options
 from sekai.lib.stage import (
     DivisionParity,
     JudgeLineColor,
+    JudgeLineStyle,
     StageBorderStyle,
     get_draw_end_time,
     get_draw_start_time,
@@ -135,11 +136,14 @@ class PreviewStageStyleChange(PreviewArchetype, BaseEvent):
     stage_ref: EntityRef[PreviewDynamicStage] = imported(name="stage")
     beat: StandardImport.BEAT
     judge_line_color: JudgeLineColor = imported(name="judgeLineColor")
+    judge_line_style: JudgeLineStyle = imported(name="judgeLineStyle")
     left_border_style: StageBorderStyle = imported(name="leftBorderStyle")
     right_border_style: StageBorderStyle = imported(name="rightBorderStyle")
+    full_width: bool = imported(name="fullWidth")
     alpha: float = imported()
     lane_alpha: float = imported(name="laneAlpha")
     judge_line_alpha: float = imported(name="judgeLineAlpha")
+    division_line_alpha: float = imported(name="divisionLineAlpha", default=1)
     ease: EaseType = imported()
     next_ref: EntityRef[PreviewStageStyleChange] = imported(name="next")
 

@@ -15,7 +15,7 @@ from sekai.lib.ease import EaseType
 from sekai.lib.layout import FlickDirection, ZoomVerticalAlign
 from sekai.lib.level_config import EngineRevision
 from sekai.lib.note import NoteKind
-from sekai.lib.stage import DivisionParity, JudgeLineColor, StageBorderStyle
+from sekai.lib.stage import DivisionParity, JudgeLineColor, JudgeLineStyle, StageBorderStyle
 from sekai.play.bpm_change import BpmChange
 from sekai.play.connector import Connector
 from sekai.play.dynamic_stage import (
@@ -115,6 +115,9 @@ class LevelStageStyleChange:
     alpha: float
     lane_alpha: float
     judge_line_alpha: float
+    judge_line_style: JudgeLineStyle = JudgeLineStyle.DEFAULT
+    full_width: bool = False
+    division_line_alpha: float = 1.0
     ease: EaseType = EaseType.LINEAR
 
 
@@ -420,11 +423,14 @@ def _build_stage(level_stage: LevelStage) -> tuple[DynamicStage, list[PlayArchet
             stage_ref=stage.ref(),
             beat=s.beat,
             judge_line_color=s.judge_line_color,
+            judge_line_style=s.judge_line_style,
             left_border_style=s.left_border_style,
             right_border_style=s.right_border_style,
+            full_width=s.full_width,
             alpha=s.alpha,
             lane_alpha=s.lane_alpha,
             judge_line_alpha=s.judge_line_alpha,
+            division_line_alpha=s.division_line_alpha,
             ease=s.ease,
         )
         for s in sorted(level_stage.style_changes, key=lambda c: c.beat)

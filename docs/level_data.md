@@ -92,6 +92,9 @@ An event that controls the visual style of a stage.
   * PURPLE = 5
   * CYAN = 6
   * BLACK = 7
+* **judgeLineStyle (JudgeLineStyle)**: How the judge line is drawn. Takes on one of the following values:
+  * DEFAULT = 0
+  * SINGLE_LINE = 1
 * **leftBorderStyle (StageBorderStyle)**:
   * DEFAULT = 0
   * LIGHT = 1
@@ -102,9 +105,11 @@ An event that controls the visual style of a stage.
   * LIGHT = 1
   * DISABLED = 2
   * MEDIUM = 3
+* **fullWidth (bool)**: When true, the lane (background, dividers, and borders) is hidden and the judge line is drawn to a high width.
 * **alpha (float)**
 * **laneAlpha (float)**
 * **judgeLineAlpha (float)**
+* **divisionLineAlpha (float)**
 * **ease (EaseType)**
 * **next (ref?[StageStyleChange])**: A reference to the next **StageStyleChange** event.
 
