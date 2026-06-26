@@ -55,6 +55,28 @@ class PreviewCameraChange(PreviewArchetype, BaseEvent):
             self.rotate *= -1
 
 
+class PreviewStageTransformChange(PreviewArchetype, BaseEvent):
+    name = archetype_names.STAGE_TRANSFORM_CHANGE
+
+    beat: StandardImport.BEAT
+    rotate: float = imported()
+    x_lane_translate: float = imported(name="xLaneTranslate")
+    y_lane_translate: float = imported(name="yLaneTranslate")
+    ease: EaseType = imported()
+    next_ref: EntityRef[PreviewStageTransformChange] = imported(name="next")
+
+    time: float = entity_data()
+
+    @callback(order=-2)
+    def preprocess(self):
+        LevelConfig.dynamic_stages = True
+        self.time = beat_to_time(self.beat)
+        self.rotate = self.rotate * pi / 180
+        if Options.mirror:
+            self.rotate *= -1
+            self.x_lane_translate *= -1
+
+
 class PreviewDynamicStage(PreviewArchetype):
     name = archetype_names.STAGE
 

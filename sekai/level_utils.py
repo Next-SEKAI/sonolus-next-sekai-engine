@@ -24,6 +24,7 @@ from sekai.play.dynamic_stage import (
     StageMaskChange,
     StagePivotChange,
     StageStyleChange,
+    StageTransformChange,
 )
 from sekai.play.initialization import Initialization
 from sekai.play.note import NOTE_ARCHETYPES, BaseNote
@@ -145,6 +146,15 @@ class LevelCameraChange:
 
 
 @dataclass
+class LevelStageTransformChange:
+    beat: float
+    rotate: float = 0.0
+    x_lane_translate: float = 0.0
+    y_lane_translate: float = 0.0
+    ease: EaseType = EaseType.LINEAR
+
+
+@dataclass
 class LevelNote:
     beat: float
     lane: float
@@ -169,7 +179,15 @@ class LevelSlide:
     notes: list[LevelNote] = field(default_factory=list)
 
 
-type LevelEntities = LevelBpmChange | LevelTimescaleGroup | LevelNote | LevelSlide | LevelStage | LevelCameraChange
+type LevelEntities = (
+    LevelBpmChange
+    | LevelTimescaleGroup
+    | LevelNote
+    | LevelSlide
+    | LevelStage
+    | LevelCameraChange
+    | LevelStageTransformChange
+)
 
 
 def _note_archetype_for(kind: NoteKind, is_fake: bool) -> type[PlayArchetype]:
@@ -189,6 +207,7 @@ def build_level(
     level_ts_groups: list[LevelTimescaleGroup] = []
     level_stages: list[LevelStage] = []
     level_camera_changes: list[LevelCameraChange] = []
+    level_stage_transforms: list[LevelStageTransformChange] = []
     top_notes: list[LevelNote] = []
     slides: list[LevelSlide] = []
 
@@ -201,6 +220,8 @@ def build_level(
             level_stages.append(entity)
         elif isinstance(entity, LevelCameraChange):
             level_camera_changes.append(entity)
+        elif isinstance(entity, LevelStageTransformChange):
+            level_stage_transforms.append(entity)
         elif isinstance(entity, LevelNote):
             top_notes.append(entity)
         elif isinstance(entity, LevelSlide):
@@ -234,6 +255,7 @@ def build_level(
         out_entities.extend(stage_entities)
 
     first_camera = _build_camera_changes(level_camera_changes, out_entities)
+    first_stage_transform = _build_stage_transforms(level_stage_transforms, out_entities)
 
     note_entities: list[BaseNote] = []
     slide_non_attached: dict[int, list[BaseNote]] = {}
@@ -340,6 +362,8 @@ def build_level(
     )
     if first_camera is not None:
         initialization.first_camera_ref = first_camera.ref()
+    if first_stage_transform is not None:
+        initialization.first_stage_transform_ref = first_stage_transform.ref()
     out_entities.insert(0, initialization)
 
     sorted_entities = sorted(
@@ -466,6 +490,26 @@ def _build_camera_changes(
     _chain_next_refs(camera_entities)
     out_entities.extend(camera_entities)
     return camera_entities[0]
+
+
+def _build_stage_transforms(
+    level_transforms: list[LevelStageTransformChange], out_entities: list[PlayArchetype]
+) -> StageTransformChange | None:
+    if not level_transforms:
+        return None
+    transform_entities = [
+        StageTransformChange(
+            beat=c.beat,
+            rotate=c.rotate,
+            x_lane_translate=c.x_lane_translate,
+            y_lane_translate=c.y_lane_translate,
+            ease=c.ease,
+        )
+        for c in sorted(level_transforms, key=lambda c: c.beat)
+    ]
+    _chain_next_refs(transform_entities)
+    out_entities.extend(transform_entities)
+    return transform_entities[0]
 
 
 def _chain_next_refs(events: list) -> None:

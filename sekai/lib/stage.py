@@ -7,17 +7,20 @@ from typing import Protocol, assert_never, cast
 from sonolus.script import runtime
 from sonolus.script.archetype import EntityRef, get_archetype_by_name
 from sonolus.script.interval import clamp, lerp
-from sonolus.script.quad import Quad
+from sonolus.script.quad import Quad, Rect
 from sonolus.script.record import Record
+from sonolus.script.sprite import Sprite
 from sonolus.script.vec import Vec2
 
 from sekai.lib import archetype_names
 from sekai.lib.baseevent import get_event_as, query_event_list
 from sekai.lib.ease import EaseType, ease
 from sekai.lib.effect import SFX_DISTANCE, Effects
-from sekai.lib.layer import LAYER_COVER, LAYER_STAGE, get_z, get_z_alt
+from sekai.lib.layer import LAYER_COVER, LAYER_GUIDE_CONNECTOR_OVER, LAYER_STAGE, get_z, get_z_alt
 from sekai.lib.layout import (
+    TEST_ASPECT_SCALE,
     DynamicLayout,
+    Layout,
     approach,
     current_stage_tilt,
     layout_full_width_stage_cover,
@@ -426,10 +429,43 @@ def get_stage_props(stage: DynamicStageLike, target_time: float | None = None, l
     return result
 
 
+TEST_ASPECT_BOX_EDGE = 0.004
+
+
+def draw_aspect_box(sprite: Sprite, ratio: float, sub: int):
+    hf = TEST_ASPECT_SCALE * Layout.field_h / 2
+    wf = TEST_ASPECT_SCALE * Layout.field_w / 2
+    if Options.lock_stage_aspect_ratio and ratio < wf / hf:
+        hw = wf
+        hh = wf / ratio
+    else:
+        hw = ratio * hf
+        hh = hf
+    e = TEST_ASPECT_BOX_EDGE
+    top = Rect(l=-hw - e, r=hw + e, t=hh + e, b=hh - e)
+    bottom = Rect(l=-hw - e, r=hw + e, t=-hh + e, b=-hh - e)
+    left = Rect(l=-hw - e, r=-hw + e, t=hh, b=-hh)
+    right = Rect(l=hw - e, r=hw + e, t=hh, b=-hh)
+    sprite.draw(top.as_quad(), z=get_z_alt(LAYER_GUIDE_CONNECTOR_OVER, 1000 + 4 * sub), a=1.0)
+    sprite.draw(bottom.as_quad(), z=get_z_alt(LAYER_GUIDE_CONNECTOR_OVER, 1000 + 4 * sub + 1), a=1.0)
+    sprite.draw(left.as_quad(), z=get_z_alt(LAYER_GUIDE_CONNECTOR_OVER, 1000 + 4 * sub + 2), a=1.0)
+    sprite.draw(right.as_quad(), z=get_z_alt(LAYER_GUIDE_CONNECTOR_OVER, 1000 + 4 * sub + 3), a=1.0)
+
+
+def draw_test_aspect_overlay():
+    if not Options.test_aspect_ratio:
+        return
+    # Higher sub = drawn on top; 16:9 (the field reference) is drawn last so it sits topmost.
+    draw_aspect_box(ActiveSkin.guide_red, 21 / 9, 0)
+    draw_aspect_box(ActiveSkin.guide_blue, 4 / 3, 1)
+    draw_aspect_box(ActiveSkin.guide_green, 16 / 9, 2)
+
+
 def draw_stage_and_accessories():
     if not LevelConfig.skip_default_stage:
         draw_basic_stage()
     draw_stage_cover()
+    draw_test_aspect_overlay()
 
 
 def normalize_transition[T](value: Transition[T] | T) -> Transition[T]:

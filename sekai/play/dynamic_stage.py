@@ -75,6 +75,34 @@ class CameraChange(PlayArchetype, BaseEvent):
         return False
 
 
+class StageTransformChange(PlayArchetype, BaseEvent):
+    name = archetype_names.STAGE_TRANSFORM_CHANGE
+
+    beat: StandardImport.BEAT
+    rotate: float = imported()
+    x_lane_translate: float = imported(name="xLaneTranslate")
+    y_lane_translate: float = imported(name="yLaneTranslate")
+    ease: EaseType = imported()
+    next_ref: EntityRef[StageTransformChange] = imported(name="next")
+
+    time: float = entity_data()
+
+    @callback(order=-2)
+    def preprocess(self):
+        LevelConfig.dynamic_stages = True
+        self.time = beat_to_time(self.beat)
+        self.rotate = self.rotate * pi / 180
+        if Options.mirror:
+            self.rotate *= -1
+            self.x_lane_translate *= -1
+
+    def spawn_order(self) -> float:
+        return 1e8
+
+    def should_spawn(self) -> bool:
+        return False
+
+
 class DynamicStage(PlayArchetype):
     name = archetype_names.STAGE
 

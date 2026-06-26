@@ -9,6 +9,7 @@ from sekai.preview.dynamic_stage import (
     PreviewStageMaskChange,
     PreviewStagePivotChange,
     PreviewStageStyleChange,
+    PreviewStageTransformChange,
 )
 from sekai.preview.initialization import PreviewInitialization
 from sekai.preview.note import PREVIEW_NOTE_ARCHETYPES
@@ -19,6 +20,7 @@ preview_mode = PreviewMode(
     archetypes=[
         PreviewInitialization,
         PreviewCameraChange,
+        PreviewStageTransformChange,
         PreviewDynamicStage,
         PreviewStageMaskChange,
         PreviewStagePivotChange,

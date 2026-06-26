@@ -8,6 +8,7 @@ Handles common initialization logic for the engine. Must appear exactly once as 
 
 * **initialLife (int)**: The initial life value for the level. Defaults to 1000.
 * **firstCamera (ref?[CameraChange])**: An optional reference to the first **CameraChange** entity.
+* **firstStageTransform (ref?[StageTransformChange])**: An optional reference to the first **StageTransformChange** entity.
 
 ## CameraChange
 
@@ -28,6 +29,19 @@ A camera change event. The presence of at least one **CameraChange** entity enab
 * **stageTilt (float)**: Tilt of the stage perspective, in the range `[0, 1]` where 1 is the default and 0 means a flat vertical stage.
 * **ease (EaseType)**
 * **next (ref?[CameraChange])**: A reference to the next **CameraChange** event.
+
+## StageTransformChange
+
+A global transform applied to the whole stage.
+
+### Fields
+
+* **#BEAT (float)**
+* **rotate (float)**: Rotation of the stage in degrees about the judge-line center. Positive values match the camera `rotate` direction. Defaults to 0.
+* **xLaneTranslate (float)**: Horizontal translation of the stage, in lane-width units. The direction respects the camera rotation and the amount respects the camera zoom. Defaults to 0.
+* **yLaneTranslate (float)**: Vertical translation of the stage, in the same lane-width units as `xLaneTranslate` (positive moves the stage up the screen, in the camera's rotated frame). Defaults to 0.
+* **ease (EaseType)**
+* **next (ref?[StageTransformChange])**: A reference to the next **StageTransformChange** event.
 
 ## Stage
 

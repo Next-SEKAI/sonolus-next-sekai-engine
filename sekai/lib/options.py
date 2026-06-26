@@ -283,6 +283,12 @@ class Options:
         scope="Next Sekai",
         default=False,
     )
+    test_aspect_ratio: bool = toggle_option(
+        name="Test Aspect Ratio",
+        advanced=True,
+        scope="Next Sekai",
+        default=False,
+    )
 
     replay_fallback_option_names = (
         StandardText.SPEED,
