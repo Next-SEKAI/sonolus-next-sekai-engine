@@ -433,9 +433,11 @@ TEST_ASPECT_BOX_EDGE = 0.004
 
 
 def draw_aspect_box(sprite: Sprite, ratio: float, sub: int):
+    if not Options.lock_stage_aspect_ratio:
+        return
     hf = TEST_ASPECT_SCALE * Layout.field_h / 2
     wf = TEST_ASPECT_SCALE * Layout.field_w / 2
-    if Options.lock_stage_aspect_ratio and ratio < wf / hf:
+    if ratio < wf / hf:
         hw = wf
         hh = wf / ratio
     else:
