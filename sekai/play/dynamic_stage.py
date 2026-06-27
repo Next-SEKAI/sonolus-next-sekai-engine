@@ -162,7 +162,7 @@ class DynamicStage(PlayArchetype):
         if t < self.draw_start_time or t > self.draw_end_time:
             return
         p = self.props
-        if p.a < 1 or p.lane_alpha < 1:
+        if p.a < 1 or p.lane_alpha * (1 - p.full_width) < 1:
             return
         half_offset = p.division.start.parity == DivisionParity.ODD and p.division.start.size % 2 == 1
         lo = p.lane - p.width + 0.5

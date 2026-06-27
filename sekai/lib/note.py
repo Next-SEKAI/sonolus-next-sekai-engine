@@ -830,6 +830,7 @@ def play_note_hit_effects(
     pivot_lane: float = 0.0,
     half_offset: bool = False,
     single_line: bool = False,
+    lane_particles: bool = True,
     transform: StageTransform | None = None,
 ):
     def place(q):
@@ -870,7 +871,7 @@ def play_note_hit_effects(
             for slot_lane in iter_slot_lanes(lane, size, pivot_lane=pivot_lane, half_offset=half_offset):
                 layout = layout_linear_effect(slot_lane, shear=0, y_offset=y_offset)
                 particles.slot_linear.spawn(place(layout), duration=0.5 / Options.effect_animation_speed)
-    if Options.lane_effect_enabled:
+    if Options.lane_effect_enabled and lane_particles:
         lane_y_offset = (
             y_offset if kind in {NoteKind.CRIT_FLICK, NoteKind.CRIT_HEAD_FLICK, NoteKind.CRIT_TAIL_FLICK} else 0.0
         )

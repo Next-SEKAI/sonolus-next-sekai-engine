@@ -401,6 +401,7 @@ class BaseNote(PlayArchetype):
                 pivot_lane=self.visual_pivot_lane,
                 half_offset=self.visual_half_offset,
                 single_line=self.visual_single_line,
+                lane_particles=self.visual_lane_particles,
                 transform=self.visual_stage_transform(),
             )
         if self.is_scored:
@@ -894,6 +895,13 @@ class BaseNote(PlayArchetype):
             return resolve_judge_line_style(self.stage_ref.get().props.judge_line_style) == JudgeLineStyle.SINGLE_LINE
         else:
             return False
+
+    @property
+    def visual_lane_particles(self) -> bool:
+        if self.stage_ref.index > 0:
+            return self.stage_ref.get().props.full_width <= 0.0
+        else:
+            return True
 
     @property
     def head_ease_frac(self) -> float:

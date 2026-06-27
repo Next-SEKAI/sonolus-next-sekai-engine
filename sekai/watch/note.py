@@ -294,6 +294,7 @@ class WatchBaseNote(WatchArchetype):
                 y_offset=self.visual_y_offset,
                 pivot_lane=self.visual_pivot_lane,
                 half_offset=self.visual_half_offset,
+                lane_particles=self._stage_lane_particles_at(time()),
                 transform=self.visual_stage_transform(),
             )
 
@@ -417,6 +418,11 @@ class WatchBaseNote(WatchArchetype):
             resolve_judge_line_style(get_stage_props(self.stage_ref.get(), t).judge_line_style)
             == JudgeLineStyle.SINGLE_LINE
         )
+
+    def _stage_lane_particles_at(self, t: float) -> bool:
+        if self.stage_ref.index <= 0:
+            return True
+        return get_stage_props(self.stage_ref.get(), t).full_width <= 0.0
 
     @property
     def visual_lane(self) -> float:
