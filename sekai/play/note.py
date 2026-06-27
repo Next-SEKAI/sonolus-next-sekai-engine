@@ -27,7 +27,19 @@ from sekai.lib import archetype_names
 from sekai.lib.buckets import WINDOW_SCALE, SekaiWindow
 from sekai.lib.connector import ActiveConnectorInfo, ConnectorKind, ConnectorLayer, SegmentPresentation
 from sekai.lib.ease import EaseType, ease
-from sekai.lib.layout import DynamicLayout, FlickDirection, Hitbox, Layout, compute_hitbox_at_time, progress_to
+from sekai.lib.layout import (
+    DynamicLayout,
+    FlickDirection,
+    Hitbox,
+    Layout,
+    StageTransform,
+    blend_stage_transform,
+    camera_layout_transform_at_time,
+    compute_hitbox_at_time,
+    compute_stage_transform,
+    identity_stage_transform,
+    progress_to,
+)
 from sekai.lib.note import (
     NoteEffectKind,
     NoteKind,
@@ -199,6 +211,7 @@ class BaseNote(PlayArchetype):
                 get_leniency(self.kind),
                 self.target_time,
                 self.target_y_offset,
+                stage_transform=self.stage_transform_at(self.target_time, left_limit=True),
                 left_limit=True,
             )
 
@@ -315,14 +328,25 @@ class BaseNote(PlayArchetype):
             return
         if Options.disable_fake_notes and not self.is_scored:
             return
-        draw_note(
-            self.kind,
-            self.visual_lane,
-            self.size,
-            self.visual_progress,
-            self.direction,
-            self.target_time,
-        )
+        if self.has_stage_transform():
+            draw_note(
+                self.kind,
+                self.visual_lane,
+                self.size,
+                self.visual_progress,
+                self.direction,
+                self.target_time,
+                transform=self.visual_stage_transform(),
+            )
+        else:
+            draw_note(
+                self.kind,
+                self.visual_lane,
+                self.size,
+                self.visual_progress,
+                self.direction,
+                self.target_time,
+            )
         if Options.show_hitboxes and self.is_scored:
             draw_start = min(self.unadjusted_input_interval.start, self.target_time - HITBOX_DRAW_MIN_EARLY_WINDOW)
             if draw_start <= offset_adjusted_time() <= self.unadjusted_input_interval.end:
@@ -377,6 +401,7 @@ class BaseNote(PlayArchetype):
                 pivot_lane=self.visual_pivot_lane,
                 half_offset=self.visual_half_offset,
                 single_line=self.visual_single_line,
+                transform=self.visual_stage_transform(),
             )
         if self.is_scored:
             self.result.haptic = get_note_haptic_feedback(self.kind, self.result.judgment)
@@ -596,7 +621,7 @@ class BaseNote(PlayArchetype):
                 target_angle = -pi / 2 + 1
             case _:
                 assert_never(self.direction)
-        angle_diff = abs((angle + DynamicLayout.rotate - target_angle + pi) % (2 * pi) - pi)
+        angle_diff = abs((angle + DynamicLayout.rotate + self.visual_stage_rotate - target_angle + pi) % (2 * pi) - pi)
         return angle_diff <= leniency
 
     def judge(self, actual_time: float):
@@ -706,24 +731,20 @@ class BaseNote(PlayArchetype):
             return self.lane
         return get_stage_props(self.stage_ref.get(), t).pivot_lane + self.rel_lane
 
+    def attach_eased_frac(self, t: float) -> float:
+        head = self.attach_head_ref.get()
+        tail = self.attach_tail_ref.get()
+        eased_note = ease(self.connector_ease, unlerp_clamped(head.target_time, tail.target_time, self.target_time))
+        if t < head.target_time:
+            return eased_note
+        eased_now = ease(self.connector_ease, unlerp_clamped(head.target_time, tail.target_time, t))
+        return max(eased_note, eased_now)
+
     def visual_lane_at(self, t: float) -> float:
         if self.is_attached:
             head = self.attach_head_ref.get()
             tail = self.attach_tail_ref.get()
-            note_ease_frac = unlerp_clamped(head.target_time, tail.target_time, self.target_time)
-            current_tail_lane = tail._basic_visual_lane_at(t)
-            if t >= head.target_time:
-                now_ease_frac = unlerp_clamped(head.target_time, tail.target_time, t)
-                eased_now_ease_frac = ease(self.connector_ease, now_ease_frac)
-                eased_note_ease_frac = ease(self.connector_ease, note_ease_frac)
-                current_head_lane = lerp(
-                    head._basic_visual_lane_at(t), tail._basic_visual_lane_at(t), eased_now_ease_frac
-                )
-                note_interp_frac = unlerp_clamped(eased_now_ease_frac, 1.0, eased_note_ease_frac)
-                return lerp(current_head_lane, current_tail_lane, note_interp_frac)
-            else:
-                current_head_lane = head._basic_visual_lane_at(t)
-                return lerp(current_head_lane, current_tail_lane, ease(self.connector_ease, note_ease_frac))
+            return lerp(head._basic_visual_lane_at(t), tail._basic_visual_lane_at(t), self.attach_eased_frac(t))
         return self._basic_visual_lane_at(t)
 
     @property
@@ -768,6 +789,89 @@ class BaseNote(PlayArchetype):
                 self.target_time,
             )
         return self._basic_y_offset_at(t)
+
+    def _basic_visual_stage_transform(self) -> StageTransform:
+        result = +StageTransform
+        if self.stage_ref.index > 0:
+            result @= self.stage_ref.get().props.stage_transform()
+        else:
+            result @= identity_stage_transform()
+        return result
+
+    def visual_stage_transform(self) -> StageTransform:
+        result = +StageTransform
+        if self.is_attached:
+            head = self.attach_head_ref.get()
+            tail = self.attach_tail_ref.get()
+            result @= blend_stage_transform(
+                head._basic_visual_stage_transform(),
+                tail._basic_visual_stage_transform(),
+                self.attach_eased_frac(time()),
+            )
+        else:
+            result @= self._basic_visual_stage_transform()
+        return result
+
+    def _basic_has_stage_transform(self) -> bool:
+        return self.stage_ref.index > 0 and self.stage_ref.get().props.has_transform()
+
+    def has_stage_transform(self) -> bool:
+        if self.is_attached:
+            return (
+                self.attach_head_ref.get()._basic_has_stage_transform()
+                or self.attach_tail_ref.get()._basic_has_stage_transform()
+            )
+        return self._basic_has_stage_transform()
+
+    @property
+    def _basic_visual_stage_rotate(self) -> float:
+        if self.stage_ref.index > 0:
+            return self.stage_ref.get().props.rotate
+        return 0.0
+
+    @property
+    def visual_stage_rotate(self) -> float:
+        if self.is_attached:
+            head = self.attach_head_ref.get()
+            tail = self.attach_tail_ref.get()
+            return remap_clamped(
+                head.target_time,
+                tail.target_time,
+                head._basic_visual_stage_rotate,
+                tail._basic_visual_stage_rotate,
+                self.target_time,
+            )
+        return self._basic_visual_stage_rotate
+
+    def _basic_stage_transform_at(self, t: float, left_limit: bool = False) -> StageTransform:
+        result = +StageTransform
+        if self.stage_ref.index > 0:
+            props = get_stage_props(self.stage_ref.get(), t, left_limit=left_limit)
+            result @= compute_stage_transform(
+                camera_layout_transform_at_time(t, left_limit=left_limit),
+                props.rotate,
+                props.x_lane_translate,
+                props.y_lane_translate,
+                props.lane,
+                props.center_weight,
+            )
+        else:
+            result @= identity_stage_transform()
+        return result
+
+    def stage_transform_at(self, t: float, left_limit: bool = False) -> StageTransform:
+        result = +StageTransform
+        if self.is_attached:
+            head = self.attach_head_ref.get()
+            tail = self.attach_tail_ref.get()
+            result @= blend_stage_transform(
+                head._basic_stage_transform_at(t, left_limit=left_limit),
+                tail._basic_stage_transform_at(t, left_limit=left_limit),
+                remap_clamped(head.target_time, tail.target_time, 0.0, 1.0, self.target_time),
+            )
+        else:
+            result @= self._basic_stage_transform_at(t, left_limit=left_limit)
+        return result
 
     @property
     def visual_pivot_lane(self) -> float:

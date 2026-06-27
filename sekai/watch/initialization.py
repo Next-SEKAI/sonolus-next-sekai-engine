@@ -12,7 +12,7 @@ from sekai.lib.skin import init_skin
 from sekai.lib.stage import schedule_lane_sfx
 from sekai.lib.streams import Streams
 from sekai.lib.ui import init_ui
-from sekai.watch.dynamic_stage import WatchCameraChange, WatchStageTransformChange
+from sekai.watch.dynamic_stage import WatchCameraChange
 from sekai.watch.note import WATCH_NOTE_ARCHETYPES
 from sekai.watch.static_stage import WatchScheduledLaneEffect, WatchStaticStage
 
@@ -24,7 +24,6 @@ class WatchInitialization(WatchArchetype):
     replay_revision: EngineRevision = imported(name="replayRevision", default=EngineRevision.BASE)
     initial_life: int = imported(name="initialLife", default=1000)
     first_camera_ref: EntityRef[WatchCameraChange] = imported(name="firstCamera")
-    first_stage_transform_ref: EntityRef[WatchStageTransformChange] = imported(name="firstStageTransform")
 
     @callback(order=-1)
     def preprocess(self):
@@ -40,7 +39,6 @@ class WatchInitialization(WatchArchetype):
         init_life(WATCH_NOTE_ARCHETYPES, self.initial_life)
 
         init_event_list(self.first_camera_ref)
-        init_event_list(self.first_stage_transform_ref)
         WatchStaticStage.spawn()
 
         for input_time, lanes in Streams.empty_input_lanes.iter_items_from(-2):

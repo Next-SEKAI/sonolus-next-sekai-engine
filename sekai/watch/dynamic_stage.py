@@ -18,7 +18,7 @@ from sonolus.script.timing import beat_to_bpm, beat_to_time
 from sekai.lib import archetype_names
 from sekai.lib.baseevent import BaseEvent, init_event_list
 from sekai.lib.ease import EaseType
-from sekai.lib.layout import ZoomVerticalAlign, preempt_time
+from sekai.lib.layout import StageTransformAnchor, ZoomVerticalAlign, preempt_time
 from sekai.lib.level_config import LevelConfig
 from sekai.lib.options import Options
 from sekai.lib.stage import (
@@ -68,10 +68,12 @@ class WatchCameraChange(WatchArchetype, BaseEvent):
 class WatchStageTransformChange(WatchArchetype, BaseEvent):
     name = archetype_names.STAGE_TRANSFORM_CHANGE
 
+    stage_ref: EntityRef[WatchDynamicStage] = imported(name="stage")
     beat: StandardImport.BEAT
     rotate: float = imported()
     x_lane_translate: float = imported(name="xLaneTranslate")
     y_lane_translate: float = imported(name="yLaneTranslate")
+    anchor: StageTransformAnchor = imported(name="anchor")
     ease: EaseType = imported()
     next_ref: EntityRef[WatchStageTransformChange] = imported(name="next")
 
@@ -95,6 +97,7 @@ class WatchDynamicStage(WatchArchetype):
     first_mask_change_ref: EntityRef[WatchStageMaskChange] = imported(name="firstMaskChange")
     first_pivot_change_ref: EntityRef[WatchStagePivotChange] = imported(name="firstPivotChange")
     first_style_change_ref: EntityRef[WatchStageStyleChange] = imported(name="firstStyleChange")
+    first_transform_change_ref: EntityRef[WatchStageTransformChange] = imported(name="firstTransform")
 
     start_time: float = entity_data()
     end_time: float = entity_data()
@@ -110,6 +113,7 @@ class WatchDynamicStage(WatchArchetype):
         init_event_list(self.first_mask_change_ref)
         init_event_list(self.first_pivot_change_ref)
         init_event_list(self.first_style_change_ref)
+        init_event_list(self.first_transform_change_ref)
         self.start_time = get_start_time(self)
         self.end_time = get_end_time(self)
         self.draw_start_time = get_draw_start_time(self)

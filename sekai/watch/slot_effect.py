@@ -2,6 +2,7 @@ from sonolus.script.archetype import WatchArchetype, entity_memory
 from sonolus.script.sprite import Sprite
 
 from sekai.lib import archetype_names
+from sekai.lib.layout import StageTransform
 from sekai.lib.options import Options
 from sekai.lib.slot_effect import (
     SLOT_EFFECT_DURATION,
@@ -19,6 +20,7 @@ class WatchSlotGlowEffect(WatchArchetype):
     lane: float = entity_memory()
     size: float = entity_memory()
     y_offset: float = entity_memory()
+    transform: StageTransform = entity_memory()
     end_time: float = entity_memory()
 
     def initialize(self):
@@ -38,6 +40,7 @@ class WatchSlotGlowEffect(WatchArchetype):
             self.lane,
             self.size,
             y_offset=self.y_offset,
+            transform=self.transform,
         )
 
 
@@ -48,6 +51,7 @@ class WatchSlotEffect(WatchArchetype):
     start_time: float = entity_memory()
     lane: float = entity_memory()
     y_offset: float = entity_memory()
+    transform: StageTransform = entity_memory()
     end_time: float = entity_memory()
 
     def initialize(self):
@@ -66,6 +70,7 @@ class WatchSlotEffect(WatchArchetype):
             self.end_time,
             self.lane,
             y_offset=self.y_offset,
+            transform=self.transform,
         )
 
 

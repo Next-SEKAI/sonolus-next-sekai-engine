@@ -30,7 +30,9 @@ from sekai.lib.layer import (
 )
 from sekai.lib.layout import (
     DynamicLayout,
+    StageTransform,
     approach,
+    blend_stage_transform,
     get_alpha,
     iter_slot_lanes,
     layout_circular_effect,
@@ -38,6 +40,9 @@ from sekai.lib.layout import (
     layout_slide_connector_segment,
     layout_slot_glow_effect,
     pre_rotation_vec_at,
+    st_quad,
+    st_slide_connector_segment,
+    stage_transform_is_identity,
 )
 from sekai.lib.options import Options
 from sekai.lib.particle import ActiveParticles
@@ -319,6 +324,8 @@ def draw_connector(
     layer: ConnectorLayer,
     presentation: SegmentPresentation = SegmentPresentation.DEFAULT,
     bypass_tail_target_time_check: bool = False,
+    head_transform: StageTransform | None = None,
+    tail_transform: StageTransform | None = None,
 ):
     match presentation:
         case SegmentPresentation.DEFAULT:
@@ -442,6 +449,8 @@ def draw_connector(
                 tail_target_time=tail_target_time,
                 tail_ease_frac=tail_ease_frac,
                 tail_alpha=tail_alpha,
+                head_transform=head_transform,
+                tail_transform=tail_transform,
             )
         case SegmentPresentation.FULL_SCREEN:
             draw_connector_full_screen(
@@ -480,6 +489,8 @@ def draw_connector_default(
     tail_target_time: float,
     tail_ease_frac: float,
     tail_alpha: float,
+    head_transform: StageTransform | None = None,
+    tail_transform: StageTransform | None = None,
 ):
     start_visual_progress = clamp(head_visual_progress, DynamicLayout.progress_start, DynamicLayout.progress_cutoff)
     end_visual_progress = clamp(tail_visual_progress, DynamicLayout.progress_start, DynamicLayout.progress_cutoff)
@@ -557,15 +568,34 @@ def draw_connector_default(
         (abs(start_alpha - end_alpha) * get_connector_alpha_option(kind)) ** 0.8 * 3,
         (abs(start_alpha - end_alpha) * get_connector_alpha_option(kind)) ** 0.5 * abs(start_pos_y - end_pos_y) * 3,
     )
+    transform_change_scale = 0.0
+    if head_transform is not None and tail_transform is not None:
+        extent = (
+            abs(start_pos_y - end_pos_y) + abs(start_lane - end_lane) * DynamicLayout.w_scale + DynamicLayout.w_scale
+        )
+        transform_change_scale = (
+            abs(tail_transform.sr - head_transform.sr) * extent
+            + abs(tail_transform.tx - head_transform.tx)
+            + abs(tail_transform.ty - head_transform.ty)
+        )
+        transform_change_scale *= 2
     quality = get_connector_quality_option(kind)
-    segment_count = max(1, ceil(max(curve_change_scale, alpha_change_scale) * quality * 10))
+    segment_count = max(1, ceil(max(curve_change_scale, alpha_change_scale, transform_change_scale) * quality * 10))
+
+    has_transform = (
+        head_transform is not None
+        and tail_transform is not None
+        and not (stage_transform_is_identity(head_transform) and stage_transform_is_identity(tail_transform))
+    )
 
     last_travel = start_travel
     last_lane = start_lane
     last_size = start_size
     last_alpha = start_alpha
     last_target_time = lerp(head_target_time, tail_target_time, start_frac)
+    last_interp_frac = start_interp_frac
 
+    layout = +Quad
     for i in range(1, segment_count + 1):
         segment_frac = i / segment_count
         next_frac = lerp(start_frac, end_frac, segment_frac)
@@ -587,14 +617,26 @@ def draw_connector_default(
             1,
         )
 
-        layout = layout_slide_connector_segment(
-            start_lane=last_lane,
-            start_size=last_size,
-            start_travel=last_travel,
-            end_lane=next_lane,
-            end_size=next_size,
-            end_travel=next_travel,
-        )
+        if has_transform:
+            layout @= st_slide_connector_segment(
+                start_lane=last_lane,
+                start_size=last_size,
+                start_travel=last_travel,
+                end_lane=next_lane,
+                end_size=next_size,
+                end_travel=next_travel,
+                start_transform=blend_stage_transform(head_transform, tail_transform, last_interp_frac),
+                end_transform=blend_stage_transform(head_transform, tail_transform, next_interp_frac),
+            )
+        else:
+            layout @= layout_slide_connector_segment(
+                start_lane=last_lane,
+                start_size=last_size,
+                start_travel=last_travel,
+                end_lane=next_lane,
+                end_size=next_size,
+                end_travel=next_travel,
+            )
 
         draw_connector_quad(layout, visual_state, normal_sprite, active_sprite, z_normal, z_active, base_a)
 
@@ -603,6 +645,7 @@ def draw_connector_default(
         last_size = next_size
         last_alpha = next_alpha
         last_target_time = next_target_time
+        last_interp_frac = next_interp_frac
 
 
 def draw_connector_full_screen(
@@ -663,10 +706,13 @@ def update_circular_connector_particle(
     lane: float,
     replace: bool,
     y_offset: float = 0.0,
+    transform: StageTransform | None = None,
 ):
     if not Options.note_effect_enabled:
         return
     layout = layout_circular_effect(lane, w=3.5, h=2.1, y_offset=y_offset)
+    if transform is not None:
+        layout = st_quad(layout, transform)
     if replace or handle.id == 0:
         particle = +Particle(-1)
         match kind:
@@ -687,10 +733,13 @@ def update_linear_connector_particle(
     lane: float,
     replace: bool,
     y_offset: float = 0.0,
+    transform: StageTransform | None = None,
 ):
     if not Options.note_effect_enabled:
         return
     layout = layout_linear_effect(lane, shear=0, y_offset=y_offset)
+    if transform is not None:
+        layout = st_quad(layout, transform)
     particle = +Particle
     if replace or handle.id == 0:
         match kind:
@@ -709,10 +758,13 @@ def spawn_linear_connector_trail_particle(
     kind: ActiveConnectorKind,
     lane: float,
     y_offset: float = 0.0,
+    transform: StageTransform | None = None,
 ):
     if not Options.note_effect_enabled:
         return
     layout = layout_linear_effect(lane, shear=0, y_offset=y_offset)
+    if transform is not None:
+        layout = st_quad(layout, transform)
     particle = +Particle
     match kind:
         case ConnectorKind.ACTIVE_NORMAL | ConnectorKind.ACTIVE_FAKE_NORMAL:
@@ -729,6 +781,7 @@ def spawn_connector_slot_particles(
     lane: float,
     size: float,
     y_offset: float = 0.0,
+    transform: StageTransform | None = None,
 ):
     if not Options.note_effect_enabled:
         return
@@ -742,6 +795,8 @@ def spawn_connector_slot_particles(
             assert_never(kind)
     for slot_lane in iter_slot_lanes(lane, size):
         layout = layout_linear_effect(slot_lane, shear=0, y_offset=y_offset)
+        if transform is not None:
+            layout = st_quad(layout, transform)
         particle.spawn(layout, duration=0.5 / Options.effect_animation_speed)
 
 
@@ -751,6 +806,7 @@ def draw_connector_slot_glow_effect(
     lane: float,
     size: float,
     y_offset: float = 0.0,
+    transform: StageTransform | None = None,
 ):
     sprite = +Sprite
     match kind:
@@ -762,6 +818,8 @@ def draw_connector_slot_glow_effect(
             assert_never(kind)
     height = (3.25 + (cos((time() - start_time) * 8 * pi) + 1) / 2) / 4.25
     layout = layout_slot_glow_effect(lane, size, height, y_offset=y_offset)
+    if transform is not None:
+        layout = st_quad(layout, transform)
     z = get_z(LAYER_SLOT_GLOW_EFFECT, start_time, lane, invert_time=True)
     a = remap_clamped(start_time, start_time + 0.25, 0.0, 0.3, time())
     sprite.draw(layout, z=z, a=a)

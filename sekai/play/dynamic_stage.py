@@ -18,7 +18,16 @@ from sonolus.script.timing import beat_to_bpm, beat_to_time
 from sekai.lib import archetype_names
 from sekai.lib.baseevent import BaseEvent, init_event_list
 from sekai.lib.ease import EaseType
-from sekai.lib.layout import ZoomVerticalAlign, layout_lane_area, preempt_time, touch_to_lane
+from sekai.lib.layout import (
+    StageTransform,
+    StageTransformAnchor,
+    ZoomVerticalAlign,
+    identity_stage_transform,
+    layout_lane_area,
+    preempt_time,
+    st_quad,
+    touch_to_lane,
+)
 from sekai.lib.level_config import LevelConfig
 from sekai.lib.options import Options
 from sekai.lib.stage import (
@@ -78,10 +87,12 @@ class CameraChange(PlayArchetype, BaseEvent):
 class StageTransformChange(PlayArchetype, BaseEvent):
     name = archetype_names.STAGE_TRANSFORM_CHANGE
 
+    stage_ref: EntityRef[DynamicStage] = imported(name="stage")
     beat: StandardImport.BEAT
     rotate: float = imported()
     x_lane_translate: float = imported(name="xLaneTranslate")
     y_lane_translate: float = imported(name="yLaneTranslate")
+    anchor: StageTransformAnchor = imported(name="anchor")
     ease: EaseType = imported()
     next_ref: EntityRef[StageTransformChange] = imported(name="next")
 
@@ -111,6 +122,7 @@ class DynamicStage(PlayArchetype):
     first_mask_change_ref: EntityRef[StageMaskChange] = imported(name="firstMaskChange")
     first_pivot_change_ref: EntityRef[StagePivotChange] = imported(name="firstPivotChange")
     first_style_change_ref: EntityRef[StageStyleChange] = imported(name="firstStyleChange")
+    first_transform_change_ref: EntityRef[StageTransformChange] = imported(name="firstTransform")
 
     start_time: float = entity_data()
     end_time: float = entity_data()
@@ -126,6 +138,7 @@ class DynamicStage(PlayArchetype):
         init_event_list(self.first_mask_change_ref)
         init_event_list(self.first_pivot_change_ref)
         init_event_list(self.first_style_change_ref)
+        init_event_list(self.first_transform_change_ref)
         self.start_time = get_start_time(self)
         self.end_time = get_end_time(self)
         self.draw_start_time = get_draw_start_time(self)
@@ -162,32 +175,42 @@ class DynamicStage(PlayArchetype):
             rightmost = p.pivot_lane + 0.5 + floor(hi - p.pivot_lane - 0.5)
         if leftmost > rightmost:
             return
-        total_hitbox = layout_lane_area(leftmost - 0.5, rightmost + 0.5)
+        has_transform = p.has_transform()
+        transform = +StageTransform
+        if has_transform:
+            transform @= p.stage_transform()
+        else:
+            transform @= identity_stage_transform()
+        total_hitbox = st_quad(layout_lane_area(leftmost - 0.5, rightmost + 0.5), transform)
         empty_lanes = StageMemory.empty_lanes
         for touch in touches():
             if not total_hitbox.contains_point(touch.position):
                 continue
             if not input_manager.is_allowed_empty(touch):
                 continue
-            lane = touch_to_lane(touch.position)
+            lane = touch_to_lane(touch.position, transform)
             rel = lane - p.pivot_lane
             if half_offset:
                 rounded_lane = clamp(p.pivot_lane + round(rel), lo, hi)
             else:
                 rounded_lane = clamp(p.pivot_lane + round(rel - 0.5) + 0.5, lo, hi)
             if touch.started:
-                play_lane_hit_effects(rounded_lane, sfx=time() > PlayLevelMemory.last_note_sfx_time + 0.6)
+                play_lane_hit_effects(
+                    rounded_lane, sfx=time() > PlayLevelMemory.last_note_sfx_time + 0.6, transform=transform
+                )
                 if not empty_lanes.is_full():
                     empty_lanes.append(rounded_lane)
             else:
-                prev_lane = touch_to_lane(touch.prev_position)
+                prev_lane = touch_to_lane(touch.prev_position, transform)
                 prev_rel = prev_lane - p.pivot_lane
                 if half_offset:
                     prev_rounded_lane = clamp(p.pivot_lane + round(prev_rel), lo, hi)
                 else:
                     prev_rounded_lane = clamp(p.pivot_lane + round(prev_rel - 0.5) + 0.5, lo, hi)
                 if rounded_lane != prev_rounded_lane:
-                    play_lane_hit_effects(rounded_lane, sfx=time() > PlayLevelMemory.last_note_sfx_time + 0.6)
+                    play_lane_hit_effects(
+                        rounded_lane, sfx=time() > PlayLevelMemory.last_note_sfx_time + 0.6, transform=transform
+                    )
                     if not empty_lanes.is_full():
                         empty_lanes.append(rounded_lane)
 

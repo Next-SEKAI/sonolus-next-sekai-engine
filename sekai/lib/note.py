@@ -50,8 +50,10 @@ from sekai.lib.layout import (
     DynamicLayout,
     FlickDirection,
     Hitbox,
+    StageTransform,
     approach,
     get_alpha,
+    identity_stage_transform,
     iter_slot_lanes,
     layout_circular_effect,
     layout_flick_arrow,
@@ -67,6 +69,7 @@ from sekai.lib.layout import (
     layout_tick_effect,
     preempt_time,
     progress_to,
+    st_quad,
 )
 from sekai.lib.level_config import LevelConfig
 from sekai.lib.options import Options, ScoreMode, VibrateMode
@@ -330,14 +333,15 @@ def draw_note(
     visual_progress: float,
     direction: FlickDirection,
     target_time: float,
+    transform: StageTransform | None = None,
 ):
     if not DynamicLayout.progress_start <= visual_progress <= DynamicLayout.progress_cutoff:
         return
     travel = approach(visual_progress)
     sprite_set = get_note_sprite_set(kind, direction)
-    draw_note_body(sprite_set.body, kind, lane, size, travel, target_time)
-    draw_note_arrow(sprite_set.arrow, kind, lane, size, travel, target_time, direction)
-    draw_note_tick(sprite_set.tick, lane, travel, target_time)
+    draw_note_body(sprite_set.body, kind, lane, size, travel, target_time, transform)
+    draw_note_arrow(sprite_set.arrow, kind, lane, size, travel, target_time, direction, transform)
+    draw_note_tick(sprite_set.tick, lane, travel, target_time, transform)
 
 
 def draw_slide_note_head(
@@ -347,6 +351,7 @@ def draw_slide_note_head(
     size: float,
     target_time: float,
     visual_progress: float = 1.0,
+    transform: StageTransform | None = None,
 ):
     if Options.hidden > 0:
         return
@@ -359,8 +364,8 @@ def draw_slide_note_head(
             assert_never(connector_kind)
     travel = approach(visual_progress)
     sprite_set = get_note_sprite_set(kind, FlickDirection.UP_OMNI)
-    draw_note_body(sprite_set.body, kind, lane, size, travel, target_time)
-    draw_note_tick(sprite_set.tick, lane, travel, target_time)
+    draw_note_body(sprite_set.body, kind, lane, size, travel, target_time, transform)
+    draw_note_tick(sprite_set.tick, lane, travel, target_time, transform)
 
 
 def note_kind_as_normal(kind: NoteKind) -> NoteKind:
@@ -530,33 +535,51 @@ def get_note_body_layer(kind: NoteKind) -> int:
             return LAYER_NOTE_BODY
 
 
-def draw_note_body(sprites: BodySpriteSet, kind: NoteKind, lane: float, size: float, travel: float, target_time: float):
+def draw_note_body(
+    sprites: BodySpriteSet,
+    kind: NoteKind,
+    lane: float,
+    size: float,
+    travel: float,
+    target_time: float,
+    transform: StageTransform | None = None,
+):
     layer = get_note_body_layer(kind)
     a = get_alpha(target_time)
     z = get_z(layer, time=target_time, lane=lane)
+
+    def place(q):
+        if transform is None:
+            return q
+        return st_quad(q, transform)
+
     match sprites.render_type:
         case BodyRenderType.NORMAL:
             left_layout, middle_layout, right_layout = layout_regular_note_body(lane, size, travel)
-            sprites.left.draw(left_layout, z=z, a=a)
-            sprites.middle.draw(middle_layout, z=z, a=a)
-            sprites.right.draw(right_layout, z=z, a=a)
+            sprites.left.draw(place(left_layout), z=z, a=a)
+            sprites.middle.draw(place(middle_layout), z=z, a=a)
+            sprites.right.draw(place(right_layout), z=z, a=a)
         case BodyRenderType.SLIM:
             left_layout, middle_layout, right_layout = layout_slim_note_body(lane, size, travel)
-            sprites.left.draw(left_layout, z=z, a=a)
-            sprites.middle.draw(middle_layout, z=z, a=a)
-            sprites.right.draw(right_layout, z=z, a=a)
+            sprites.left.draw(place(left_layout), z=z, a=a)
+            sprites.middle.draw(place(middle_layout), z=z, a=a)
+            sprites.right.draw(place(right_layout), z=z, a=a)
         case BodyRenderType.NORMAL_FALLBACK:
             layout = layout_regular_note_body_fallback(lane, size, travel)
-            sprites.middle.draw(layout, z=z, a=a)
+            sprites.middle.draw(place(layout), z=z, a=a)
         case BodyRenderType.SLIM_FALLBACK:
             layout = layout_slim_note_body_fallback(lane, size, travel)
-            sprites.middle.draw(layout, z=z, a=a)
+            sprites.middle.draw(place(layout), z=z, a=a)
 
 
-def draw_note_tick(sprite: Sprite, lane: float, travel: float, target_time: float):
+def draw_note_tick(
+    sprite: Sprite, lane: float, travel: float, target_time: float, transform: StageTransform | None = None
+):
     a = get_alpha(target_time)
     z = get_z(LAYER_NOTE_TICK, time=target_time, lane=lane)
     layout = layout_tick(lane, travel)
+    if transform is not None:
+        layout = st_quad(layout, transform)
     sprite.draw(layout, z=z, a=a)
 
 
@@ -568,6 +591,7 @@ def draw_note_arrow(
     travel: float,
     target_time: float,
     direction: FlickDirection,
+    transform: StageTransform | None = None,
 ):
     match direction:
         case _ if Options.marker_animation:
@@ -585,9 +609,13 @@ def draw_note_arrow(
     match sprites.render_type:
         case ArrowRenderType.NORMAL:
             layout = layout_flick_arrow(lane, size, direction, travel, animation_progress)
+            if transform is not None:
+                layout = st_quad(layout, transform)
             sprites.get_sprite(size, direction).draw(layout, z=z, a=a)
         case ArrowRenderType.FALLBACK:
             layout = layout_flick_arrow_fallback(lane, size, direction, travel, animation_progress)
+            if transform is not None:
+                layout = st_quad(layout, transform)
             sprites.get_sprite(size, direction).draw(layout, z=z, a=a)
 
 
@@ -802,7 +830,13 @@ def play_note_hit_effects(
     pivot_lane: float = 0.0,
     half_offset: bool = False,
     single_line: bool = False,
+    transform: StageTransform | None = None,
 ):
+    def place(q):
+        if transform is None:
+            return q
+        return st_quad(q, transform)
+
     # Damage with overridden sfx can play, so this goes before the damage check
     sfx = get_note_effect(effect_kind, judgment)
     if Options.sfx_enabled and not Options.auto_sfx and not is_watch() and sfx.is_available:
@@ -813,10 +847,10 @@ def play_note_hit_effects(
     if Options.note_effect_enabled:
         if particles.linear.is_available:
             layout = layout_linear_effect(lane, shear=0, y_offset=y_offset)
-            particles.linear.spawn(layout, duration=0.5 / Options.effect_animation_speed)
+            particles.linear.spawn(place(layout), duration=0.5 / Options.effect_animation_speed)
         if particles.circular.is_available:
             layout = layout_circular_effect(lane, w=1.75, h=1.05, y_offset=y_offset)
-            particles.circular.spawn(layout, duration=0.6 / Options.effect_animation_speed)
+            particles.circular.spawn(place(layout), duration=0.6 / Options.effect_animation_speed)
         if particles.directional.is_available:
             match direction:
                 case FlickDirection.UP_OMNI | FlickDirection.DOWN_OMNI:
@@ -828,23 +862,23 @@ def play_note_hit_effects(
                 case _:
                     assert_never(direction)
             layout = layout_rotated_linear_effect(lane, shear=shear, y_offset=y_offset)
-            particles.directional.spawn(layout, duration=0.32 / Options.effect_animation_speed)
+            particles.directional.spawn(place(layout), duration=0.32 / Options.effect_animation_speed)
         if particles.tick.is_available:
             layout = layout_tick_effect(lane, y_offset=y_offset)
-            particles.tick.spawn(layout, duration=0.6 / Options.effect_animation_speed)
+            particles.tick.spawn(place(layout), duration=0.6 / Options.effect_animation_speed)
         if particles.slot_linear.is_available:
             for slot_lane in iter_slot_lanes(lane, size, pivot_lane=pivot_lane, half_offset=half_offset):
                 layout = layout_linear_effect(slot_lane, shear=0, y_offset=y_offset)
-                particles.slot_linear.spawn(layout, duration=0.5 / Options.effect_animation_speed)
+                particles.slot_linear.spawn(place(layout), duration=0.5 / Options.effect_animation_speed)
     if Options.lane_effect_enabled:
         lane_y_offset = (
             y_offset if kind in {NoteKind.CRIT_FLICK, NoteKind.CRIT_HEAD_FLICK, NoteKind.CRIT_TAIL_FLICK} else 0.0
         )
         layout = layout_particle_lane(lane, size, y_offset=lane_y_offset)
         if particles.lane.is_available:
-            particles.lane.spawn(layout, duration=1 / Options.effect_animation_speed)
+            particles.lane.spawn(place(layout), duration=1 / Options.effect_animation_speed)
         elif particles.lane_basic.is_available:
-            particles.lane_basic.spawn(layout, duration=0.3 / Options.effect_animation_speed)
+            particles.lane_basic.spawn(place(layout), duration=0.3 / Options.effect_animation_speed)
     if Options.slot_effect_enabled and not is_watch():
         schedule_note_slot_effects(
             kind,
@@ -856,6 +890,7 @@ def play_note_hit_effects(
             pivot_lane=pivot_lane,
             half_offset=half_offset,
             single_line=single_line,
+            transform=transform,
         )
 
 
@@ -908,22 +943,28 @@ def schedule_note_slot_effects(
     pivot_lane: float = 0.0,
     half_offset: bool = False,
     single_line: bool = False,
+    transform: StageTransform | None = None,
 ):
     if is_tutorial():
         return
     if not Options.slot_effect_enabled:
         return
+    st = +StageTransform
+    if transform is not None:
+        st @= transform
+    else:
+        st @= identity_stage_transform()
     sprite_set = get_note_sprite_set(kind, direction)
     slot_sprite = sprite_set.slot
     if slot_sprite.is_available and not single_line:
         for slot_lane in iter_slot_lanes(lane, size, pivot_lane=pivot_lane, half_offset=half_offset):
             get_archetype_by_name(archetype_names.SLOT_EFFECT).spawn(
-                sprite=slot_sprite, start_time=target_time, lane=slot_lane, y_offset=y_offset
+                sprite=slot_sprite, start_time=target_time, lane=slot_lane, y_offset=y_offset, transform=st
             )
     slot_glow_sprite = sprite_set.slot_glow
     if slot_glow_sprite.is_available:
         get_archetype_by_name(archetype_names.SLOT_GLOW_EFFECT).spawn(
-            sprite=slot_glow_sprite, start_time=target_time, lane=lane, size=size, y_offset=y_offset
+            sprite=slot_glow_sprite, start_time=target_time, lane=lane, size=size, y_offset=y_offset, transform=st
         )
 
 
