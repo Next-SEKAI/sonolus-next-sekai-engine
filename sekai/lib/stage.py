@@ -356,10 +356,6 @@ def get_stage_props(stage: DynamicStageLike, target_time: float | None = None, l
     t = target_time if target_time is not None else runtime.time()
     result = +StageProps
     result.order = stage.index
-    result.rotate = 0.0
-    result.x_lane_translate = 0.0
-    result.y_lane_translate = 0.0
-    result.center_weight = 0.0
 
     first_mask_change_ref = stage.first_mask_change_ref
     first_pivot_change_ref = stage.first_pivot_change_ref

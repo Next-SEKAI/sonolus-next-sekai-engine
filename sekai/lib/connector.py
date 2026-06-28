@@ -568,25 +568,16 @@ def draw_connector_default(
         (abs(start_alpha - end_alpha) * get_connector_alpha_option(kind)) ** 0.8 * 3,
         (abs(start_alpha - end_alpha) * get_connector_alpha_option(kind)) ** 0.5 * abs(start_pos_y - end_pos_y) * 3,
     )
-    transform_change_scale = 0.0
-    if head_transform is not None and tail_transform is not None:
-        extent = (
-            abs(start_pos_y - end_pos_y) + abs(start_lane - end_lane) * DynamicLayout.w_scale + DynamicLayout.w_scale
-        )
-        transform_change_scale = (
-            abs(tail_transform.sr - head_transform.sr) * extent
-            + abs(tail_transform.tx - head_transform.tx)
-            + abs(tail_transform.ty - head_transform.ty)
-        )
-        transform_change_scale *= 2
     quality = get_connector_quality_option(kind)
-    segment_count = max(1, ceil(max(curve_change_scale, alpha_change_scale, transform_change_scale) * quality * 10))
+    segment_count = max(1, ceil(max(curve_change_scale, alpha_change_scale) * quality * 10))
 
     has_transform = (
         head_transform is not None
         and tail_transform is not None
         and not (stage_transform_is_identity(head_transform) and stage_transform_is_identity(tail_transform))
     )
+    if has_transform and head_transform != tail_transform:
+        segment_count = max(segment_count, ceil(15 * quality))
 
     last_travel = start_travel
     last_lane = start_lane
