@@ -98,6 +98,7 @@ class WatchBaseNote(WatchArchetype):
     active_connector_info: ActiveConnectorInfo = shared_memory()
 
     hitbox: Hitbox = shared_memory()
+    attach_eased_frac: float = shared_memory()
 
     end_time: float = imported()
     played_hit_effects: bool = imported()
@@ -148,6 +149,9 @@ class WatchBaseNote(WatchArchetype):
             attach_head.init_data()
             attach_tail.init_data()
             self.connector_ease = attach_head.connector_ease
+            self.attach_eased_frac = ease(
+                self.connector_ease, unlerp_clamped(attach_head.target_time, attach_tail.target_time, self.target_time)
+            )
             lane, size = get_attach_params(
                 ease_type=attach_head.connector_ease,
                 head_lane=attach_head._basic_visual_lane_at(self.target_time),
@@ -324,20 +328,11 @@ class WatchBaseNote(WatchArchetype):
             return self.lane
         return get_stage_props(self.stage_ref.get(), t).pivot_lane + self.rel_lane
 
-    def attach_eased_frac(self, t: float) -> float:
-        head = self.attach_head_ref.get()
-        tail = self.attach_tail_ref.get()
-        eased_note = ease(self.connector_ease, unlerp_clamped(head.target_time, tail.target_time, self.target_time))
-        if t < head.target_time:
-            return eased_note
-        eased_now = ease(self.connector_ease, unlerp_clamped(head.target_time, tail.target_time, t))
-        return max(eased_note, eased_now)
-
     def visual_lane_at(self, t: float) -> float:
         if self.is_attached:
             head = self.attach_head_ref.get()
             tail = self.attach_tail_ref.get()
-            return lerp(head._basic_visual_lane_at(t), tail._basic_visual_lane_at(t), self.attach_eased_frac(t))
+            return lerp(head._basic_visual_lane_at(t), tail._basic_visual_lane_at(t), self.attach_eased_frac)
         return self._basic_visual_lane_at(t)
 
     def _basic_y_offset_at(self, t: float, left_limit: bool = False) -> float:
@@ -374,7 +369,7 @@ class WatchBaseNote(WatchArchetype):
             result @= blend_stage_transform(
                 head._basic_visual_stage_transform(),
                 tail._basic_visual_stage_transform(),
-                self.attach_eased_frac(time()),
+                self.attach_eased_frac,
             )
         else:
             result @= self._basic_visual_stage_transform()
