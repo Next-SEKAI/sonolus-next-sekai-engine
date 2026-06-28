@@ -2,7 +2,7 @@ from sonolus.script.archetype import WatchArchetype, callback, entity_memory
 from sonolus.script.runtime import is_skip
 
 from sekai.lib import archetype_names
-from sekai.lib.layout import refresh_layout
+from sekai.lib.layout import IDENTITY_AFFINE_TRANSFORM, refresh_layout
 from sekai.lib.stage import draw_stage_and_accessories, play_lane_particle
 
 
@@ -38,4 +38,4 @@ class WatchScheduledLaneEffect(WatchArchetype):
     def initialize(self):
         if is_skip():
             return
-        play_lane_particle(self.lane)
+        play_lane_particle(self.lane, IDENTITY_AFFINE_TRANSFORM)

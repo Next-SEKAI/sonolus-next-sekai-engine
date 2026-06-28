@@ -47,13 +47,13 @@ from sekai.lib.layer import (
     get_z_alt,
 )
 from sekai.lib.layout import (
+    IDENTITY_AFFINE_TRANSFORM,
+    AffineTransform2d,
     DynamicLayout,
     FlickDirection,
     Hitbox,
-    StageTransform,
     approach,
     get_alpha,
-    identity_stage_transform,
     iter_slot_lanes,
     layout_circular_effect,
     layout_flick_arrow,
@@ -69,7 +69,6 @@ from sekai.lib.layout import (
     layout_tick_effect,
     preempt_time,
     progress_to,
-    st_quad,
 )
 from sekai.lib.level_config import LevelConfig
 from sekai.lib.options import Options, ScoreMode, VibrateMode
@@ -333,7 +332,7 @@ def draw_note(
     visual_progress: float,
     direction: FlickDirection,
     target_time: float,
-    transform: StageTransform | None = None,
+    transform: AffineTransform2d,
 ):
     if not DynamicLayout.progress_start <= visual_progress <= DynamicLayout.progress_cutoff:
         return
@@ -351,7 +350,8 @@ def draw_slide_note_head(
     size: float,
     target_time: float,
     visual_progress: float = 1.0,
-    transform: StageTransform | None = None,
+    *,
+    transform: AffineTransform2d,
 ):
     if Options.hidden > 0:
         return
@@ -542,16 +542,14 @@ def draw_note_body(
     size: float,
     travel: float,
     target_time: float,
-    transform: StageTransform | None = None,
+    transform: AffineTransform2d,
 ):
     layer = get_note_body_layer(kind)
     a = get_alpha(target_time)
     z = get_z(layer, time=target_time, lane=lane)
 
     def place(q):
-        if transform is None:
-            return q
-        return st_quad(q, transform)
+        return transform.transform_quad(q)
 
     match sprites.render_type:
         case BodyRenderType.NORMAL:
@@ -572,14 +570,10 @@ def draw_note_body(
             sprites.middle.draw(place(layout), z=z, a=a)
 
 
-def draw_note_tick(
-    sprite: Sprite, lane: float, travel: float, target_time: float, transform: StageTransform | None = None
-):
+def draw_note_tick(sprite: Sprite, lane: float, travel: float, target_time: float, transform: AffineTransform2d):
     a = get_alpha(target_time)
     z = get_z(LAYER_NOTE_TICK, time=target_time, lane=lane)
-    layout = layout_tick(lane, travel)
-    if transform is not None:
-        layout = st_quad(layout, transform)
+    layout = transform.transform_quad(layout_tick(lane, travel))
     sprite.draw(layout, z=z, a=a)
 
 
@@ -591,7 +585,7 @@ def draw_note_arrow(
     travel: float,
     target_time: float,
     direction: FlickDirection,
-    transform: StageTransform | None = None,
+    transform: AffineTransform2d,
 ):
     match direction:
         case _ if Options.marker_animation:
@@ -608,14 +602,12 @@ def draw_note_arrow(
     z = get_z(LAYER_NOTE_ARROW, time=target_time, lane=lane, etc=direction + 6 * (not is_critical(kind)))
     match sprites.render_type:
         case ArrowRenderType.NORMAL:
-            layout = layout_flick_arrow(lane, size, direction, travel, animation_progress)
-            if transform is not None:
-                layout = st_quad(layout, transform)
+            layout = transform.transform_quad(layout_flick_arrow(lane, size, direction, travel, animation_progress))
             sprites.get_sprite(size, direction).draw(layout, z=z, a=a)
         case ArrowRenderType.FALLBACK:
-            layout = layout_flick_arrow_fallback(lane, size, direction, travel, animation_progress)
-            if transform is not None:
-                layout = st_quad(layout, transform)
+            layout = transform.transform_quad(
+                layout_flick_arrow_fallback(lane, size, direction, travel, animation_progress)
+            )
             sprites.get_sprite(size, direction).draw(layout, z=z, a=a)
 
 
@@ -831,12 +823,11 @@ def play_note_hit_effects(
     half_offset: bool = False,
     single_line: bool = False,
     lane_particles: bool = True,
-    transform: StageTransform | None = None,
+    *,
+    transform: AffineTransform2d,
 ):
     def place(q):
-        if transform is None:
-            return q
-        return st_quad(q, transform)
+        return transform.transform_quad(q)
 
     # Damage with overridden sfx can play, so this goes before the damage check
     sfx = get_note_effect(effect_kind, judgment)
@@ -944,28 +935,29 @@ def schedule_note_slot_effects(
     pivot_lane: float = 0.0,
     half_offset: bool = False,
     single_line: bool = False,
-    transform: StageTransform | None = None,
+    *,
+    transform: AffineTransform2d,
 ):
     if is_tutorial():
         return
     if not Options.slot_effect_enabled:
         return
-    st = +StageTransform
-    if transform is not None:
-        st @= transform
-    else:
-        st @= identity_stage_transform()
     sprite_set = get_note_sprite_set(kind, direction)
     slot_sprite = sprite_set.slot
     if slot_sprite.is_available and not single_line:
         for slot_lane in iter_slot_lanes(lane, size, pivot_lane=pivot_lane, half_offset=half_offset):
             get_archetype_by_name(archetype_names.SLOT_EFFECT).spawn(
-                sprite=slot_sprite, start_time=target_time, lane=slot_lane, y_offset=y_offset, transform=st
+                sprite=slot_sprite, start_time=target_time, lane=slot_lane, y_offset=y_offset, transform=transform
             )
     slot_glow_sprite = sprite_set.slot_glow
     if slot_glow_sprite.is_available:
         get_archetype_by_name(archetype_names.SLOT_GLOW_EFFECT).spawn(
-            sprite=slot_glow_sprite, start_time=target_time, lane=lane, size=size, y_offset=y_offset, transform=st
+            sprite=slot_glow_sprite,
+            start_time=target_time,
+            lane=lane,
+            size=size,
+            y_offset=y_offset,
+            transform=transform,
         )
 
 
@@ -992,6 +984,7 @@ def draw_tutorial_note_slot_effects(
                 start_time=start_time,
                 end_time=start_time + SLOT_EFFECT_DURATION / Options.effect_animation_speed,
                 lane=slot_lane,
+                transform=IDENTITY_AFFINE_TRANSFORM,
             )
     slot_glow_sprite = sprite_set.slot_glow
     if (
@@ -1004,6 +997,7 @@ def draw_tutorial_note_slot_effects(
             end_time=start_time + SLOT_GLOW_EFFECT_DURATION / Options.effect_animation_speed,
             lane=lane,
             size=size,
+            transform=IDENTITY_AFFINE_TRANSFORM,
         )
 
 

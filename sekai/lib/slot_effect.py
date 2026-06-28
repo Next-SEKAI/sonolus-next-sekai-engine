@@ -3,7 +3,7 @@ from sonolus.script.runtime import time
 from sonolus.script.sprite import Sprite
 
 from sekai.lib.layer import LAYER_SLOT_EFFECT, LAYER_SLOT_GLOW_EFFECT, get_z
-from sekai.lib.layout import StageTransform, layout_slot_effect, layout_slot_glow_effect, st_place
+from sekai.lib.layout import AffineTransform2d, layout_slot_effect, layout_slot_glow_effect
 
 SLOT_GLOW_EFFECT_DURATION = 0.25
 SLOT_EFFECT_DURATION = 0.5
@@ -16,11 +16,12 @@ def draw_slot_glow_effect(
     lane: float,
     size: float,
     y_offset: float = 0.0,
-    transform: StageTransform | None = None,
+    *,
+    transform: AffineTransform2d,
 ):
     progress = unlerp_clamped(start_time, end_time, time())
     height = unlerp_clamped(1, 0.8, progress)
-    layout = st_place(layout_slot_glow_effect(lane, size, height, y_offset=y_offset), transform)
+    layout = transform.transform_quad(layout_slot_glow_effect(lane, size, height, y_offset=y_offset))
     z = get_z(LAYER_SLOT_GLOW_EFFECT, start_time, lane, invert_time=True)
     a = lerp(1, 0, progress)
     sprite.draw(layout, z=z, a=a)
@@ -32,10 +33,11 @@ def draw_slot_effect(
     end_time: float,
     lane: float,
     y_offset: float = 0.0,
-    transform: StageTransform | None = None,
+    *,
+    transform: AffineTransform2d,
 ):
     progress = unlerp_clamped(start_time, end_time, time())
-    layout = st_place(layout_slot_effect(lane, y_offset=y_offset), transform)
+    layout = transform.transform_quad(layout_slot_effect(lane, y_offset=y_offset))
     z = get_z(LAYER_SLOT_EFFECT, start_time, lane, invert_time=True)
     a = lerp(1, 0, progress)
     sprite.draw(layout, z=z, a=a)

@@ -1,7 +1,7 @@
 from sonolus.script.interval import clamp, lerp, unlerp, unlerp_clamped
 
 from sekai.lib.layer import LAYER_SIM_LINE, get_z
-from sekai.lib.layout import DynamicLayout, StageTransform, approach, get_alpha, layout_sim_line
+from sekai.lib.layout import AffineTransform2d, DynamicLayout, approach, get_alpha, layout_sim_line
 from sekai.lib.options import Options
 from sekai.lib.skin import ActiveSkin
 
@@ -13,8 +13,8 @@ def draw_sim_line(
     right_lane: float,
     right_visual_progress: float,
     right_target_time: float,
-    left_transform: StageTransform | None = None,
-    right_transform: StageTransform | None = None,
+    left_transform: AffineTransform2d,
+    right_transform: AffineTransform2d,
 ):
     if not Options.sim_line_enabled:
         return

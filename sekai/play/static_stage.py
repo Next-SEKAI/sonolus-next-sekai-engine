@@ -6,7 +6,7 @@ from sonolus.script.interval import clamp
 from sonolus.script.runtime import offset_adjusted_time, time, touches
 
 from sekai.lib import archetype_names
-from sekai.lib.layout import layout_lane_area, refresh_layout, touch_to_lane
+from sekai.lib.layout import IDENTITY_AFFINE_TRANSFORM, layout_lane_area, refresh_layout, touch_to_lane
 from sekai.lib.level_config import LevelConfig
 from sekai.lib.stage import draw_stage_and_accessories, play_lane_hit_effects
 from sekai.lib.streams import Streams
@@ -47,17 +47,25 @@ class StaticStage(PlayArchetype):
                 continue
             if not input_manager.is_allowed_empty(touch):
                 continue
-            lane = touch_to_lane(touch.position)
+            lane = touch_to_lane(touch.position, IDENTITY_AFFINE_TRANSFORM)
             rounded_lane = clamp(round(lane - 0.5) + 0.5, -5.5, 5.5)
             if touch.started:
-                play_lane_hit_effects(rounded_lane, sfx=time() > PlayLevelMemory.last_note_sfx_time + 0.6)
+                play_lane_hit_effects(
+                    rounded_lane,
+                    sfx=time() > PlayLevelMemory.last_note_sfx_time + 0.6,
+                    transform=IDENTITY_AFFINE_TRANSFORM,
+                )
                 if not empty_lanes.is_full():
                     empty_lanes.append(rounded_lane)
             else:
-                prev_lane = touch_to_lane(touch.prev_position)
+                prev_lane = touch_to_lane(touch.prev_position, IDENTITY_AFFINE_TRANSFORM)
                 prev_rounded_lane = clamp(round(prev_lane - 0.5) + 0.5, -5.5, 5.5)
                 if rounded_lane != prev_rounded_lane:
-                    play_lane_hit_effects(rounded_lane, sfx=time() > PlayLevelMemory.last_note_sfx_time + 0.6)
+                    play_lane_hit_effects(
+                        rounded_lane,
+                        sfx=time() > PlayLevelMemory.last_note_sfx_time + 0.6,
+                        transform=IDENTITY_AFFINE_TRANSFORM,
+                    )
                     if not empty_lanes.is_full():
                         empty_lanes.append(rounded_lane)
         if len(empty_lanes) > 0:

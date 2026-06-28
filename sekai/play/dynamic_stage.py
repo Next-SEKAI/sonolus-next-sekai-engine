@@ -25,7 +25,6 @@ from sekai.lib.layout import (
     identity_stage_transform,
     layout_lane_area,
     preempt_time,
-    st_quad,
     touch_to_lane,
 )
 from sekai.lib.level_config import LevelConfig
@@ -181,14 +180,15 @@ class DynamicStage(PlayArchetype):
             transform @= p.stage_transform()
         else:
             transform @= identity_stage_transform()
-        total_hitbox = st_quad(layout_lane_area(leftmost - 0.5, rightmost + 0.5), transform)
+        transform_mat = transform.transform()
+        total_hitbox = transform_mat.transform_quad(layout_lane_area(leftmost - 0.5, rightmost + 0.5))
         empty_lanes = StageMemory.empty_lanes
         for touch in touches():
             if not total_hitbox.contains_point(touch.position):
                 continue
             if not input_manager.is_allowed_empty(touch):
                 continue
-            lane = touch_to_lane(touch.position, transform)
+            lane = touch_to_lane(touch.position, transform_mat)
             rel = lane - p.pivot_lane
             if half_offset:
                 rounded_lane = clamp(p.pivot_lane + round(rel), lo, hi)
@@ -196,12 +196,12 @@ class DynamicStage(PlayArchetype):
                 rounded_lane = clamp(p.pivot_lane + round(rel - 0.5) + 0.5, lo, hi)
             if touch.started:
                 play_lane_hit_effects(
-                    rounded_lane, sfx=time() > PlayLevelMemory.last_note_sfx_time + 0.6, transform=transform
+                    rounded_lane, sfx=time() > PlayLevelMemory.last_note_sfx_time + 0.6, transform=transform_mat
                 )
                 if not empty_lanes.is_full():
                     empty_lanes.append(rounded_lane)
             else:
-                prev_lane = touch_to_lane(touch.prev_position, transform)
+                prev_lane = touch_to_lane(touch.prev_position, transform_mat)
                 prev_rel = prev_lane - p.pivot_lane
                 if half_offset:
                     prev_rounded_lane = clamp(p.pivot_lane + round(prev_rel), lo, hi)
@@ -209,7 +209,7 @@ class DynamicStage(PlayArchetype):
                     prev_rounded_lane = clamp(p.pivot_lane + round(prev_rel - 0.5) + 0.5, lo, hi)
                 if rounded_lane != prev_rounded_lane:
                     play_lane_hit_effects(
-                        rounded_lane, sfx=time() > PlayLevelMemory.last_note_sfx_time + 0.6, transform=transform
+                        rounded_lane, sfx=time() > PlayLevelMemory.last_note_sfx_time + 0.6, transform=transform_mat
                     )
                     if not empty_lanes.is_full():
                         empty_lanes.append(rounded_lane)

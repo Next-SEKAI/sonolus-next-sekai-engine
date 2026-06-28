@@ -18,7 +18,9 @@ from sekai.lib.ease import EaseType, ease
 from sekai.lib.effect import SFX_DISTANCE, Effects
 from sekai.lib.layer import LAYER_COVER, LAYER_GUIDE_CONNECTOR_OVER, LAYER_STAGE, get_z, get_z_alt
 from sekai.lib.layout import (
+    IDENTITY_AFFINE_TRANSFORM,
     TEST_ASPECT_SCALE,
+    AffineTransform2d,
     DynamicLayout,
     Layout,
     StageTransform,
@@ -36,7 +38,6 @@ from sekai.lib.layout import (
     layout_stage_cover_and_line,
     layout_stage_lane_by_edges,
     perspective_rect,
-    st_place,
     tilt_depth,
     tilt_widened_edge,
     tilt_width_factor,
@@ -172,7 +173,7 @@ class StageProps(Record):
             y_offset=self.y_offset,
             full_width=self.full_width,
             division_line_alpha=self.division_line_alpha,
-            transform=transform,
+            transform=transform.transform(),
         )
 
 
@@ -602,6 +603,7 @@ def draw_basic_stage():
             right_border_style=StageBorderStyle.DEFAULT,
             order=0,
             a=1,
+            transform=IDENTITY_AFFINE_TRANSFORM,
         )
 
 
@@ -650,7 +652,8 @@ def draw_dynamic_stage(
     judge_line_style: Transition[JudgeLineStyle] | JudgeLineStyle = JudgeLineStyle.DEFAULT,
     full_width: float = 0,
     division_line_alpha: float = 1,
-    transform: StageTransform | None = None,
+    *,
+    transform: AffineTransform2d,
 ):
     division = normalize_transition(division)
     judge_line_color = normalize_transition(judge_line_color)
@@ -659,7 +662,7 @@ def draw_dynamic_stage(
     right_border_style = normalize_transition(right_border_style)
 
     def place(q: QuadLike) -> QuadLike:
-        return st_place(q, transform)
+        return transform.transform_quad(q)
 
     sprites_same = judge_line_color.start == judge_line_color.end
     sprites_a = get_judgment_sprites(judge_line_color.start)
@@ -684,7 +687,7 @@ def draw_dynamic_stage(
             y_offset,
             judge_line_style,
             fw,
-            transform,
+            transform=transform,
         )
         return
 
@@ -1019,10 +1022,11 @@ def draw_fallback_stage(
     y_offset: float = 0,
     judge_line_style: Transition[JudgeLineStyle] | JudgeLineStyle = JudgeLineStyle.DEFAULT,
     full_width: float = 0,
-    transform: StageTransform | None = None,
+    *,
+    transform: AffineTransform2d,
 ):
     def place(q: QuadLike) -> QuadLike:
-        return st_place(q, transform)
+        return transform.transform_quad(q)
 
     judge_line_style = normalize_transition(judge_line_style)
     w_default = judge_line_style_weight(judge_line_style, JudgeLineStyle.DEFAULT)
@@ -1078,9 +1082,7 @@ def draw_fallback_stage(
     draw_per_stage_cover(l, r, a, lane_alpha, z, transform)
 
 
-def draw_per_stage_cover(
-    l: float, r: float, a: float, lane_alpha: float, order: int, transform: StageTransform | None = None
-):
+def draw_per_stage_cover(l: float, r: float, a: float, lane_alpha: float, order: int, transform: AffineTransform2d):
     if not LevelConfig.dynamic_stages:
         return
     ca = a * lane_alpha
@@ -1088,7 +1090,7 @@ def draw_per_stage_cover(
         return
 
     def place(q: QuadLike) -> QuadLike:
-        return st_place(q, transform)
+        return transform.transform_quad(q)
 
     z_cover = get_z_alt(LAYER_COVER, order * 4)
     z_line = get_z_alt(LAYER_COVER, order * 4 + 1)
@@ -1133,7 +1135,7 @@ def draw_stage_cover():
         ActiveSkin.cover.draw(layout, z=get_z(LAYER_COVER), a=1)
 
 
-def play_lane_hit_effects(lane: float, sfx: bool = True, transform: StageTransform | None = None):
+def play_lane_hit_effects(lane: float, sfx: bool = True, *, transform: AffineTransform2d):
     if sfx:
         play_lane_sfx(lane)
     play_lane_particle(lane, transform)
@@ -1149,7 +1151,7 @@ def schedule_lane_sfx(lane: float, target_time: float):
         Effects.stage.schedule(target_time, SFX_DISTANCE)
 
 
-def play_lane_particle(lane: float, transform: StageTransform | None = None):
+def play_lane_particle(lane: float, transform: AffineTransform2d):
     if Options.lane_effect_enabled:
-        layout = st_place(layout_particle_lane(lane, 0.5), transform)
+        layout = transform.transform_quad(layout_particle_lane(lane, 0.5))
         ActiveParticles.lane.spawn(layout, duration=0.3 / Options.effect_animation_speed)

@@ -208,7 +208,7 @@ class WatchConnector(WatchArchetype):
                 input_size,
                 CONNECTOR_LENIENCY,
                 input_y_offset,
-                stage_transform=input_transform,
+                stage_transform=input_transform.transform(),
             ).bounds
             draw_hitbox_bounds_overlay(bounds, 0.6)
 
@@ -347,7 +347,7 @@ class WatchSlideManager(WatchArchetype):
         if time() < self.active_head.target_time:
             return
         info = self.active_head.active_connector_info
-        head_transform = self.active_segment_transform()
+        head_transform = self.active_segment_transform().transform()
         connector_kind = (
             Streams.connector_effect_kinds[self.active_head.index].get_previous_inclusive(time())
             if is_replay()

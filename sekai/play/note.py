@@ -28,6 +28,7 @@ from sekai.lib.buckets import WINDOW_SCALE, SekaiWindow
 from sekai.lib.connector import ActiveConnectorInfo, ConnectorKind, ConnectorLayer, SegmentPresentation
 from sekai.lib.ease import EaseType, ease
 from sekai.lib.layout import (
+    IDENTITY_AFFINE_TRANSFORM,
     DynamicLayout,
     FlickDirection,
     Hitbox,
@@ -211,7 +212,7 @@ class BaseNote(PlayArchetype):
                 get_leniency(self.kind),
                 self.target_time,
                 self.target_y_offset,
-                stage_transform=self.stage_transform_at(self.target_time, left_limit=True),
+                stage_transform=self.stage_transform_at(self.target_time, left_limit=True).transform(),
                 left_limit=True,
             )
 
@@ -336,7 +337,7 @@ class BaseNote(PlayArchetype):
                 self.visual_progress,
                 self.direction,
                 self.target_time,
-                transform=self.visual_stage_transform(),
+                transform=self.visual_stage_transform().transform(),
             )
         else:
             draw_note(
@@ -346,6 +347,7 @@ class BaseNote(PlayArchetype):
                 self.visual_progress,
                 self.direction,
                 self.target_time,
+                transform=IDENTITY_AFFINE_TRANSFORM,
             )
         if Options.show_hitboxes and self.is_scored:
             draw_start = min(self.unadjusted_input_interval.start, self.target_time - HITBOX_DRAW_MIN_EARLY_WINDOW)
@@ -402,7 +404,7 @@ class BaseNote(PlayArchetype):
                 half_offset=self.visual_half_offset,
                 single_line=self.visual_single_line,
                 lane_particles=self.visual_lane_particles,
-                transform=self.visual_stage_transform(),
+                transform=self.visual_stage_transform().transform(),
             )
         if self.is_scored:
             self.result.haptic = get_note_haptic_feedback(self.kind, self.result.judgment)

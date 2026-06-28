@@ -29,6 +29,7 @@ from sekai.lib.layer import (
     get_z,
 )
 from sekai.lib.layout import (
+    AffineTransform2d,
     DynamicLayout,
     StageTransform,
     approach,
@@ -40,7 +41,6 @@ from sekai.lib.layout import (
     layout_slide_connector_segment,
     layout_slot_glow_effect,
     pre_rotation_vec_at,
-    st_place,
     st_slide_connector_segment,
     stage_transform_is_identity,
 )
@@ -619,8 +619,8 @@ def draw_connector_default(
                 end_lane=next_lane,
                 end_size=next_size,
                 end_travel=next_travel,
-                start_transform=blend_stage_transform(head_transform, tail_transform, last_interp_frac),
-                end_transform=blend_stage_transform(head_transform, tail_transform, next_interp_frac),
+                start_transform=blend_stage_transform(head_transform, tail_transform, last_interp_frac).transform(),
+                end_transform=blend_stage_transform(head_transform, tail_transform, next_interp_frac).transform(),
             )
         else:
             layout @= layout_slide_connector_segment(
@@ -700,11 +700,12 @@ def update_circular_connector_particle(
     lane: float,
     replace: bool,
     y_offset: float = 0.0,
-    transform: StageTransform | None = None,
+    *,
+    transform: AffineTransform2d,
 ):
     if not Options.note_effect_enabled:
         return
-    layout = st_place(layout_circular_effect(lane, w=3.5, h=2.1, y_offset=y_offset), transform)
+    layout = transform.transform_quad(layout_circular_effect(lane, w=3.5, h=2.1, y_offset=y_offset))
     if replace or handle.id == 0:
         particle = +Particle(-1)
         match kind:
@@ -725,11 +726,12 @@ def update_linear_connector_particle(
     lane: float,
     replace: bool,
     y_offset: float = 0.0,
-    transform: StageTransform | None = None,
+    *,
+    transform: AffineTransform2d,
 ):
     if not Options.note_effect_enabled:
         return
-    layout = st_place(layout_linear_effect(lane, shear=0, y_offset=y_offset), transform)
+    layout = transform.transform_quad(layout_linear_effect(lane, shear=0, y_offset=y_offset))
     particle = +Particle
     if replace or handle.id == 0:
         match kind:
@@ -748,11 +750,12 @@ def spawn_linear_connector_trail_particle(
     kind: ActiveConnectorKind,
     lane: float,
     y_offset: float = 0.0,
-    transform: StageTransform | None = None,
+    *,
+    transform: AffineTransform2d,
 ):
     if not Options.note_effect_enabled:
         return
-    layout = st_place(layout_linear_effect(lane, shear=0, y_offset=y_offset), transform)
+    layout = transform.transform_quad(layout_linear_effect(lane, shear=0, y_offset=y_offset))
     particle = +Particle
     match kind:
         case ConnectorKind.ACTIVE_NORMAL | ConnectorKind.ACTIVE_FAKE_NORMAL:
@@ -769,7 +772,8 @@ def spawn_connector_slot_particles(
     lane: float,
     size: float,
     y_offset: float = 0.0,
-    transform: StageTransform | None = None,
+    *,
+    transform: AffineTransform2d,
 ):
     if not Options.note_effect_enabled:
         return
@@ -782,7 +786,7 @@ def spawn_connector_slot_particles(
         case _:
             assert_never(kind)
     for slot_lane in iter_slot_lanes(lane, size):
-        layout = st_place(layout_linear_effect(slot_lane, shear=0, y_offset=y_offset), transform)
+        layout = transform.transform_quad(layout_linear_effect(slot_lane, shear=0, y_offset=y_offset))
         particle.spawn(layout, duration=0.5 / Options.effect_animation_speed)
 
 
@@ -792,7 +796,8 @@ def draw_connector_slot_glow_effect(
     lane: float,
     size: float,
     y_offset: float = 0.0,
-    transform: StageTransform | None = None,
+    *,
+    transform: AffineTransform2d,
 ):
     sprite = +Sprite
     match kind:
@@ -803,7 +808,7 @@ def draw_connector_slot_glow_effect(
         case _:
             assert_never(kind)
     height = (3.25 + (cos((time() - start_time) * 8 * pi) + 1) / 2) / 4.25
-    layout = st_place(layout_slot_glow_effect(lane, size, height, y_offset=y_offset), transform)
+    layout = transform.transform_quad(layout_slot_glow_effect(lane, size, height, y_offset=y_offset))
     z = get_z(LAYER_SLOT_GLOW_EFFECT, start_time, lane, invert_time=True)
     a = remap_clamped(start_time, start_time + 0.25, 0.0, 0.3, time())
     sprite.draw(layout, z=z, a=a)

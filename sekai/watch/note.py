@@ -19,6 +19,7 @@ from sekai.debug import DISABLE_NOTES
 from sekai.lib.connector import ActiveConnectorInfo, ConnectorKind, ConnectorLayer, SegmentPresentation
 from sekai.lib.ease import EaseType, ease
 from sekai.lib.layout import (
+    IDENTITY_AFFINE_TRANSFORM,
     FlickDirection,
     Hitbox,
     StageTransform,
@@ -176,7 +177,7 @@ class WatchBaseNote(WatchArchetype):
                 get_leniency(self.kind),
                 self.target_time,
                 self.target_y_offset,
-                stage_transform=self.stage_transform_at(self.target_time, left_limit=True),
+                stage_transform=self.stage_transform_at(self.target_time, left_limit=True).transform(),
                 left_limit=True,
             )
 
@@ -239,7 +240,7 @@ class WatchBaseNote(WatchArchetype):
             pivot_lane=pivot_lane,
             half_offset=half_offset,
             single_line=single_line,
-            transform=transform,
+            transform=transform.transform(),
         )
 
     def spawn_time(self) -> float:
@@ -276,7 +277,7 @@ class WatchBaseNote(WatchArchetype):
                 self.visual_progress,
                 self.direction,
                 self.target_time,
-                transform=self.visual_stage_transform(),
+                transform=self.visual_stage_transform().transform(),
             )
         else:
             draw_note(
@@ -286,6 +287,7 @@ class WatchBaseNote(WatchArchetype):
                 self.visual_progress,
                 self.direction,
                 self.target_time,
+                transform=IDENTITY_AFFINE_TRANSFORM,
             )
         if Options.show_hitboxes and self.is_scored:
             input_interval = get_note_window(self.kind).bad + self.target_time
@@ -314,7 +316,7 @@ class WatchBaseNote(WatchArchetype):
                 pivot_lane=self.visual_pivot_lane,
                 half_offset=self.visual_half_offset,
                 lane_particles=self._stage_lane_particles_at(time()),
-                transform=self.visual_stage_transform(),
+                transform=self.visual_stage_transform().transform(),
             )
 
     def _basic_visual_lane_at(self, t: float) -> float:

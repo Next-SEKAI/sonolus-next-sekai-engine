@@ -163,7 +163,7 @@ class Connector(PlayArchetype):
                     input_size,
                     CONNECTOR_LENIENCY,
                     input_y_offset,
-                    stage_transform=input_transform,
+                    stage_transform=input_transform.transform(),
                 ).bounds
                 bounds = self.active_connector_info.input_bounds
                 for touch in touches():
@@ -359,7 +359,7 @@ class SlideManager(PlayArchetype):
         if time() < self.active_head.target_time:
             return
         info = self.active_head.active_connector_info
-        head_transform = self.active_segment_transform()
+        head_transform = self.active_segment_transform().transform()
         match info.connector_kind:
             case (
                 ConnectorKind.ACTIVE_NORMAL

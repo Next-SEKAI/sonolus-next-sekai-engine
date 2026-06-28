@@ -114,6 +114,41 @@ class CameraInfo(Record):
     stage_tilt: float
 
 
+class AffineTransform2d(Record):
+    a00: float
+    a01: float
+    a02: float
+    a10: float
+    a11: float
+    a12: float
+
+    def apply(self, p: Vec2) -> Vec2:
+        return Vec2(
+            self.a00 * p.x + self.a01 * p.y + self.a02,
+            self.a10 * p.x + self.a11 * p.y + self.a12,
+        )
+
+    def apply_inverse(self, p: Vec2) -> Vec2:
+        det = self.a00 * self.a11 - self.a01 * self.a10
+        dx = p.x - self.a02
+        dy = p.y - self.a12
+        return Vec2(
+            (self.a11 * dx - self.a01 * dy) / det,
+            (self.a00 * dy - self.a10 * dx) / det,
+        )
+
+    def transform_quad(self, q: QuadLike) -> Quad:
+        return Quad(
+            bl=self.apply(q.bl),
+            br=self.apply(q.br),
+            tl=self.apply(q.tl),
+            tr=self.apply(q.tr),
+        )
+
+
+IDENTITY_AFFINE_TRANSFORM = AffineTransform2d(a00=1.0, a01=0.0, a02=0.0, a10=0.0, a11=1.0, a12=0.0)
+
+
 class StageTransform(Record):
     """A per-stage rigid post-map in camera screen space.
 
@@ -126,19 +161,17 @@ class StageTransform(Record):
     tx: float
     ty: float
 
-
-def apply_stage_transform(p: Vec2, st: StageTransform) -> Vec2:
-    pivot = Vec2(st.px, st.py)
-    return (p - pivot).rotate(-st.sr) + pivot + Vec2(st.tx, st.ty)
-
-
-def st_quad(q: QuadLike, st: StageTransform) -> Quad:
-    return Quad(
-        bl=apply_stage_transform(q.bl, st),
-        br=apply_stage_transform(q.br, st),
-        tl=apply_stage_transform(q.tl, st),
-        tr=apply_stage_transform(q.tr, st),
-    )
+    def transform(self) -> AffineTransform2d:
+        cs = cos(self.sr)
+        sn = sin(self.sr)
+        return AffineTransform2d(
+            a00=cs,
+            a01=sn,
+            a02=self.px * (1 - cs) - sn * self.py + self.tx,
+            a10=-sn,
+            a11=cs,
+            a12=self.py * (1 - cs) + sn * self.px + self.ty,
+        )
 
 
 def identity_stage_transform() -> StageTransform:
@@ -147,12 +180,6 @@ def identity_stage_transform() -> StageTransform:
 
 def stage_transform_is_identity(st: StageTransform) -> bool:
     return st.sr == 0.0 and st.tx == 0.0 and st.ty == 0.0
-
-
-def st_place(q: QuadLike, transform: StageTransform | None) -> QuadLike:
-    if transform is None:
-        return q
-    return st_quad(q, transform)
 
 
 def compute_stage_transform(
@@ -647,11 +674,8 @@ def pre_rotation_vec_at(lane: float, travel: float = 1.0) -> Vec2:
     )
 
 
-def touch_to_lane(pos: Vec2, transform: StageTransform | None = None) -> float:
-    if transform is not None:
-        pivot = Vec2(transform.px, transform.py)
-        pos = (pos - pivot - Vec2(transform.tx, transform.ty)).rotate(transform.sr) + pivot
-    unrotated = pos.rotate(DynamicLayout.rotate)
+def touch_to_lane(pos: Vec2, transform: AffineTransform2d) -> float:
+    unrotated = transform.apply_inverse(pos).rotate(DynamicLayout.rotate)
     y_raw = (unrotated.y - DynamicLayout.t) / DynamicLayout.h_scale
     x_raw = (unrotated.x - DynamicLayout.x_translate) / DynamicLayout.w_scale
     width = tilt_width_factor(y_raw)
@@ -1044,20 +1068,25 @@ def st_slide_connector_segment(
     end_lane: float,
     end_size: float,
     end_travel: float,
-    start_transform: StageTransform,
-    end_transform: StageTransform,
+    start_transform: AffineTransform2d,
+    end_transform: AffineTransform2d,
 ) -> Quad:
-    if start_travel < end_travel:
-        start_lane, end_lane = end_lane, start_lane
-        start_size, end_size = end_size, start_size
-        start_travel, end_travel = end_travel, start_travel
-        swap(start_transform, end_transform)
-    return Quad(
-        bl=apply_stage_transform(perspective_vec(start_lane - start_size, 1, start_travel), start_transform),
-        br=apply_stage_transform(perspective_vec(start_lane + start_size, 1, start_travel), start_transform),
-        tl=apply_stage_transform(perspective_vec(end_lane - end_size, 1, end_travel), end_transform),
-        tr=apply_stage_transform(perspective_vec(end_lane + end_size, 1, end_travel), end_transform),
-    )
+    result = +Quad
+    if start_travel >= end_travel:
+        result @= Quad(
+            bl=start_transform.apply(perspective_vec(start_lane - start_size, 1, start_travel)),
+            br=start_transform.apply(perspective_vec(start_lane + start_size, 1, start_travel)),
+            tl=end_transform.apply(perspective_vec(end_lane - end_size, 1, end_travel)),
+            tr=end_transform.apply(perspective_vec(end_lane + end_size, 1, end_travel)),
+        )
+    else:
+        result @= Quad(
+            bl=end_transform.apply(perspective_vec(end_lane - end_size, 1, end_travel)),
+            br=end_transform.apply(perspective_vec(end_lane + end_size, 1, end_travel)),
+            tl=start_transform.apply(perspective_vec(start_lane - start_size, 1, start_travel)),
+            tr=start_transform.apply(perspective_vec(start_lane + start_size, 1, start_travel)),
+        )
+    return result
 
 
 def layout_sim_line(
@@ -1065,29 +1094,29 @@ def layout_sim_line(
     left_travel: float,
     right_lane: float,
     right_travel: float,
-    left_transform: StageTransform | None = None,
-    right_transform: StageTransform | None = None,
+    left_transform: AffineTransform2d,
+    right_transform: AffineTransform2d,
 ) -> Quad:
-    assert (left_transform is None) == (right_transform is None)
-    if left_lane > right_lane:
-        left_lane, right_lane = right_lane, left_lane
-        left_travel, right_travel = right_travel, left_travel
-        if left_transform is not None and right_transform is not None:
-            swap(left_transform, right_transform)
-    ml = perspective_vec(left_lane, 1, left_travel)
-    mr = perspective_vec(right_lane, 1, right_travel)
-    if left_transform is not None:
-        ml = apply_stage_transform(ml, left_transform)
-    if right_transform is not None:
-        mr = apply_stage_transform(mr, right_transform)
+    ml = +Vec2
+    mr = +Vec2
+    if left_lane <= right_lane:
+        ml @= left_transform.apply(perspective_vec(left_lane, 1, left_travel))
+        mr @= right_transform.apply(perspective_vec(right_lane, 1, right_travel))
+        ml_travel = left_travel
+        mr_travel = right_travel
+    else:
+        ml @= right_transform.apply(perspective_vec(right_lane, 1, right_travel))
+        mr @= left_transform.apply(perspective_vec(left_lane, 1, left_travel))
+        ml_travel = right_travel
+        mr_travel = left_travel
     ort = (mr - ml).orthogonal().normalize_or_zero()
-    left_h = DynamicLayout.scaled_note_h * tilt_width_factor(left_travel)
-    right_h = DynamicLayout.scaled_note_h * tilt_width_factor(right_travel)
+    ml_h = DynamicLayout.scaled_note_h * tilt_width_factor(ml_travel)
+    mr_h = DynamicLayout.scaled_note_h * tilt_width_factor(mr_travel)
     return Quad(
-        bl=ml + ort * left_h,
-        br=mr + ort * right_h,
-        tl=ml - ort * left_h,
-        tr=mr - ort * right_h,
+        bl=ml + ort * ml_h,
+        br=mr + ort * mr_h,
+        tl=ml - ort * ml_h,
+        tr=mr - ort * mr_h,
     )
 
 
@@ -1185,7 +1214,8 @@ def compute_hitbox(
     size: float,
     leniency: float,
     y_offset: float = 0.0,
-    stage_transform: StageTransform | None = None,
+    *,
+    stage_transform: AffineTransform2d,
 ) -> Hitbox:
     tilt = transform.stage_tilt
     travel = approach_at_tilt(1 - y_offset, tilt)
@@ -1210,19 +1240,12 @@ def compute_hitbox(
     br_x = r_x + leniency * lane_w
     b_y = note_y - vertical_extent
     t_y = note_y + vertical_extent
-    target_l = Vec2(l_x, note_y).rotate(rot)
-    target_r = Vec2(r_x, note_y).rotate(rot)
-    bound_bl = Vec2(bl_x, b_y).rotate(rot)
-    bound_br = Vec2(br_x, b_y).rotate(rot)
-    bound_tl = Vec2(bl_x, t_y).rotate(rot)
-    bound_tr = Vec2(br_x, t_y).rotate(rot)
-    if stage_transform is not None:
-        target_l = apply_stage_transform(target_l, stage_transform)
-        target_r = apply_stage_transform(target_r, stage_transform)
-        bound_bl = apply_stage_transform(bound_bl, stage_transform)
-        bound_br = apply_stage_transform(bound_br, stage_transform)
-        bound_tl = apply_stage_transform(bound_tl, stage_transform)
-        bound_tr = apply_stage_transform(bound_tr, stage_transform)
+    target_l = stage_transform.apply(Vec2(l_x, note_y).rotate(rot))
+    target_r = stage_transform.apply(Vec2(r_x, note_y).rotate(rot))
+    bound_bl = stage_transform.apply(Vec2(bl_x, b_y).rotate(rot))
+    bound_br = stage_transform.apply(Vec2(br_x, b_y).rotate(rot))
+    bound_tl = stage_transform.apply(Vec2(bl_x, t_y).rotate(rot))
+    bound_tr = stage_transform.apply(Vec2(br_x, t_y).rotate(rot))
     return Hitbox(
         target=HitboxTarget(l=target_l, r=target_r),
         bounds=Quad(bl=bound_bl, br=bound_br, tl=bound_tl, tr=bound_tr),
@@ -1239,7 +1262,8 @@ def compute_hitbox_at_time(
     leniency: float,
     target_time: float,
     y_offset: float = 0.0,
-    stage_transform: StageTransform | None = None,
+    *,
+    stage_transform: AffineTransform2d,
     left_limit: bool = False,
 ) -> Hitbox:
     return compute_hitbox(
@@ -1248,7 +1272,7 @@ def compute_hitbox_at_time(
         size,
         leniency,
         y_offset,
-        stage_transform,
+        stage_transform=stage_transform,
     )
 
 
