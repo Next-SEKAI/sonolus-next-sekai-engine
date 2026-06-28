@@ -149,12 +149,10 @@ def stage_transform_is_identity(st: StageTransform) -> bool:
     return st.sr == 0.0 and st.tx == 0.0 and st.ty == 0.0
 
 
-def center_anchor_y_lane() -> float:
-    base_t = Layout.field_h * FIELD_T_FACTOR
-    base_h = Layout.field_h * FIELD_B_FACTOR - base_t
-    base_w = Layout.field_w * FIELD_W_FACTOR
-    base_judge_y = approach_at_tilt(1.0, 1.0) * base_h + base_t
-    return -base_judge_y / base_w
+def st_place(q: QuadLike, transform: StageTransform | None) -> QuadLike:
+    if transform is None:
+        return q
+    return st_quad(q, transform)
 
 
 def compute_stage_transform(
@@ -171,8 +169,13 @@ def compute_stage_transform(
         mask_lane * width * camera.w_scale + camera.x_translate,
         travel * camera.h_scale + camera.t,
     ).rotate(-camera.rotate)
-    eff_y_lane = y_lane_translate + center_weight * center_anchor_y_lane()
-    offset = Vec2(x_lane_translate * camera.w_scale, eff_y_lane * camera.w_scale).rotate(-camera.rotate)
+    base_t = Layout.field_h * FIELD_T_FACTOR
+    base_h = Layout.field_h * FIELD_B_FACTOR - base_t
+    center_judge_y = camera.h_scale * (travel + base_t / base_h)
+    offset = Vec2(
+        x_lane_translate * camera.w_scale,
+        y_lane_translate * camera.w_scale - center_weight * center_judge_y,
+    ).rotate(-camera.rotate)
     return StageTransform(sr=stage_rotate, px=pivot.x, py=pivot.y, tx=offset.x, ty=offset.y)
 
 
@@ -1065,6 +1068,7 @@ def layout_sim_line(
     left_transform: StageTransform | None = None,
     right_transform: StageTransform | None = None,
 ) -> Quad:
+    assert (left_transform is None) == (right_transform is None)
     if left_lane > right_lane:
         left_lane, right_lane = right_lane, left_lane
         left_travel, right_travel = right_travel, left_travel

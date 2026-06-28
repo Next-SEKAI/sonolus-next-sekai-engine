@@ -36,8 +36,7 @@ from sekai.lib.layout import (
     layout_stage_cover_and_line,
     layout_stage_lane_by_edges,
     perspective_rect,
-    st_quad,
-    stage_transform_is_identity,
+    st_place,
     tilt_depth,
     tilt_widened_edge,
     tilt_width_factor,
@@ -660,14 +659,7 @@ def draw_dynamic_stage(
     right_border_style = normalize_transition(right_border_style)
 
     def place(q: QuadLike) -> QuadLike:
-        if transform is None:
-            return q
-        result = +Quad
-        if stage_transform_is_identity(transform):
-            result @= q
-        else:
-            result @= st_quad(q, transform)
-        return result
+        return st_place(q, transform)
 
     sprites_same = judge_line_color.start == judge_line_color.end
     sprites_a = get_judgment_sprites(judge_line_color.start)
@@ -1030,14 +1022,7 @@ def draw_fallback_stage(
     transform: StageTransform | None = None,
 ):
     def place(q: QuadLike) -> QuadLike:
-        if transform is None:
-            return q
-        result = +Quad
-        if stage_transform_is_identity(transform):
-            result @= q
-        else:
-            result @= st_quad(q, transform)
-        return result
+        return st_place(q, transform)
 
     judge_line_style = normalize_transition(judge_line_style)
     w_default = judge_line_style_weight(judge_line_style, JudgeLineStyle.DEFAULT)
@@ -1103,14 +1088,7 @@ def draw_per_stage_cover(
         return
 
     def place(q: QuadLike) -> QuadLike:
-        if transform is None:
-            return q
-        result = +Quad
-        if stage_transform_is_identity(transform):
-            result @= q
-        else:
-            result @= st_quad(q, transform)
-        return result
+        return st_place(q, transform)
 
     z_cover = get_z_alt(LAYER_COVER, order * 4)
     z_line = get_z_alt(LAYER_COVER, order * 4 + 1)
@@ -1173,7 +1151,5 @@ def schedule_lane_sfx(lane: float, target_time: float):
 
 def play_lane_particle(lane: float, transform: StageTransform | None = None):
     if Options.lane_effect_enabled:
-        layout = layout_particle_lane(lane, 0.5)
-        if transform is not None:
-            layout = st_quad(layout, transform)
+        layout = st_place(layout_particle_lane(lane, 0.5), transform)
         ActiveParticles.lane.spawn(layout, duration=0.3 / Options.effect_animation_speed)
