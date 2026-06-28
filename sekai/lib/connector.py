@@ -609,6 +609,9 @@ def draw_connector_default(
         )
 
         if has_transform:
+            # Satisfy pyright
+            assert head_transform is not None
+            assert tail_transform is not None
             layout @= st_slide_connector_segment(
                 start_lane=last_lane,
                 start_size=last_size,

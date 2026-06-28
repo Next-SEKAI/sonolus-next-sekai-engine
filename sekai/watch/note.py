@@ -186,35 +186,13 @@ class WatchBaseNote(WatchArchetype):
                     schedule_note_auto_sfx(self.effect_kind, self.target_time)
                 else:
                     schedule_note_sfx(self.effect_kind, self.judgment, self.end_time)
-                schedule_note_slot_effects(
-                    self.kind,
-                    self.visual_lane_at(self.end_time),
-                    self.size,
-                    self.end_time,
-                    self.direction,
-                    y_offset=self._basic_y_offset_at(self.end_time),
-                    pivot_lane=self._stage_pivot_lane_at(self.end_time),
-                    half_offset=self._stage_half_offset_at(self.end_time),
-                    single_line=self._stage_single_line_at(self.end_time),
-                    transform=self.stage_transform_at(self.end_time),
-                )
+                self.schedule_slot_effects_at(self.end_time)
             self.result.bucket_value = self.accuracy * 1000
         else:
             self.judgment = Judgment.PERFECT
             if self.is_scored:
                 schedule_note_sfx(self.effect_kind, Judgment.PERFECT, self.target_time)
-                schedule_note_slot_effects(
-                    self.kind,
-                    self.visual_lane_at(self.target_time),
-                    self.size,
-                    self.target_time,
-                    self.direction,
-                    y_offset=self._basic_y_offset_at(self.target_time),
-                    pivot_lane=self._stage_pivot_lane_at(self.target_time),
-                    half_offset=self._stage_half_offset_at(self.target_time),
-                    single_line=self._stage_single_line_at(self.target_time),
-                    transform=self.stage_transform_at(self.target_time),
-                )
+                self.schedule_slot_effects_at(self.target_time)
 
         self.result.target_time = self.target_time
 
@@ -222,6 +200,47 @@ class WatchBaseNote(WatchArchetype):
             stage = self.stage_ref.get()
             stage.start_time = min(stage.start_time, self.start_time - 1.0)
             stage.end_time = max(stage.end_time, self.target_time + 1.0)
+
+    def schedule_slot_effects_at(self, t: float):
+        transform = +StageTransform
+        if self.stage_ref.index > 0:
+            props = get_stage_props(self.stage_ref.get(), t)
+            pivot_lane = props.pivot_lane
+            y_offset = props.y_offset
+            half_offset = props.division.start.parity == DivisionParity.ODD and props.division.start.size % 2 == 1
+            single_line = resolve_judge_line_style(props.judge_line_style) == JudgeLineStyle.SINGLE_LINE
+            if self.is_attached:
+                visual_lane = self.visual_lane_at(t)
+                transform @= self.stage_transform_at(t)
+            else:
+                visual_lane = props.pivot_lane + self.rel_lane
+                transform @= compute_stage_transform(
+                    camera_layout_transform_at_time(t),
+                    props.rotate,
+                    props.x_lane_translate,
+                    props.y_lane_translate,
+                    props.lane,
+                    props.center_weight,
+                )
+        else:
+            pivot_lane = 0.0
+            y_offset = 0.0
+            half_offset = False
+            single_line = False
+            visual_lane = self.visual_lane_at(t)
+            transform @= self.stage_transform_at(t)
+        schedule_note_slot_effects(
+            self.kind,
+            visual_lane,
+            self.size,
+            t,
+            self.direction,
+            y_offset=y_offset,
+            pivot_lane=pivot_lane,
+            half_offset=half_offset,
+            single_line=single_line,
+            transform=transform,
+        )
 
     def spawn_time(self) -> float:
         if DISABLE_NOTES or self.kind == NoteKind.ANCHOR:
