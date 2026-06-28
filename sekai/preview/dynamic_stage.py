@@ -87,7 +87,7 @@ class PreviewDynamicStage(PreviewArchetype):
     first_mask_change_ref: EntityRef[PreviewStageMaskChange] = imported(name="firstMaskChange")
     first_pivot_change_ref: EntityRef[PreviewStagePivotChange] = imported(name="firstPivotChange")
     first_style_change_ref: EntityRef[PreviewStageStyleChange] = imported(name="firstStyleChange")
-    first_transform_change_ref: EntityRef[PreviewStageTransformChange] = imported(name="firstTransform")
+    first_transform_change_ref: EntityRef[PreviewStageTransformChange] = imported(name="firstTransformChange")
 
     start_time: float = entity_data()
     end_time: float = entity_data()

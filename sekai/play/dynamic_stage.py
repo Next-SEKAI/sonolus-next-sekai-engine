@@ -121,7 +121,7 @@ class DynamicStage(PlayArchetype):
     first_mask_change_ref: EntityRef[StageMaskChange] = imported(name="firstMaskChange")
     first_pivot_change_ref: EntityRef[StagePivotChange] = imported(name="firstPivotChange")
     first_style_change_ref: EntityRef[StageStyleChange] = imported(name="firstStyleChange")
-    first_transform_change_ref: EntityRef[StageTransformChange] = imported(name="firstTransform")
+    first_transform_change_ref: EntityRef[StageTransformChange] = imported(name="firstTransformChange")
 
     start_time: float = entity_data()
     end_time: float = entity_data()

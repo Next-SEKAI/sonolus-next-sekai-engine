@@ -97,7 +97,7 @@ class WatchDynamicStage(WatchArchetype):
     first_mask_change_ref: EntityRef[WatchStageMaskChange] = imported(name="firstMaskChange")
     first_pivot_change_ref: EntityRef[WatchStagePivotChange] = imported(name="firstPivotChange")
     first_style_change_ref: EntityRef[WatchStageStyleChange] = imported(name="firstStyleChange")
-    first_transform_change_ref: EntityRef[WatchStageTransformChange] = imported(name="firstTransform")
+    first_transform_change_ref: EntityRef[WatchStageTransformChange] = imported(name="firstTransformChange")
 
     start_time: float = entity_data()
     end_time: float = entity_data()
