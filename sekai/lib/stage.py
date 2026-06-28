@@ -38,6 +38,7 @@ from sekai.lib.layout import (
     layout_stage_cover_and_line,
     layout_stage_lane_by_edges,
     perspective_rect,
+    stage_aspect_ratio_locked,
     tilt_depth,
     tilt_widened_edge,
     tilt_width_factor,
@@ -544,7 +545,7 @@ TEST_ASPECT_BOX_EDGE = 0.004
 
 
 def draw_aspect_box(sprite: Sprite, ratio: float, sub: int):
-    if not Options.lock_stage_aspect_ratio:
+    if not stage_aspect_ratio_locked():
         return
     hf = TEST_ASPECT_SCALE * Layout.field_h / 2
     wf = TEST_ASPECT_SCALE * Layout.field_w / 2
