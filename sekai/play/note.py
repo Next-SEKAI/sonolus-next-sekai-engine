@@ -837,12 +837,10 @@ class BaseNote(PlayArchetype):
         if self.is_attached:
             head = self.attach_head_ref.get()
             tail = self.attach_tail_ref.get()
-            return remap_clamped(
-                head.target_time,
-                tail.target_time,
+            return lerp(
                 head._basic_visual_stage_rotate,
                 tail._basic_visual_stage_rotate,
-                self.target_time,
+                self.attach_eased_frac(time()),
             )
         return self._basic_visual_stage_rotate
 
