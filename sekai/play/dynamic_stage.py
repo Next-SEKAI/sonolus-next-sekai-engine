@@ -100,6 +100,7 @@ class StageTransformChange(PlayArchetype, BaseEvent):
     @callback(order=-2)
     def preprocess(self):
         LevelConfig.dynamic_stages = True
+        LevelConfig.has_stage_transforms = True
         self.time = beat_to_time(self.beat)
         self.rotate = self.rotate * pi / 180
         if Options.mirror:

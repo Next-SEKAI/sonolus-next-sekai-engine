@@ -217,7 +217,7 @@ def blend_stage_transform(a: StageTransform, b: StageTransform, frac: float) -> 
 
 
 def stage_aspect_ratio_locked() -> bool:
-    return Options.lock_stage_aspect_ratio or LevelConfig.dynamic_stages
+    return Options.lock_stage_aspect_ratio or LevelConfig.has_stage_transforms
 
 
 def init_layout():
