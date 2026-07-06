@@ -16,7 +16,7 @@ from sekai.lib import archetype_names
 from sekai.lib.baseevent import get_event_as, query_event_list
 from sekai.lib.ease import EaseType, ease
 from sekai.lib.effect import SFX_DISTANCE, Effects
-from sekai.lib.layer import LAYER_COVER, LAYER_GUIDE_CONNECTOR_OVER, LAYER_STAGE, get_z, get_z_alt
+from sekai.lib.layer import LAYER_COVER, LAYER_OVERLAY, LAYER_STAGE, get_z, get_z_alt
 from sekai.lib.layout import (
     IDENTITY_AFFINE_TRANSFORM,
     TEST_ASPECT_SCALE,
@@ -560,10 +560,10 @@ def draw_aspect_box(sprite: Sprite, ratio: float, sub: int):
     bottom = Rect(l=-hw - e, r=hw + e, t=-hh + e, b=-hh - e)
     left = Rect(l=-hw - e, r=-hw + e, t=hh, b=-hh)
     right = Rect(l=hw - e, r=hw + e, t=hh, b=-hh)
-    sprite.draw(top.as_quad(), z=get_z_alt(LAYER_GUIDE_CONNECTOR_OVER, 1000 + 4 * sub), a=1.0)
-    sprite.draw(bottom.as_quad(), z=get_z_alt(LAYER_GUIDE_CONNECTOR_OVER, 1000 + 4 * sub + 1), a=1.0)
-    sprite.draw(left.as_quad(), z=get_z_alt(LAYER_GUIDE_CONNECTOR_OVER, 1000 + 4 * sub + 2), a=1.0)
-    sprite.draw(right.as_quad(), z=get_z_alt(LAYER_GUIDE_CONNECTOR_OVER, 1000 + 4 * sub + 3), a=1.0)
+    sprite.draw(top.as_quad(), z=get_z_alt(LAYER_OVERLAY, 1000 + 4 * sub), a=1.0)
+    sprite.draw(bottom.as_quad(), z=get_z_alt(LAYER_OVERLAY, 1000 + 4 * sub + 1), a=1.0)
+    sprite.draw(left.as_quad(), z=get_z_alt(LAYER_OVERLAY, 1000 + 4 * sub + 2), a=1.0)
+    sprite.draw(right.as_quad(), z=get_z_alt(LAYER_OVERLAY, 1000 + 4 * sub + 3), a=1.0)
 
 
 def draw_test_aspect_overlay():
