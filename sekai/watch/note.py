@@ -201,10 +201,19 @@ class WatchBaseNote(WatchArchetype):
 
         self.result.target_time = self.target_time
 
+        self.extend_stage_windows(self.start_time - 1.0, max(self.target_time, self.despawn_time()) + 1.0)
+
+    def _basic_extend_stage_window(self, start_time: float, end_time: float):
         if self.stage_ref.index > 0:
             stage = self.stage_ref.get()
-            stage.start_time = min(stage.start_time, self.start_time - 1.0)
-            stage.end_time = max(stage.end_time, self.target_time + 1.0)
+            stage.start_time = min(stage.start_time, start_time)
+            stage.end_time = max(stage.end_time, end_time)
+
+    def extend_stage_windows(self, start_time: float, end_time: float):
+        if self.is_attached:
+            self.attach_head_ref.get()._basic_extend_stage_window(start_time, end_time)
+            self.attach_tail_ref.get()._basic_extend_stage_window(start_time, end_time)
+        self._basic_extend_stage_window(start_time, end_time)
 
     def schedule_slot_effects_at(self, t: float):
         transform = +StageTransform
@@ -282,6 +291,7 @@ class WatchBaseNote(WatchArchetype):
                 self.direction,
                 self.target_time,
                 transform=self.visual_stage_transform().transform(),
+                note_alpha=self.visual_note_alpha,
             )
         else:
             draw_note(
@@ -292,6 +302,7 @@ class WatchBaseNote(WatchArchetype):
                 self.direction,
                 self.target_time,
                 transform=IDENTITY_AFFINE_TRANSFORM,
+                note_alpha=self.visual_note_alpha,
             )
         if Options.show_hitboxes and self.is_scored:
             input_interval = get_note_window(self.kind).bad + self.target_time
@@ -334,6 +345,27 @@ class WatchBaseNote(WatchArchetype):
             tail = self.attach_tail_ref.get()
             return lerp(head._basic_visual_lane_at(t), tail._basic_visual_lane_at(t), self.attach_eased_frac)
         return self._basic_visual_lane_at(t)
+
+    @property
+    def _basic_visual_note_alpha(self) -> float:
+        if self.stage_ref.index > 0:
+            return self.stage_ref.get().props.note_alpha
+        else:
+            return 1.0
+
+    @property
+    def visual_note_alpha(self) -> float:
+        if self.is_attached:
+            head = self.attach_head_ref.get()
+            tail = self.attach_tail_ref.get()
+            return remap_clamped(
+                head.target_time,
+                tail.target_time,
+                head._basic_visual_note_alpha,
+                tail._basic_visual_note_alpha,
+                self.target_time,
+            )
+        return self._basic_visual_note_alpha
 
     def _basic_y_offset_at(self, t: float, left_limit: bool = False) -> float:
         if self.stage_ref.index <= 0:

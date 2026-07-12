@@ -322,10 +322,12 @@ def draw_connector(
     segment_tail_target_time: float,
     segment_tail_alpha: float,
     layer: ConnectorLayer,
-    presentation: SegmentPresentation = SegmentPresentation.DEFAULT,
-    bypass_tail_target_time_check: bool = False,
-    head_transform: StageTransform | None = None,
-    tail_transform: StageTransform | None = None,
+    presentation: SegmentPresentation,
+    bypass_tail_target_time_check: bool,
+    head_transform: StageTransform | None,
+    tail_transform: StageTransform | None,
+    head_note_alpha: float,
+    tail_note_alpha: float,
 ):
     match presentation:
         case SegmentPresentation.DEFAULT:
@@ -353,6 +355,9 @@ def draw_connector(
         ConnectorKind.ACTIVE_FAKE_NORMAL,
         ConnectorKind.ACTIVE_FAKE_CRITICAL,
     }:
+        return
+
+    if head_note_alpha <= 0 and tail_note_alpha <= 0:
         return
 
     if ease_type == EaseType.NONE:
@@ -411,11 +416,17 @@ def draw_connector(
         case _:
             assert_never(kind)
 
-    head_alpha = remap_clamped(
-        segment_head_target_time, segment_tail_target_time, segment_head_alpha, segment_tail_alpha, head_target_time
+    head_alpha = (
+        remap_clamped(
+            segment_head_target_time, segment_tail_target_time, segment_head_alpha, segment_tail_alpha, head_target_time
+        )
+        * head_note_alpha
     )
-    tail_alpha = remap_clamped(
-        segment_head_target_time, segment_tail_target_time, segment_head_alpha, segment_tail_alpha, tail_target_time
+    tail_alpha = (
+        remap_clamped(
+            segment_head_target_time, segment_tail_target_time, segment_head_alpha, segment_tail_alpha, tail_target_time
+        )
+        * tail_note_alpha
     )
 
     if time() >= tail_target_time and not bypass_tail_target_time_check:
@@ -564,9 +575,10 @@ def draw_connector_default(
                 last_pos_offset = current_pos_offset
             total_pos_offsets += abs(last_pos_offset) ** 0.6
             curve_change_scale = total_pos_offsets * 1.5
+    alpha_change_delta = min(abs(start_alpha - end_alpha) * get_connector_alpha_option(kind), 1.0)
     alpha_change_scale = max(
-        (abs(start_alpha - end_alpha) * get_connector_alpha_option(kind)) ** 0.8 * 3,
-        (abs(start_alpha - end_alpha) * get_connector_alpha_option(kind)) ** 0.5 * abs(start_pos_y - end_pos_y) * 3,
+        alpha_change_delta**0.8 * 3,
+        alpha_change_delta**0.5 * abs(start_pos_y - end_pos_y) * 3,
     )
     quality = get_connector_quality_option(kind)
     segment_count = max(1, ceil(max(curve_change_scale, alpha_change_scale) * quality * 10))

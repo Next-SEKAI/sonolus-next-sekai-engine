@@ -111,6 +111,7 @@ An event that controls the visual style of a stage.
 * **laneAlpha (float)**
 * **judgeLineAlpha (float)**
 * **divisionLineAlpha (float)**: Multiplies the alpha of the lane dividers (on top of `laneAlpha`), letting the dividers fade independently of the lane background, judge line, and borders. Defaults to 1.
+* **noteAlpha (float)**: Multiplies the alpha of the notes currently on the stage, including connectors. Defaults to 1.
 * **ease (EaseType)**
 * **next (ref?[StageStyleChange])**: A reference to the next **StageStyleChange** event.
 

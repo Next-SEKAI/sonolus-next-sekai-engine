@@ -333,14 +333,17 @@ def draw_note(
     direction: FlickDirection,
     target_time: float,
     transform: AffineTransform2d,
+    note_alpha: float,
 ):
     if not DynamicLayout.progress_start <= visual_progress <= DynamicLayout.progress_cutoff:
         return
+    if note_alpha <= 0:
+        return
     travel = approach(visual_progress)
     sprite_set = get_note_sprite_set(kind, direction)
-    draw_note_body(sprite_set.body, kind, lane, size, travel, target_time, transform)
-    draw_note_arrow(sprite_set.arrow, kind, lane, size, travel, target_time, direction, transform)
-    draw_note_tick(sprite_set.tick, lane, travel, target_time, transform)
+    draw_note_body(sprite_set.body, kind, lane, size, travel, target_time, transform, note_alpha)
+    draw_note_arrow(sprite_set.arrow, kind, lane, size, travel, target_time, direction, transform, note_alpha)
+    draw_note_tick(sprite_set.tick, lane, travel, target_time, transform, note_alpha)
 
 
 def draw_slide_note_head(
@@ -352,8 +355,11 @@ def draw_slide_note_head(
     visual_progress: float = 1.0,
     *,
     transform: AffineTransform2d,
+    note_alpha: float,
 ):
     if Options.hidden > 0:
+        return
+    if note_alpha <= 0:
         return
     match connector_kind:
         case ConnectorKind.ACTIVE_NORMAL | ConnectorKind.ACTIVE_FAKE_NORMAL:
@@ -364,8 +370,8 @@ def draw_slide_note_head(
             assert_never(connector_kind)
     travel = approach(visual_progress)
     sprite_set = get_note_sprite_set(kind, FlickDirection.UP_OMNI)
-    draw_note_body(sprite_set.body, kind, lane, size, travel, target_time, transform)
-    draw_note_tick(sprite_set.tick, lane, travel, target_time, transform)
+    draw_note_body(sprite_set.body, kind, lane, size, travel, target_time, transform, note_alpha)
+    draw_note_tick(sprite_set.tick, lane, travel, target_time, transform, note_alpha)
 
 
 def note_kind_as_normal(kind: NoteKind) -> NoteKind:
@@ -543,9 +549,10 @@ def draw_note_body(
     travel: float,
     target_time: float,
     transform: AffineTransform2d,
+    note_alpha: float,
 ):
     layer = get_note_body_layer(kind)
-    a = get_alpha(target_time)
+    a = min(get_alpha(target_time) * note_alpha, 1.0)
     z = get_z(layer, time=target_time, lane=lane)
 
     def place(q):
@@ -570,8 +577,10 @@ def draw_note_body(
             sprites.middle.draw(place(layout), z=z, a=a)
 
 
-def draw_note_tick(sprite: Sprite, lane: float, travel: float, target_time: float, transform: AffineTransform2d):
-    a = get_alpha(target_time)
+def draw_note_tick(
+    sprite: Sprite, lane: float, travel: float, target_time: float, transform: AffineTransform2d, note_alpha: float
+):
+    a = min(get_alpha(target_time) * note_alpha, 1.0)
     z = get_z(LAYER_NOTE_TICK, time=target_time, lane=lane)
     layout = transform.transform_quad(layout_tick(lane, travel))
     sprite.draw(layout, z=z, a=a)
@@ -586,6 +595,7 @@ def draw_note_arrow(
     target_time: float,
     direction: FlickDirection,
     transform: AffineTransform2d,
+    note_alpha: float,
 ):
     match direction:
         case _ if Options.marker_animation:
@@ -598,7 +608,7 @@ def draw_note_arrow(
         case _:
             assert_never(direction)
     animation_alpha = (1 - ease_in_cubic(animation_progress)) if Options.marker_animation else 1
-    a = get_alpha(target_time) * animation_alpha
+    a = min(get_alpha(target_time) * animation_alpha * note_alpha, 1.0)
     z = get_z(LAYER_NOTE_ARROW, time=target_time, lane=lane, etc=direction + 6 * (not is_critical(kind)))
     match sprites.render_type:
         case ArrowRenderType.NORMAL:

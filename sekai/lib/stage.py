@@ -129,6 +129,7 @@ class StageProps(Record):
     judge_line_style: Transition[JudgeLineStyle]
     full_width: float
     division_line_alpha: float
+    note_alpha: float
     rotate: float
     x_lane_translate: float
     y_lane_translate: float
@@ -221,6 +222,7 @@ class StageStyleChangeLike(Protocol):
     lane_alpha: float
     judge_line_alpha: float
     division_line_alpha: float
+    note_alpha: float
     ease: EaseType
     next_ref: EntityRef
     prev_ref: EntityRef
@@ -357,6 +359,7 @@ def get_stage_props(stage: DynamicStageLike, target_time: float | None = None, l
     t = target_time if target_time is not None else runtime.time()
     result = +StageProps
     result.order = stage.index
+    result.note_alpha = 1.0
 
     first_mask_change_ref = stage.first_mask_change_ref
     first_pivot_change_ref = stage.first_pivot_change_ref
@@ -461,6 +464,7 @@ def get_stage_props(stage: DynamicStageLike, target_time: float | None = None, l
         result.judge_line_alpha = style_a.judge_line_alpha
         result.full_width = full_width_factor(style_a.full_width)
         result.division_line_alpha = style_a.division_line_alpha
+        result.note_alpha = style_a.note_alpha
         if style_b_ref.index > 0:
             style_b = get_event_as(style_b_ref, _stage_style_change_archetype())
             t_a = style_a.time
@@ -482,6 +486,7 @@ def get_stage_props(stage: DynamicStageLike, target_time: float | None = None, l
                     full_width_factor(style_a.full_width), full_width_factor(style_b.full_width), p
                 )
                 result.division_line_alpha = lerp(style_a.division_line_alpha, style_b.division_line_alpha, p)
+                result.note_alpha = lerp(style_a.note_alpha, style_b.note_alpha, p)
     elif style_b_ref.index > 0:
         style_b = get_event_as(style_b_ref, _stage_style_change_archetype())
         result.judge_line_color.start = style_b.judge_line_color
@@ -497,6 +502,7 @@ def get_stage_props(stage: DynamicStageLike, target_time: float | None = None, l
         result.judge_line_alpha = style_b.judge_line_alpha
         result.full_width = full_width_factor(style_b.full_width)
         result.division_line_alpha = style_b.division_line_alpha
+        result.note_alpha = style_b.note_alpha
 
     # Query transform changes
     transform_a_ref, transform_b_ref = query_event_list(first_transform_change_ref, t, lambda e: e.time)

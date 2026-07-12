@@ -70,6 +70,9 @@ class WatchConnector(WatchArchetype):
         if self.segment_head.segment_through_judge_line:
             self.end_time += CONNECTOR_THROUGH_JUDGE_LINE_DESPAWN_DELAY
 
+        head.extend_stage_windows(self.start_time - 1.0, self.end_time + 1.0)
+        tail.extend_stage_windows(self.start_time - 1.0, self.end_time + 1.0)
+
         if self.head_ref.index == self.active_head_ref.index:
             # This is the first connector, so spawn the WatchSlideManager.
             WatchSlideManager.spawn(active_head_ref=self.active_head_ref, active_tail_ref=self.active_tail_ref)
@@ -134,6 +137,9 @@ class WatchConnector(WatchArchetype):
                     head.target_time, tail.target_time, head.visual_y_offset, tail.visual_y_offset, time()
                 )
                 head_target_time = time()
+                head_note_alpha = remap_clamped(
+                    head.target_time, tail.target_time, head.visual_note_alpha, tail.visual_note_alpha, time()
+                )
                 if self.ease_type == EaseType.NONE:
                     head_lane = head.visual_lane
                     head_size = head.size
@@ -160,6 +166,7 @@ class WatchConnector(WatchArchetype):
                 head_visual_progress = head.visual_progress
                 head_target_time = head.target_time
                 head_ease_frac = head.head_ease_frac
+                head_note_alpha = head.visual_note_alpha
                 head_transform @= head.visual_stage_transform()
             draw_connector(
                 kind=self.kind,
@@ -185,6 +192,8 @@ class WatchConnector(WatchArchetype):
                 bypass_tail_target_time_check=segment_head.segment_through_judge_line,
                 head_transform=head_transform,
                 tail_transform=tail_transform,
+                head_note_alpha=head_note_alpha,
+                tail_note_alpha=tail.visual_note_alpha,
             )
         if Options.show_hitboxes and self.active_head_ref.index > 0 and time() in self.visual_active_interval:
             input_lane, input_size = self.get_attached_params(time())
@@ -347,7 +356,8 @@ class WatchSlideManager(WatchArchetype):
         if time() < self.active_head.target_time:
             return
         info = self.active_head.active_connector_info
-        head_transform = self.active_segment_transform().transform()
+        segment_transform, segment_note_alpha = self.active_segment_transform_and_note_alpha()
+        head_transform = segment_transform.transform()
         connector_kind = (
             Streams.connector_effect_kinds[self.active_head.index].get_previous_inclusive(time())
             if is_replay()
@@ -426,6 +436,7 @@ class WatchSlideManager(WatchArchetype):
                     self.active_head.target_time,
                     1.0 - info.visual_y_offset,
                     transform=head_transform,
+                    note_alpha=segment_note_alpha,
                 )
             case _:
                 pass
@@ -434,7 +445,7 @@ class WatchSlideManager(WatchArchetype):
         destroy_looped_particle(self.circular_particle)
         destroy_looped_particle(self.linear_particle)
 
-    def active_segment_transform(self) -> StageTransform:
+    def active_segment_transform_and_note_alpha(self) -> tuple[StageTransform, float]:
         result = +StageTransform
         head_ref = +self.active_head_ref
         next_ref = +head_ref.get().next_ref
@@ -442,6 +453,7 @@ class WatchSlideManager(WatchArchetype):
             head_ref.index = next_ref.index
             next_ref.index = head_ref.get().next_ref.index
         seg_head = head_ref.get()
+        note_alpha = seg_head.visual_note_alpha
         if next_ref.index > 0:
             seg_tail = next_ref.get()
             frac = remap_clamped(seg_head.target_time, seg_tail.target_time, 0.0, 1.0, time())
@@ -450,9 +462,10 @@ class WatchSlideManager(WatchArchetype):
                 seg_tail.visual_stage_transform(),
                 ease(seg_head.connector_ease, frac),
             )
+            note_alpha = lerp(seg_head.visual_note_alpha, seg_tail.visual_note_alpha, frac)
         else:
             result @= seg_head.visual_stage_transform()
-        return result
+        return result, note_alpha
 
     @property
     def active_head(self) -> note.WatchBaseNote:

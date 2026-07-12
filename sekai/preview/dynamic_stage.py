@@ -170,6 +170,7 @@ class PreviewStageStyleChange(PreviewArchetype, BaseEvent):
     lane_alpha: float = imported(name="laneAlpha")
     judge_line_alpha: float = imported(name="judgeLineAlpha")
     division_line_alpha: float = imported(name="divisionLineAlpha", default=1)
+    note_alpha: float = imported(name="noteAlpha", default=1)
     ease: EaseType = imported()
     next_ref: EntityRef[PreviewStageStyleChange] = imported(name="next")
 
