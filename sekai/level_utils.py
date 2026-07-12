@@ -113,11 +113,11 @@ class LevelStageStyleChange:
     judge_line_color: JudgeLineColor
     left_border_style: StageBorderStyle
     right_border_style: StageBorderStyle
-    alpha: float
     lane_alpha: float
     judge_line_alpha: float
     judge_line_style: JudgeLineStyle = JudgeLineStyle.DEFAULT
     full_width: bool = False
+    alpha: float = 1.0  # Deprecated
     division_line_alpha: float = 1.0
     note_alpha: float = 1.0
     ease: EaseType = EaseType.LINEAR

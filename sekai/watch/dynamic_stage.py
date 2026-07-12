@@ -192,7 +192,7 @@ class WatchStageStyleChange(WatchArchetype, BaseEvent):
     left_border_style: StageBorderStyle = imported(name="leftBorderStyle")
     right_border_style: StageBorderStyle = imported(name="rightBorderStyle")
     full_width: bool = imported(name="fullWidth")
-    alpha: float = imported()
+    alpha: float = imported(default=1)  # Deprecated
     lane_alpha: float = imported(name="laneAlpha")
     judge_line_alpha: float = imported(name="judgeLineAlpha")
     division_line_alpha: float = imported(name="divisionLineAlpha", default=1)
@@ -206,5 +206,7 @@ class WatchStageStyleChange(WatchArchetype, BaseEvent):
     def preprocess(self):
         LevelConfig.dynamic_stages = True
         self.time = beat_to_time(self.beat)
+        self.lane_alpha *= self.alpha
+        self.judge_line_alpha *= self.alpha
         if Options.mirror:
             self.left_border_style, self.right_border_style = self.right_border_style, self.left_border_style
