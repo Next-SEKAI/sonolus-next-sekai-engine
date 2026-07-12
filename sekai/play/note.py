@@ -331,10 +331,11 @@ class BaseNote(PlayArchetype):
         if not self.is_scored and time() >= self.target_time:
             self.despawn = True
             return
-        if time() < self.visual_start_time:
-            return
         if time() > self.input_interval.end:
             self.handle_late_miss()
+            return
+        self.draw_hitbox()
+        if time() < self.visual_start_time:
             return
         if is_head(self.kind) and time() > self.target_time:
             return
@@ -364,14 +365,17 @@ class BaseNote(PlayArchetype):
                 transform=IDENTITY_AFFINE_TRANSFORM,
                 note_alpha=self.visual_note_alpha,
             )
-        if Options.show_hitboxes and self.is_scored:
-            draw_start = min(self.unadjusted_input_interval.start, self.target_time - HITBOX_DRAW_MIN_EARLY_WINDOW)
-            if draw_start <= offset_adjusted_time() <= self.unadjusted_input_interval.end:
-                draw_hitbox_overlay(
-                    self.hitbox,
-                    has_tap_input(self.kind) or has_release_input(self.kind),
-                    unlerp_clamped(draw_start, self.target_time, offset_adjusted_time()),
-                )
+
+    def draw_hitbox(self):
+        if not Options.show_hitboxes or not self.is_scored:
+            return
+        draw_start = min(self.unadjusted_input_interval.start, self.target_time - HITBOX_DRAW_MIN_EARLY_WINDOW)
+        if draw_start <= offset_adjusted_time() <= self.unadjusted_input_interval.end:
+            draw_hitbox_overlay(
+                self.hitbox,
+                self.kind,
+                unlerp_clamped(draw_start, self.target_time, offset_adjusted_time()),
+            )
 
     def should_do_delayed_trigger(self) -> bool:
         # Don't trigger if the previous frame was before the target time.

@@ -110,6 +110,14 @@ class ConnectorVisualState(IntEnum):
     ACTIVE = 2
 
 
+def is_fake_active_connector(kind: ConnectorKind) -> bool:
+    return kind in {ConnectorKind.ACTIVE_FAKE_NORMAL, ConnectorKind.ACTIVE_FAKE_CRITICAL}
+
+
+def has_connector_input(kind: ConnectorKind) -> bool:
+    return kind in {ConnectorKind.ACTIVE_NORMAL, ConnectorKind.ACTIVE_CRITICAL}
+
+
 def get_active_connector_sprites(kind: ActiveConnectorKind) -> ActiveConnectorSpriteSet:
     result = +ActiveConnectorSpriteSet
     match kind:
@@ -351,10 +359,7 @@ def draw_connector(
         case _:
             assert_never(presentation)
 
-    if Options.disable_fake_notes and kind in {
-        ConnectorKind.ACTIVE_FAKE_NORMAL,
-        ConnectorKind.ACTIVE_FAKE_CRITICAL,
-    }:
+    if Options.disable_fake_notes and is_fake_active_connector(kind):
         return
 
     if head_note_alpha <= 0 and tail_note_alpha <= 0:

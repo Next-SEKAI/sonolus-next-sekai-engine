@@ -41,8 +41,6 @@ from sekai.lib.note import (
     get_note_effect_kind,
     get_note_window,
     get_visual_spawn_time,
-    has_release_input,
-    has_tap_input,
     is_head,
     map_note_kind,
     mirror_flick_direction,
@@ -274,6 +272,7 @@ class WatchBaseNote(WatchArchetype):
         update_timescale_group(self.timescale_group)
 
     def update_parallel(self):
+        self.draw_hitbox()
         if time() < self.visual_start_time:
             return
         if is_head(self.kind) and time() > self.target_time:
@@ -304,15 +303,18 @@ class WatchBaseNote(WatchArchetype):
                 transform=IDENTITY_AFFINE_TRANSFORM,
                 note_alpha=self.visual_note_alpha,
             )
-        if Options.show_hitboxes and self.is_scored:
-            input_interval = get_note_window(self.kind).bad + self.target_time
-            draw_start = min(input_interval.start, self.target_time - HITBOX_DRAW_MIN_EARLY_WINDOW)
-            if draw_start <= time() <= input_interval.end:
-                draw_hitbox_overlay(
-                    self.hitbox,
-                    has_tap_input(self.kind) or has_release_input(self.kind),
-                    unlerp_clamped(draw_start, self.target_time, time()),
-                )
+
+    def draw_hitbox(self):
+        if not Options.show_hitboxes or not self.is_scored:
+            return
+        input_interval = get_note_window(self.kind).bad + self.target_time
+        draw_start = min(input_interval.start, self.target_time - HITBOX_DRAW_MIN_EARLY_WINDOW)
+        if draw_start <= time() <= input_interval.end:
+            draw_hitbox_overlay(
+                self.hitbox,
+                self.kind,
+                unlerp_clamped(draw_start, self.target_time, time()),
+            )
 
     def terminate(self):
         if is_skip():

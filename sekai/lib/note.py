@@ -1285,19 +1285,41 @@ def draw_hitbox_marker(
     )
 
 
-def draw_hitbox_bounds_overlay(bounds: Quad, alpha: float = 1.0):
+def get_hitbox_bounds_sprite(kind: NoteKind) -> Sprite:
+    result = +Sprite
+    if kind == NoteKind.DAMAGE:
+        result @= ActiveSkin.guide_green
+    else:
+        result @= ActiveSkin.guide_blue
+    return result
+
+
+def get_hitbox_target_sprite(kind: NoteKind) -> Sprite:
+    result = +Sprite
+    if kind == NoteKind.DAMAGE:
+        result @= ActiveSkin.guide_yellow
+    else:
+        result @= ActiveSkin.guide_red
+    return result
+
+
+def draw_hitbox_bounds_overlay(bounds: Quad, sprite: Sprite, alpha: float):
     t = HITBOX_DEBUG_BORDER_THICKNESS
     a = alpha
     z_bounds = get_z_alt(LAYER_OVERLAY, 0)
-    draw_hitbox_line(ActiveSkin.guide_blue, bounds.tl, bounds.tr, t, z_bounds, a)
-    draw_hitbox_line(ActiveSkin.guide_blue, bounds.bl, bounds.br, t, z_bounds, a)
-    draw_hitbox_line(ActiveSkin.guide_blue, bounds.tl, bounds.bl, t, z_bounds, a)
-    draw_hitbox_line(ActiveSkin.guide_blue, bounds.tr, bounds.br, t, z_bounds, a)
-    draw_hitbox_line(ActiveSkin.guide_blue, bounds.tl, bounds.br, t, z_bounds, a)
-    draw_hitbox_line(ActiveSkin.guide_blue, bounds.tr, bounds.bl, t, z_bounds, a)
+    draw_hitbox_line(sprite, bounds.tl, bounds.tr, t, z_bounds, a)
+    draw_hitbox_line(sprite, bounds.bl, bounds.br, t, z_bounds, a)
+    draw_hitbox_line(sprite, bounds.tl, bounds.bl, t, z_bounds, a)
+    draw_hitbox_line(sprite, bounds.tr, bounds.br, t, z_bounds, a)
+    draw_hitbox_line(sprite, bounds.tl, bounds.br, t, z_bounds, a)
+    draw_hitbox_line(sprite, bounds.tr, bounds.bl, t, z_bounds, a)
 
 
-def draw_hitbox_overlay(hitbox: Hitbox, draw_target: bool, alpha: float = 1.0):
+def draw_connector_hitbox_overlay(bounds: Quad, alpha: float):
+    draw_hitbox_bounds_overlay(bounds, ActiveSkin.guide_blue, alpha)
+
+
+def draw_hitbox_overlay(hitbox: Hitbox, kind: NoteKind, alpha: float):
     t = HITBOX_DEBUG_BORDER_THICKNESS
     a = alpha
     z_triangle = get_z_alt(LAYER_OVERLAY, 1)
@@ -1305,9 +1327,10 @@ def draw_hitbox_overlay(hitbox: Hitbox, draw_target: bool, alpha: float = 1.0):
     z_target = get_z_alt(LAYER_OVERLAY, 3)
     z_target_dot = get_z_alt(LAYER_OVERLAY, 4)
 
-    draw_hitbox_bounds_overlay(hitbox.bounds, alpha)
+    draw_hitbox_bounds_overlay(hitbox.bounds, get_hitbox_bounds_sprite(kind), alpha)
 
-    if draw_target:
+    if has_tap_input(kind) or has_release_input(kind):
+        target_sprite = get_hitbox_target_sprite(kind)
         l = hitbox.target.l
         r = hitbox.target.r
         axis = (r - l).normalize_or_zero()
@@ -1315,7 +1338,7 @@ def draw_hitbox_overlay(hitbox: Hitbox, draw_target: bool, alpha: float = 1.0):
         apex_half = HITBOX_DEBUG_APEX_HALF
         target_apex = (l + r) / 2 + ortho * HITBOX_DEBUG_TRIANGLE_HEIGHT
         draw_hitbox_line(
-            ActiveSkin.guide_red,
+            target_sprite,
             l,
             target_apex,
             t,
@@ -1323,14 +1346,14 @@ def draw_hitbox_overlay(hitbox: Hitbox, draw_target: bool, alpha: float = 1.0):
             a,
         )
         draw_hitbox_line(
-            ActiveSkin.guide_red,
+            target_sprite,
             r,
             target_apex,
             t,
             z_triangle,
             a,
         )
-        ActiveSkin.guide_red.draw(
+        target_sprite.draw(
             Quad(
                 bl=target_apex - axis * apex_half - ortho * apex_half,
                 tl=target_apex - axis * apex_half + ortho * apex_half,
@@ -1343,7 +1366,7 @@ def draw_hitbox_overlay(hitbox: Hitbox, draw_target: bool, alpha: float = 1.0):
         draw_hitbox_marker(
             l=l,
             r=r,
-            main_sprite=ActiveSkin.guide_red,
+            main_sprite=target_sprite,
             dot_sprite=ActiveSkin.guide_black,
             z=z_target,
             z_dot=z_target_dot,

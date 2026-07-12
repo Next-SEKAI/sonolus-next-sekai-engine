@@ -20,6 +20,7 @@ from sekai.lib.connector import (
     destroy_looped_particle,
     draw_connector,
     draw_connector_slot_glow_effect,
+    has_connector_input,
     schedule_connector_sfx,
     spawn_connector_slot_particles,
     spawn_linear_connector_trail_particle,
@@ -28,7 +29,7 @@ from sekai.lib.connector import (
 )
 from sekai.lib.ease import EaseType, ease
 from sekai.lib.layout import StageTransform, blend_stage_transform, compute_hitbox, current_layout_transform
-from sekai.lib.note import draw_hitbox_bounds_overlay, draw_slide_note_head, get_attach_params
+from sekai.lib.note import draw_connector_hitbox_overlay, draw_slide_note_head, get_attach_params
 from sekai.lib.options import Options
 from sekai.lib.streams import Streams
 from sekai.lib.timescale import group_hide_notes, update_timescale_group
@@ -111,6 +112,7 @@ class WatchConnector(WatchArchetype):
             self.active_connector_info.connector_kind = ConnectorKind.NONE
 
     def update_parallel(self):
+        self.draw_hitbox()
         if time() < self.visual_active_interval.end or self.segment_head.segment_through_judge_line:
             head = self.head
             tail = self.tail
@@ -195,7 +197,13 @@ class WatchConnector(WatchArchetype):
                 head_note_alpha=head_note_alpha,
                 tail_note_alpha=tail.visual_note_alpha,
             )
-        if Options.show_hitboxes and self.active_head_ref.index > 0 and time() in self.visual_active_interval:
+
+    def draw_hitbox(self):
+        if not Options.show_hitboxes:
+            return
+        if self.active_head_ref.index <= 0 or not has_connector_input(self.kind):
+            return
+        if time() in self.visual_active_interval:
             input_lane, input_size = self.get_attached_params(time())
             head = self.head
             tail = self.tail
@@ -219,7 +227,7 @@ class WatchConnector(WatchArchetype):
                 input_y_offset,
                 stage_transform=input_transform.transform(),
             ).bounds
-            draw_hitbox_bounds_overlay(bounds, 0.6)
+            draw_connector_hitbox_overlay(bounds, 0.6)
 
     def get_attached_params(self, target_time: float) -> tuple[float, float]:
         head = self.head_ref.get().effective_attach_head
