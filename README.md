@@ -133,6 +133,13 @@ Shorthand used in the tables:
 | Neutral | `Sekai Guide Neutral` -> `NOTE_CONNECTION_NEUTRAL_SEAMLESS` |
 | Black   | `Sekai Guide Black` -> `NOTE_CONNECTION_NEUTRAL_SEAMLESS`   |
 
+#### Damage Slide Connectors
+
+| Connector        | Precedence                                                                |
+|------------------|---------------------------------------------------------------------------|
+| Damage           | `Sekai Damage Slide Connection` -> `NOTE_CONNECTION_PURPLE_SEAMLESS`      |
+| Damage (Touched) | `Sekai Damage Slide Connection Active` -> `NOTE_CONNECTION_RED_SEAMLESS`  |
+
 ### Effect Clips
 
 | Name                   |

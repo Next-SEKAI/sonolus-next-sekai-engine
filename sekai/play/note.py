@@ -19,6 +19,7 @@ from sonolus.script.bucket import Bucket, Judgment
 from sonolus.script.containers import VarArray
 from sonolus.script.globals import level_memory
 from sonolus.script.interval import Interval, lerp, remap_clamped, unlerp_clamped
+from sonolus.script.quad import Quad
 from sonolus.script.runtime import Touch, delta_time, input_offset, offset_adjusted_time, time, touches
 from sonolus.script.timing import beat_to_time
 
@@ -36,6 +37,7 @@ from sekai.lib.layout import (
     StageTransform,
     blend_stage_transform,
     camera_layout_transform_at_time,
+    compute_hitbox,
     compute_hitbox_at_time,
     compute_stage_transform,
     identity_stage_transform,
@@ -44,6 +46,7 @@ from sekai.lib.layout import (
 from sekai.lib.note import (
     NoteEffectKind,
     NoteKind,
+    damage_tick_input_start_beat,
     draw_hitbox_overlay,
     draw_note,
     get_attach_params,
@@ -154,6 +157,14 @@ class BaseNote(PlayArchetype):
         self.input_interval = window.bad + self.target_time + input_offset()
         self.unadjusted_input_interval = window.bad + self.target_time
 
+        if self.kind == NoteKind.HIDE_DAMAGE_TICK:
+            window_start_beat = damage_tick_input_start_beat(self.beat)
+            if self.active_head_ref.index > 0:
+                window_start_beat = max(window_start_beat, self.active_head_ref.get().beat)
+            window_start_time = beat_to_time(window_start_beat)
+            self.input_interval = Interval(window_start_time, self.target_time) + input_offset()
+            self.unadjusted_input_interval = Interval(window_start_time, self.target_time)
+
         if not self.is_attached:
             self.target_scaled_time = group_time_to_scaled_time(self.timescale_group, self.target_time)
             self.visual_start_time = get_visual_spawn_time(self.timescale_group, self.target_scaled_time)
@@ -176,6 +187,7 @@ class BaseNote(PlayArchetype):
         self.result.bucket = get_note_bucket(self.kind)
 
         self.best_touch_time = DEFAULT_BEST_TOUCH_TIME
+        self.active_connector_info.last_active_time = DEFAULT_BEST_TOUCH_TIME
 
         if self.is_attached:
             attach_head = self.attach_head_ref.get()
@@ -250,6 +262,9 @@ class BaseNote(PlayArchetype):
 
         update_timescale_group(self.timescale_group)
 
+        if self.kind == NoteKind.HIDE_DAMAGE_TICK and self.is_scored and time() in self.input_interval:
+            self.hitbox.bounds @= self.damage_tick_input_bounds(offset_adjusted_time())
+
         if self.should_do_delayed_trigger():
             if self.best_touch_matches_direction:
                 self.judge(self.best_touch_time)
@@ -320,6 +335,8 @@ class BaseNote(PlayArchetype):
                 self.handle_tick_input()
             case NoteKind.DAMAGE:
                 self.handle_damage_input()
+            case NoteKind.HIDE_DAMAGE_TICK:
+                self.handle_damage_tick_input()
             case NoteKind.ANCHOR:
                 pass
             case _:
@@ -559,12 +576,48 @@ class BaseNote(PlayArchetype):
         else:
             self.complete_damage()
 
+    def handle_damage_tick_input(self):
+        if time() > self.input_interval.end:
+            return
+        has_touch = False
+        for touch in touches():
+            if not self.hitbox.bounds.contains_point(touch.position):
+                continue
+            input_manager.disallow_empty(touch)
+            has_touch = True
+        if has_touch:
+            self.fail_damage()
+
+    def damage_tick_input_bounds(self, t: float) -> Quad:
+        connection_head_ref = +EntityRef[BaseNote]
+        if self.is_attached:
+            connection_head_ref @= self.attach_head_ref
+        else:
+            connection_head_ref @= self.ref()
+        while connection_head_ref.get().prev_ref.index > 0 and connection_head_ref.get().target_time > t:
+            connection_head_ref.index = connection_head_ref.get().prev_ref.index
+        if connection_head_ref.get().next_ref.index <= 0 and connection_head_ref.get().prev_ref.index > 0:
+            connection_head_ref.index = connection_head_ref.get().prev_ref.index
+        connection_head = connection_head_ref.get()
+        result = +Quad
+        if connection_head.next_ref.index > 0:
+            result @= compute_slide_input_bounds(
+                connection_head.connector_ease,
+                connection_head,
+                connection_head.next_ref.get(),
+                t,
+                get_leniency(self.kind),
+            )
+        else:
+            result @= self.hitbox.bounds
+        return result
+
     def handle_late_miss(self):
         kind = self.kind
         match kind:
             case NoteKind.NORM_TICK | NoteKind.CRIT_TICK | NoteKind.HIDE_TICK:
                 self.fail_late(0.125)
-            case NoteKind.DAMAGE:
+            case NoteKind.DAMAGE | NoteKind.HIDE_DAMAGE_TICK:
                 self.complete_damage()
             case (
                 NoteKind.NORM_TAP
@@ -971,6 +1024,43 @@ class BaseNote(PlayArchetype):
         return ref.get()
 
 
+def compute_slide_input_bounds(ease_type: EaseType, head: BaseNote, tail: BaseNote, t: float, leniency: float) -> Quad:
+    eff_head = head.effective_attach_head
+    eff_tail = tail.effective_attach_tail
+    input_lane, input_size = get_attach_params(
+        ease_type=ease_type,
+        head_lane=eff_head._basic_visual_lane_at(t),
+        head_size=eff_head.size,
+        head_target_time=eff_head.target_time,
+        tail_lane=eff_tail._basic_visual_lane_at(t),
+        tail_size=eff_tail.size,
+        tail_target_time=eff_tail.target_time,
+        target_time=t,
+    )
+    input_y_offset = remap_clamped(
+        head.target_time,
+        tail.target_time,
+        head.y_offset_at(t),
+        tail.y_offset_at(t),
+        t,
+    )
+    # Input arrives one input offset late, so the whole view state (stage transforms and layout)
+    # is queried at t, looking back by the offset rather than using the current frame.
+    input_transform = blend_stage_transform(
+        head._basic_stage_transform_at(t),
+        tail._basic_stage_transform_at(t),
+        unlerp_clamped(head.target_time, tail.target_time, t),
+    )
+    return compute_hitbox(
+        camera_layout_transform_at_time(t),
+        input_lane,
+        input_size,
+        leniency,
+        input_y_offset,
+        stage_transform=input_transform.transform(),
+    ).bounds
+
+
 @level_memory
 class NoteMemory:
     active_tap_input_notes: VarArray[EntityRef[BaseNote], Dim[256]]
@@ -1053,6 +1143,9 @@ DamageNote = BaseNote.derive(archetype_names.DAMAGE_NOTE, is_scored=True, key=No
 AnchorNote = BaseNote.derive(archetype_names.ANCHOR_NOTE, is_scored=False, key=NoteKind.ANCHOR)
 TransientHiddenTickNote = BaseNote.derive(
     archetype_names.TRANSIENT_HIDDEN_TICK_NOTE, is_scored=True, key=NoteKind.HIDE_TICK
+)
+TransientHiddenDamageTickNote = BaseNote.derive(
+    archetype_names.TRANSIENT_HIDDEN_DAMAGE_TICK_NOTE, is_scored=True, key=NoteKind.HIDE_DAMAGE_TICK
 )
 FakeNormalTapNote = BaseNote.derive(archetype_names.FAKE_NORMAL_TAP_NOTE, is_scored=False, key=NoteKind.NORM_TAP)
 FakeCriticalTapNote = BaseNote.derive(archetype_names.FAKE_CRITICAL_TAP_NOTE, is_scored=False, key=NoteKind.CRIT_TAP)
@@ -1143,6 +1236,9 @@ FakeAnchorNote = BaseNote.derive(archetype_names.FAKE_ANCHOR_NOTE, is_scored=Fal
 FakeTransientHiddenTickNote = BaseNote.derive(
     archetype_names.FAKE_TRANSIENT_HIDDEN_TICK_NOTE, is_scored=False, key=NoteKind.HIDE_TICK
 )
+FakeTransientHiddenDamageTickNote = BaseNote.derive(
+    archetype_names.FAKE_TRANSIENT_HIDDEN_DAMAGE_TICK_NOTE, is_scored=False, key=NoteKind.HIDE_DAMAGE_TICK
+)
 
 
 NOTE_ARCHETYPES = (
@@ -1181,6 +1277,7 @@ NOTE_ARCHETYPES = (
     DamageNote,
     AnchorNote,
     TransientHiddenTickNote,
+    TransientHiddenDamageTickNote,
     FakeNormalTapNote,
     FakeCriticalTapNote,
     FakeNormalFlickNote,
@@ -1216,6 +1313,7 @@ NOTE_ARCHETYPES = (
     FakeDamageNote,
     FakeAnchorNote,
     FakeTransientHiddenTickNote,
+    FakeTransientHiddenDamageTickNote,
 )
 
 
