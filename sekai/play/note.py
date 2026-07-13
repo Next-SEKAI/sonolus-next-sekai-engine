@@ -58,6 +58,7 @@ from sekai.lib.note import (
     get_visual_spawn_time,
     has_release_input,
     has_tap_input,
+    hitbox_draw_start,
     is_head,
     map_note_kind,
     mirror_flick_direction,
@@ -79,7 +80,6 @@ from sekai.play.common import PlayLevelMemory
 from sekai.play.dynamic_stage import DynamicStage
 
 DEFAULT_BEST_TOUCH_TIME = -1e8
-HITBOX_DRAW_MIN_EARLY_WINDOW = 0.050
 
 
 class BaseNote(PlayArchetype):
@@ -386,7 +386,7 @@ class BaseNote(PlayArchetype):
     def draw_hitbox(self):
         if not Options.show_hitboxes or not self.is_scored:
             return
-        draw_start = min(self.unadjusted_input_interval.start, self.target_time - HITBOX_DRAW_MIN_EARLY_WINDOW)
+        draw_start = hitbox_draw_start(self.unadjusted_input_interval.start, self.target_time)
         if draw_start <= offset_adjusted_time() <= self.unadjusted_input_interval.end:
             draw_hitbox_overlay(
                 self.hitbox,

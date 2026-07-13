@@ -1018,6 +1018,15 @@ def damage_tick_input_start_beat(beat: float) -> float:
     return (ceil(beat * 2 - 1e-6) - 1) / 2
 
 
+INSTANT_HITBOX_DRAW_WINDOW = 0.050
+
+
+def hitbox_draw_start(input_start_time: float, target_time: float) -> float:
+    if input_start_time >= target_time:
+        return target_time - INSTANT_HITBOX_DRAW_WINDOW
+    return input_start_time
+
+
 def get_note_window(kind: NoteKind) -> SekaiWindow:
     result = +SekaiWindow
     match kind:
