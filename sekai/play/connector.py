@@ -23,9 +23,9 @@ from sekai.lib.connector import (
     draw_connector,
     draw_connector_slot_glow_effect,
     get_connector_input_leniency,
-    has_connector_input,
     is_fake_active_connector,
     schedule_connector_sfx,
+    should_show_connector_hitbox,
     spawn_connector_slot_particles,
     spawn_linear_connector_trail_particle,
     update_circular_connector_particle,
@@ -285,7 +285,7 @@ class Connector(PlayArchetype):
     def draw_hitbox(self):
         if not Options.show_hitboxes:
             return
-        if self.active_head_ref.index <= 0 or not has_connector_input(self.kind):
+        if self.active_head_ref.index <= 0 or not should_show_connector_hitbox(self.kind):
             return
         if time() in self.input_active_interval:
             draw_connector_hitbox_overlay(self.active_connector_info.input_bounds, 0.6)
