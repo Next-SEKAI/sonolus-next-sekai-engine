@@ -7,7 +7,7 @@ from sonolus.script.archetype import EntityRef, HapticType, PlayArchetype, Watch
 from sonolus.script.bucket import Bucket, Judgment
 from sonolus.script.easing import ease_in_cubic
 from sonolus.script.effect import Effect
-from sonolus.script.interval import lerp, remap_clamped
+from sonolus.script.interval import lerp, remap_clamped, unlerp_clamped
 from sonolus.script.quad import Quad
 from sonolus.script.runtime import is_tutorial, is_watch, level_life, level_score, time
 from sonolus.script.sprite import Sprite
@@ -1021,12 +1021,19 @@ def damage_tick_input_start_beat(beat: float) -> float:
 
 
 INSTANT_HITBOX_DRAW_WINDOW = 0.050
+DAMAGE_HITBOX_ACTIVE_WINDOW = 1 / 60
 
 
-def hitbox_draw_start(input_start_time: float, target_time: float) -> float:
-    if input_start_time >= target_time:
+def hitbox_draw_start(kind: NoteKind, input_start_time: float, target_time: float) -> float:
+    if kind == NoteKind.DAMAGE:
         return target_time - INSTANT_HITBOX_DRAW_WINDOW
     return input_start_time
+
+
+def hitbox_draw_alpha(kind: NoteKind, draw_start: float, target_time: float, current_time: float) -> float:
+    if kind == NoteKind.HIDE_DAMAGE_TICK:
+        return 1.0
+    return unlerp_clamped(draw_start, target_time, current_time)
 
 
 def get_note_window(kind: NoteKind) -> SekaiWindow:
@@ -1304,9 +1311,14 @@ def draw_hitbox_marker(
     )
 
 
-def get_hitbox_bounds_sprite(kind: NoteKind) -> Sprite:
+def get_hitbox_bounds_sprite(kind: NoteKind, time_to_target: float) -> Sprite:
     result = +Sprite
-    if kind in {NoteKind.DAMAGE, NoteKind.HIDE_DAMAGE_TICK}:
+    if kind == NoteKind.DAMAGE:
+        if time_to_target > DAMAGE_HITBOX_ACTIVE_WINDOW:
+            result @= ActiveSkin.guide_neutral
+        else:
+            result @= ActiveSkin.guide_green
+    elif kind == NoteKind.HIDE_DAMAGE_TICK:
         result @= ActiveSkin.guide_green
     else:
         result @= ActiveSkin.guide_blue
@@ -1338,7 +1350,7 @@ def draw_connector_hitbox_overlay(bounds: Quad, alpha: float):
     draw_hitbox_bounds_overlay(bounds, ActiveSkin.guide_blue, alpha)
 
 
-def draw_hitbox_overlay(hitbox: Hitbox, kind: NoteKind, alpha: float):
+def draw_hitbox_overlay(hitbox: Hitbox, kind: NoteKind, alpha: float, *, time_to_target: float):
     t = HITBOX_DEBUG_BORDER_THICKNESS
     a = alpha
     z_triangle = get_z_alt(LAYER_OVERLAY, 1)
@@ -1346,7 +1358,7 @@ def draw_hitbox_overlay(hitbox: Hitbox, kind: NoteKind, alpha: float):
     z_target = get_z_alt(LAYER_OVERLAY, 3)
     z_target_dot = get_z_alt(LAYER_OVERLAY, 4)
 
-    draw_hitbox_bounds_overlay(hitbox.bounds, get_hitbox_bounds_sprite(kind), alpha)
+    draw_hitbox_bounds_overlay(hitbox.bounds, get_hitbox_bounds_sprite(kind, time_to_target), alpha)
 
     if has_tap_input(kind) or has_release_input(kind):
         target_sprite = get_hitbox_target_sprite(kind)
