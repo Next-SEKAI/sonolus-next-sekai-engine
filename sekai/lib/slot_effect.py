@@ -24,7 +24,7 @@ def draw_slot_glow_effect(
     layout = transform.transform_quad(layout_slot_glow_effect(lane, size, height, y_offset=y_offset))
     z = get_z(LAYER_SLOT_GLOW_EFFECT, start_time, lane, invert_time=True)
     a = lerp(1, 0, progress)
-    sprite.draw(layout, z=z, a=a)
+    sprite.draw(layout, z=z.tuple, a=a)
 
 
 def draw_slot_effect(
@@ -40,4 +40,4 @@ def draw_slot_effect(
     layout = transform.transform_quad(layout_slot_effect(lane, y_offset=y_offset))
     z = get_z(LAYER_SLOT_EFFECT, start_time, lane, invert_time=True)
     a = lerp(1, 0, progress)
-    sprite.draw(layout, z=z, a=a)
+    sprite.draw(layout, z=z.tuple, a=a)

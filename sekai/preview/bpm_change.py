@@ -30,7 +30,7 @@ class PreviewBpmChange(PreviewArchetype):
             layout @= layout_preview_bar_line(self.time, "right")
         ActiveSkin.bpm_change_line.draw(
             layout,
-            z=get_z(LAYER_BPM_LINE),
+            z=get_z(LAYER_BPM_LINE).tuple,
             a=0.8,
         )
         print_at_time(

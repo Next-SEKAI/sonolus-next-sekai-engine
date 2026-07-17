@@ -37,7 +37,7 @@ class PreviewTimescaleChange(PreviewArchetype):
             layout @= layout_preview_bar_line(self.time, "left")
         ActiveSkin.timescale_change_line.draw(
             layout,
-            z=get_z(LAYER_TIMESCALE_LINE),
+            z=get_z(LAYER_TIMESCALE_LINE).tuple,
             a=PREVIEW_BAR_LINE_ALPHA,
         )
         print_at_time(

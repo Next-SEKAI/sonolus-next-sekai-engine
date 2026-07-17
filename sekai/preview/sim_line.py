@@ -25,7 +25,7 @@ class PreviewSimLine(PreviewArchetype):
             col=col,
             y=y,
         )
-        ActiveSkin.sim_line.draw(layout, z=get_z(LAYER_SIM_LINE))
+        ActiveSkin.sim_line.draw(layout, z=get_z(LAYER_SIM_LINE).tuple)
 
     @property
     def left(self) -> PreviewBaseNote:

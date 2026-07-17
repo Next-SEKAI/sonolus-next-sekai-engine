@@ -44,6 +44,7 @@ from sekai.lib.layer import (
     LAYER_NOTE_SLIM_BODY,
     LAYER_NOTE_TICK,
     LAYER_OVERLAY,
+    ZIndexes,
     get_z,
     get_z_alt,
 )
@@ -565,20 +566,20 @@ def draw_note_body(
     match sprites.render_type:
         case BodyRenderType.NORMAL:
             left_layout, middle_layout, right_layout = layout_regular_note_body(lane, size, travel)
-            sprites.left.draw(place(left_layout), z=z, a=a)
-            sprites.middle.draw(place(middle_layout), z=z, a=a)
-            sprites.right.draw(place(right_layout), z=z, a=a)
+            sprites.left.draw(place(left_layout), z=z.tuple, a=a)
+            sprites.middle.draw(place(middle_layout), z=z.tuple, a=a)
+            sprites.right.draw(place(right_layout), z=z.tuple, a=a)
         case BodyRenderType.SLIM:
             left_layout, middle_layout, right_layout = layout_slim_note_body(lane, size, travel)
-            sprites.left.draw(place(left_layout), z=z, a=a)
-            sprites.middle.draw(place(middle_layout), z=z, a=a)
-            sprites.right.draw(place(right_layout), z=z, a=a)
+            sprites.left.draw(place(left_layout), z=z.tuple, a=a)
+            sprites.middle.draw(place(middle_layout), z=z.tuple, a=a)
+            sprites.right.draw(place(right_layout), z=z.tuple, a=a)
         case BodyRenderType.NORMAL_FALLBACK:
             layout = layout_regular_note_body_fallback(lane, size, travel)
-            sprites.middle.draw(place(layout), z=z, a=a)
+            sprites.middle.draw(place(layout), z=z.tuple, a=a)
         case BodyRenderType.SLIM_FALLBACK:
             layout = layout_slim_note_body_fallback(lane, size, travel)
-            sprites.middle.draw(place(layout), z=z, a=a)
+            sprites.middle.draw(place(layout), z=z.tuple, a=a)
 
 
 def draw_note_tick(
@@ -587,7 +588,7 @@ def draw_note_tick(
     a = min(get_alpha(target_time) * note_alpha, 1.0)
     z = get_z(LAYER_NOTE_TICK, time=target_time, lane=lane)
     layout = transform.transform_quad(layout_tick(lane, travel))
-    sprite.draw(layout, z=z, a=a)
+    sprite.draw(layout, z=z.tuple, a=a)
 
 
 def draw_note_arrow(
@@ -617,12 +618,12 @@ def draw_note_arrow(
     match sprites.render_type:
         case ArrowRenderType.NORMAL:
             layout = transform.transform_quad(layout_flick_arrow(lane, size, direction, travel, animation_progress))
-            sprites.get_sprite(size, direction).draw(layout, z=z, a=a)
+            sprites.get_sprite(size, direction).draw(layout, z=z.tuple, a=a)
         case ArrowRenderType.FALLBACK:
             layout = transform.transform_quad(
                 layout_flick_arrow_fallback(lane, size, direction, travel, animation_progress)
             )
-            sprites.get_sprite(size, direction).draw(layout, z=z, a=a)
+            sprites.get_sprite(size, direction).draw(layout, z=z.tuple, a=a)
 
 
 def get_note_particles(kind: NoteKind, direction: FlickDirection) -> NoteParticleSet:
@@ -1228,7 +1229,7 @@ HITBOX_DEBUG_TRIANGLE_HEIGHT = 0.2
 HITBOX_DEBUG_APEX_HALF = 0.012
 
 
-def draw_hitbox_line(sprite: Sprite, p1: Vec2, p2: Vec2, thickness: float, z: float, a: float):
+def draw_hitbox_line(sprite: Sprite, p1: Vec2, p2: Vec2, thickness: float, z: ZIndexes, a: float):
     ortho = (p2 - p1).orthogonal().normalize_or_zero() * (thickness / 2)
     sprite.draw(
         Quad(
@@ -1237,7 +1238,7 @@ def draw_hitbox_line(sprite: Sprite, p1: Vec2, p2: Vec2, thickness: float, z: fl
             tr=p2 + ortho,
             tl=p1 + ortho,
         ),
-        z=z,
+        z=z.tuple,
         a=a,
     )
 
@@ -1247,8 +1248,8 @@ def draw_hitbox_marker(
     r: Vec2,
     main_sprite: Sprite,
     dot_sprite: Sprite,
-    z: float,
-    z_dot: float,
+    z: ZIndexes,
+    z_dot: ZIndexes,
     a: float,
 ):
     t = HITBOX_DEBUG_BORDER_THICKNESS
@@ -1266,7 +1267,7 @@ def draw_hitbox_marker(
             tr=ri + ortho * t,
             br=ri - ortho * t,
         ),
-        z=z,
+        z=z.tuple,
         a=a,
     )
     main_sprite.draw(
@@ -1276,7 +1277,7 @@ def draw_hitbox_marker(
             tr=li + ortho * t,
             br=li - ortho * t,
         ),
-        z=z,
+        z=z.tuple,
         a=a,
     )
     main_sprite.draw(
@@ -1286,7 +1287,7 @@ def draw_hitbox_marker(
             tr=r + ortho * end_h,
             br=r - ortho * end_h,
         ),
-        z=z,
+        z=z.tuple,
         a=a,
     )
     dot_sprite.draw(
@@ -1296,7 +1297,7 @@ def draw_hitbox_marker(
             tr=l + axis * (2 * dot) + ortho * dot,
             br=l + axis * (2 * dot) - ortho * dot,
         ),
-        z=z_dot,
+        z=z_dot.tuple,
         a=a,
     )
     dot_sprite.draw(
@@ -1306,7 +1307,7 @@ def draw_hitbox_marker(
             tr=r + ortho * dot,
             br=r - ortho * dot,
         ),
-        z=z_dot,
+        z=z_dot.tuple,
         a=a,
     )
 
@@ -1391,7 +1392,7 @@ def draw_hitbox_overlay(hitbox: Hitbox, kind: NoteKind, alpha: float, *, time_to
                 tr=target_apex + axis * apex_half + ortho * apex_half,
                 br=target_apex + axis * apex_half - ortho * apex_half,
             ),
-            z=z_apex,
+            z=z_apex.tuple,
             a=a,
         )
         draw_hitbox_marker(

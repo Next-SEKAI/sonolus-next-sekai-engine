@@ -26,6 +26,7 @@ from sekai.lib.layer import (
     LAYER_GUIDE_CONNECTOR_TOP,
     LAYER_GUIDE_CONNECTOR_UNDER,
     LAYER_SLOT_GLOW_EFFECT,
+    ZIndexes,
     get_z,
 )
 from sekai.lib.layout import (
@@ -180,7 +181,10 @@ def get_damage_connector_active_sprite() -> Sprite:
     return result
 
 
-def get_connector_z(kind: ConnectorKind, target_time: float, lane: float, active: bool, layer: ConnectorLayer) -> float:
+def get_connector_z(
+    kind: ConnectorKind, target_time: float, lane: float, active: bool, layer: ConnectorLayer
+) -> ZIndexes:
+    result = +ZIndexes
     match kind:
         case (
             ConnectorKind.ACTIVE_NORMAL
@@ -190,7 +194,7 @@ def get_connector_z(kind: ConnectorKind, target_time: float, lane: float, active
         ):
             match layer:
                 case ConnectorLayer.TOP:
-                    return get_z(
+                    result @= get_z(
                         LAYER_ACTIVE_SLIDE_CONNECTOR_TOP,
                         time=target_time,
                         lane=lane,
@@ -198,7 +202,7 @@ def get_connector_z(kind: ConnectorKind, target_time: float, lane: float, active
                         invert_time=True,
                     )
                 case ConnectorLayer.BOTTOM:
-                    return get_z(
+                    result @= get_z(
                         LAYER_ACTIVE_SLIDE_CONNECTOR_BOTTOM,
                         time=target_time,
                         lane=lane,
@@ -206,7 +210,7 @@ def get_connector_z(kind: ConnectorKind, target_time: float, lane: float, active
                         invert_time=True,
                     )
                 case ConnectorLayer.UNDER:
-                    return get_z(
+                    result @= get_z(
                         LAYER_ACTIVE_SLIDE_CONNECTOR_UNDER,
                         time=target_time,
                         lane=lane,
@@ -214,7 +218,7 @@ def get_connector_z(kind: ConnectorKind, target_time: float, lane: float, active
                         invert_time=True,
                     )
                 case ConnectorLayer.OVER:
-                    return get_z(
+                    result @= get_z(
                         LAYER_ACTIVE_SLIDE_CONNECTOR_OVER,
                         time=target_time,
                         lane=lane,
@@ -233,19 +237,21 @@ def get_connector_z(kind: ConnectorKind, target_time: float, lane: float, active
             | ConnectorKind.GUIDE_CYAN
             | ConnectorKind.GUIDE_BLACK
         ):
-            return get_guide_connector_layer_z(layer, target_time, lane, kind - ConnectorKind.GUIDE_NEUTRAL)
+            result @= get_guide_connector_layer_z(layer, target_time, lane, kind - ConnectorKind.GUIDE_NEUTRAL)
         case ConnectorKind.DAMAGE | ConnectorKind.FAKE_DAMAGE:
-            return get_guide_connector_layer_z(layer, target_time, lane, get_active_connector_z_offset(kind, active))
+            result @= get_guide_connector_layer_z(layer, target_time, lane, get_active_connector_z_offset(kind, active))
         case ConnectorKind.NONE:
-            return 0.0
+            pass
         case _:
             assert_never(kind)
+    return result
 
 
-def get_guide_connector_layer_z(layer: ConnectorLayer, target_time: float, lane: float, etc: int) -> float:
+def get_guide_connector_layer_z(layer: ConnectorLayer, target_time: float, lane: float, etc: int) -> ZIndexes:
+    result = +ZIndexes
     match layer:
         case ConnectorLayer.TOP:
-            return get_z(
+            result @= get_z(
                 LAYER_GUIDE_CONNECTOR_TOP,
                 time=target_time,
                 lane=lane,
@@ -253,7 +259,7 @@ def get_guide_connector_layer_z(layer: ConnectorLayer, target_time: float, lane:
                 invert_time=True,
             )
         case ConnectorLayer.BOTTOM:
-            return get_z(
+            result @= get_z(
                 LAYER_GUIDE_CONNECTOR_BOTTOM,
                 time=target_time,
                 lane=lane,
@@ -261,7 +267,7 @@ def get_guide_connector_layer_z(layer: ConnectorLayer, target_time: float, lane:
                 invert_time=True,
             )
         case ConnectorLayer.UNDER:
-            return get_z(
+            result @= get_z(
                 LAYER_GUIDE_CONNECTOR_UNDER,
                 time=target_time,
                 lane=lane,
@@ -269,7 +275,7 @@ def get_guide_connector_layer_z(layer: ConnectorLayer, target_time: float, lane:
                 invert_time=True,
             )
         case ConnectorLayer.OVER:
-            return get_z(
+            result @= get_z(
                 LAYER_GUIDE_CONNECTOR_OVER,
                 time=target_time,
                 lane=lane,
@@ -278,6 +284,7 @@ def get_guide_connector_layer_z(layer: ConnectorLayer, target_time: float, lane:
             )
         case _:
             assert_never(layer)
+    return result
 
 
 def get_active_connector_z_offset(
@@ -486,10 +493,11 @@ def draw_connector(
         return
 
     z_normal = get_connector_z(kind, segment_head_target_time, segment_head_lane, active=False, layer=layer)
+    z_active = +ZIndexes
     if visual_state == ConnectorVisualState.ACTIVE and active_sprite.is_available:
-        z_active = get_connector_z(kind, segment_head_target_time, segment_head_lane, active=True, layer=layer)
+        z_active @= get_connector_z(kind, segment_head_target_time, segment_head_lane, active=True, layer=layer)
     else:
-        z_active = z_normal
+        z_active @= z_normal
 
     match presentation:
         case SegmentPresentation.DEFAULT:
@@ -539,8 +547,8 @@ def draw_connector_default(
     ease_type: EaseType,
     normal_sprite: Sprite,
     active_sprite: Sprite,
-    z_normal: float,
-    z_active: float,
+    z_normal: ZIndexes,
+    z_active: ZIndexes,
     head_lane: float,
     head_size: float,
     head_visual_progress: float,
@@ -712,8 +720,8 @@ def draw_connector_full_screen(
     visual_state: ConnectorVisualState,
     normal_sprite: Sprite,
     active_sprite: Sprite,
-    z_normal: float,
-    z_active: float,
+    z_normal: ZIndexes,
+    z_active: ZIndexes,
     head_target_time: float,
     head_alpha: float,
     tail_target_time: float,
@@ -730,19 +738,21 @@ def draw_connector_quad(
     visual_state: ConnectorVisualState,
     normal_sprite: Sprite,
     active_sprite: Sprite,
-    z_normal: float,
-    z_active: float,
+    z_normal: ZIndexes,
+    z_active: ZIndexes,
     base_a: float,
 ):
     if visual_state == ConnectorVisualState.ACTIVE and active_sprite.is_available:
         if Options.connector_animation:
             a_modifier = (cos(2 * pi * time()) + 1) / 2
-            normal_sprite.draw(layout, z=z_normal, a=base_a * ease_out_cubic(a_modifier))
-            active_sprite.draw(layout, z=z_active, a=base_a * ease_out_cubic(1 - a_modifier))
+            normal_sprite.draw(layout, z=z_normal.tuple, a=base_a * ease_out_cubic(a_modifier))
+            active_sprite.draw(layout, z=z_active.tuple, a=base_a * ease_out_cubic(1 - a_modifier))
         else:
-            active_sprite.draw(layout, z=z_active, a=base_a)
+            active_sprite.draw(layout, z=z_active.tuple, a=base_a)
     else:
-        normal_sprite.draw(layout, z=z_normal, a=base_a * (1 if visual_state != ConnectorVisualState.INACTIVE else 0.5))
+        normal_sprite.draw(
+            layout, z=z_normal.tuple, a=base_a * (1 if visual_state != ConnectorVisualState.INACTIVE else 0.5)
+        )
 
 
 class ActiveConnectorInfo(Record):
@@ -876,7 +886,7 @@ def draw_connector_slot_glow_effect(
     layout = transform.transform_quad(layout_slot_glow_effect(lane, size, height, y_offset=y_offset))
     z = get_z(LAYER_SLOT_GLOW_EFFECT, start_time, lane, invert_time=True)
     a = remap_clamped(start_time, start_time + 0.25, 0.0, 0.3, time())
-    sprite.draw(layout, z=z, a=a)
+    sprite.draw(layout, z=z.tuple, a=a)
 
 
 def update_connector_sfx(

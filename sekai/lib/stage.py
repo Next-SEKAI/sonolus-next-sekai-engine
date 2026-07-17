@@ -16,7 +16,7 @@ from sekai.lib import archetype_names
 from sekai.lib.baseevent import get_event_as, query_event_list
 from sekai.lib.ease import EaseType, ease
 from sekai.lib.effect import SFX_DISTANCE, Effects
-from sekai.lib.layer import LAYER_COVER, LAYER_OVERLAY, LAYER_STAGE, get_z, get_z_alt
+from sekai.lib.layer import LAYER_COVER, LAYER_OVERLAY, LAYER_STAGE, ZIndexes, get_z, get_z_alt
 from sekai.lib.layout import (
     IDENTITY_AFFINE_TRANSFORM,
     TEST_ASPECT_SCALE,
@@ -560,10 +560,10 @@ def draw_aspect_box(sprite: Sprite, ratio: float, sub: int):
     bottom = Rect(l=-hw - e, r=hw + e, t=-hh + e, b=-hh - e)
     left = Rect(l=-hw - e, r=-hw + e, t=hh, b=-hh)
     right = Rect(l=hw - e, r=hw + e, t=hh, b=-hh)
-    sprite.draw(top.as_quad(), z=get_z_alt(LAYER_OVERLAY, 1000 + 4 * sub), a=1.0)
-    sprite.draw(bottom.as_quad(), z=get_z_alt(LAYER_OVERLAY, 1000 + 4 * sub + 1), a=1.0)
-    sprite.draw(left.as_quad(), z=get_z_alt(LAYER_OVERLAY, 1000 + 4 * sub + 2), a=1.0)
-    sprite.draw(right.as_quad(), z=get_z_alt(LAYER_OVERLAY, 1000 + 4 * sub + 3), a=1.0)
+    sprite.draw(top.as_quad(), z=get_z_alt(LAYER_OVERLAY, 1000 + 4 * sub).tuple, a=1.0)
+    sprite.draw(bottom.as_quad(), z=get_z_alt(LAYER_OVERLAY, 1000 + 4 * sub + 1).tuple, a=1.0)
+    sprite.draw(left.as_quad(), z=get_z_alt(LAYER_OVERLAY, 1000 + 4 * sub + 2).tuple, a=1.0)
+    sprite.draw(right.as_quad(), z=get_z_alt(LAYER_OVERLAY, 1000 + 4 * sub + 3).tuple, a=1.0)
 
 
 def draw_test_aspect_overlay():
@@ -609,7 +609,7 @@ def draw_basic_stage():
 
 def draw_sekai_stage():
     layout = layout_sekai_stage()
-    ActiveSkin.sekai_stage.draw(layout, z=get_z(LAYER_STAGE))
+    ActiveSkin.sekai_stage.draw(layout, z=get_z(LAYER_STAGE).tuple)
 
 
 def get_judgment_sprites(judge_line_color: JudgeLineColor) -> JudgmentSpriteSet:
@@ -716,7 +716,7 @@ def draw_dynamic_stage(
 
     f = JUDGE_LINE_BORDER_FACTOR
 
-    def draw_left_border(style: StageBorderStyle, z: float, a: float):
+    def draw_left_border(style: StageBorderStyle, z: ZIndexes, a: float):
         match style:
             case StageBorderStyle.DEFAULT | StageBorderStyle.MEDIUM:
                 scale = 0.5 if style == StageBorderStyle.MEDIUM else 1.0
@@ -725,7 +725,7 @@ def draw_dynamic_stage(
                 )  # Artificially thicken the top so it renders better
                 layout_t = layout_stage_lane_by_edges(tilt_widened_edge(l - 0.08 * scale, l - 0.64 * scale), l)
                 ActiveSkin.stage_border.draw(
-                    place(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br)), z=z, a=a
+                    place(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br)), z=z.tuple, a=a
                 )
             case StageBorderStyle.LIGHT:
                 layout_b = layout_stage_lane_by_edges(l - 0.0125, l + 0.0125)
@@ -733,21 +733,21 @@ def draw_dynamic_stage(
                     tilt_widened_edge(l - 0.0125, l - 0.1), tilt_widened_edge(l + 0.0125, l + 0.1)
                 )
                 ActiveSkin.lane_divider.draw(
-                    place(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br)), z=z, a=a
+                    place(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br)), z=z.tuple, a=a
                 )
             case StageBorderStyle.DISABLED:
                 pass
             case _:
                 assert_never(style)
 
-    def draw_right_border(style: StageBorderStyle, z: float, a: float):
+    def draw_right_border(style: StageBorderStyle, z: ZIndexes, a: float):
         match style:
             case StageBorderStyle.DEFAULT | StageBorderStyle.MEDIUM:
                 scale = 0.5 if style == StageBorderStyle.MEDIUM else 1.0
                 layout_b = layout_stage_lane_by_edges(r + 0.08 * scale, r)  # Flip horizontally
                 layout_t = layout_stage_lane_by_edges(tilt_widened_edge(r + 0.08 * scale, r + 0.64 * scale), r)
                 ActiveSkin.stage_border.draw(
-                    place(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br)), z=z, a=a
+                    place(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br)), z=z.tuple, a=a
                 )
             case StageBorderStyle.LIGHT:
                 layout_b = layout_stage_lane_by_edges(r - 0.0125, r + 0.0125)
@@ -755,14 +755,14 @@ def draw_dynamic_stage(
                     tilt_widened_edge(r - 0.0125, r - 0.1), tilt_widened_edge(r + 0.0125, r + 0.1)
                 )
                 ActiveSkin.lane_divider.draw(
-                    place(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br)), z=z, a=a
+                    place(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br)), z=z.tuple, a=a
                 )
             case StageBorderStyle.DISABLED:
                 pass
             case _:
                 assert_never(style)
 
-    def draw_dividers(division_size: int, parity: DivisionParity, pivot: float, z: float, a: float):
+    def draw_dividers(division_size: int, parity: DivisionParity, pivot: float, z: ZIndexes, a: float):
         eps = 0.001
         parity_offset = division_size / 2 if parity == DivisionParity.ODD else 0
         shifted_pivot = pivot + parity_offset
@@ -780,7 +780,7 @@ def draw_dynamic_stage(
                 tilt_widened_edge(pos - 0.0125, pos - 0.1), tilt_widened_edge(pos + 0.0125, pos + 0.1)
             )
             ActiveSkin.lane_divider.draw(
-                place(Quad(bl=div_layout_b.bl, tl=div_layout_t.tl, tr=div_layout_t.tr, br=div_layout_b.br)), z=z, a=a
+                place(Quad(bl=div_layout_b.bl, tl=div_layout_t.tl, tr=div_layout_t.tr, br=div_layout_b.br)), z=z.tuple, a=a
             )
 
     thickness_scale = lerp(1.0, clamp(1 / travel, 1, 4) if travel > 0 else 4, current_stage_tilt())
@@ -800,7 +800,7 @@ def draw_dynamic_stage(
         )
 
     def draw_judgment_dividers(
-        sprites: JudgmentSpriteSet, half_offset: bool, pivot: float, z_lo: float, z_hi: float, a: float
+        sprites: JudgmentSpriteSet, half_offset: bool, pivot: float, z_lo: ZIndexes, z_hi: ZIndexes, a: float
     ):
         eps = 0.001
         shifted_pivot = pivot + (0.5 if half_offset else 0)
@@ -812,10 +812,10 @@ def draw_dynamic_stage(
             pos = shifted_pivot + k
             div_layout = place(layout_judgment_divider(pos))
             edge_weight = abs(pos - lane) / width if width > 0 else 0
-            sprites.judgment_center.draw(div_layout, z=z_lo, a=a)
-            sprites.judgment_edge.draw(div_layout, z=z_hi, a=a * edge_weight)
+            sprites.judgment_center.draw(div_layout, z=z_lo.tuple, a=a)
+            sprites.judgment_edge.draw(div_layout, z=z_hi.tuple, a=a * edge_weight)
 
-    def draw_left_judgment_border(sprites: JudgmentSpriteSet, style: StageBorderStyle, z: float, a: float):
+    def draw_left_judgment_border(sprites: JudgmentSpriteSet, style: StageBorderStyle, z: ZIndexes, a: float):
         match style:
             case StageBorderStyle.DEFAULT | StageBorderStyle.MEDIUM:
                 if width <= 0:
@@ -829,16 +829,16 @@ def draw_dynamic_stage(
                         travel,
                     )
                 )
-                sprites.judgment_edge_left.draw(layout, z=z, a=a)
+                sprites.judgment_edge_left.draw(layout, z=z.tuple, a=a)
             case StageBorderStyle.LIGHT:
                 layout = place(layout_judgment_divider(l))
-                sprites.judgment_edge.draw(layout, z=z, a=a)
+                sprites.judgment_edge.draw(layout, z=z.tuple, a=a)
             case StageBorderStyle.DISABLED:
                 pass
             case _:
                 assert_never(style)
 
-    def draw_right_judgment_border(sprites: JudgmentSpriteSet, style: StageBorderStyle, z: float, a: float):
+    def draw_right_judgment_border(sprites: JudgmentSpriteSet, style: StageBorderStyle, z: ZIndexes, a: float):
         match style:
             case StageBorderStyle.DEFAULT | StageBorderStyle.MEDIUM:
                 if width <= 0:
@@ -852,16 +852,16 @@ def draw_dynamic_stage(
                         travel,
                     )
                 )
-                sprites.judgment_edge_left.draw(layout, z=z, a=a)
+                sprites.judgment_edge_left.draw(layout, z=z.tuple, a=a)
             case StageBorderStyle.LIGHT:
                 layout = place(layout_judgment_divider(r))
-                sprites.judgment_edge.draw(layout, z=z, a=a)
+                sprites.judgment_edge.draw(layout, z=z.tuple, a=a)
             case StageBorderStyle.DISABLED:
                 pass
             case _:
                 assert_never(style)
 
-    def draw_gradient(sprites: JudgmentSpriteSet, z: float, a: float):
+    def draw_gradient(sprites: JudgmentSpriteSet, z: ZIndexes, a: float):
         bottom_l = place(perspective_rect(l_jl, lane, 1 + nh, 1 + nh - nh / f, travel))
         bottom_r = place(perspective_rect(r_jl, lane, 1 + nh, 1 + nh - nh / f, travel))
         top_l = place(perspective_rect(l_jl, lane, 1 - nh, 1 - nh + nh / f, travel))
@@ -869,24 +869,24 @@ def draw_dynamic_stage(
         grad_a = a * (1 - fw)
         edge_a = a * fw
         if grad_a > 0:
-            sprites.judgment_gradient.draw(bottom_l, z=z, a=grad_a)
-            sprites.judgment_gradient.draw(bottom_r, z=z, a=grad_a)
-            sprites.judgment_gradient.draw(top_l, z=z, a=grad_a)
-            sprites.judgment_gradient.draw(top_r, z=z, a=grad_a)
+            sprites.judgment_gradient.draw(bottom_l, z=z.tuple, a=grad_a)
+            sprites.judgment_gradient.draw(bottom_r, z=z.tuple, a=grad_a)
+            sprites.judgment_gradient.draw(top_l, z=z.tuple, a=grad_a)
+            sprites.judgment_gradient.draw(top_r, z=z.tuple, a=grad_a)
         if edge_a > 0:
-            sprites.judgment_edge.draw(bottom_l, z=z, a=edge_a)
-            sprites.judgment_edge.draw(bottom_r, z=z, a=edge_a)
-            sprites.judgment_edge.draw(top_l, z=z, a=edge_a)
-            sprites.judgment_edge.draw(top_r, z=z, a=edge_a)
+            sprites.judgment_edge.draw(bottom_l, z=z.tuple, a=edge_a)
+            sprites.judgment_edge.draw(bottom_r, z=z.tuple, a=edge_a)
+            sprites.judgment_edge.draw(top_l, z=z.tuple, a=edge_a)
+            sprites.judgment_edge.draw(top_r, z=z.tuple, a=edge_a)
 
-    def draw_single_line(sprites: JudgmentSpriteSet, z: float, a: float):
+    def draw_single_line(sprites: JudgmentSpriteSet, z: ZIndexes, a: float):
         half_thick = nh / f / 2
         layout = place(perspective_rect(l_jl, r_jl, 1 - half_thick, 1 + half_thick, travel))
-        sprites.judgment_edge.draw(layout, z=z, a=a)
+        sprites.judgment_edge.draw(layout, z=z.tuple, a=a)
 
     la = lane_alpha * (1 - fw)
     if la > 0:
-        ActiveSkin.lane_background.draw(place(layout_stage_lane_by_edges(l, r)), z=z_bg0, a=la)
+        ActiveSkin.lane_background.draw(place(layout_stage_lane_by_edges(l, r)), z=z_bg0.tuple, a=la)
 
         p_left = left_border_style.progress
         if left_border_style.start == left_border_style.end:
@@ -921,10 +921,10 @@ def draw_dynamic_stage(
     if ja_bar > 0:
         bg_layout = place(perspective_rect(l_jl, r_jl, 1 - nh, 1 + nh, travel))
         if sprites_same:
-            sprites_a.judgment_background.draw(bg_layout, z=z_bg1_a, a=ja_bar)
+            sprites_a.judgment_background.draw(bg_layout, z=z_bg1_a.tuple, a=ja_bar)
         else:
-            sprites_a.judgment_background.draw(bg_layout, z=z_bg1_a, a=ja_bar * (1 - p_sprites))
-            sprites_b.judgment_background.draw(bg_layout, z=z_bg1_b, a=ja_bar * p_sprites)
+            sprites_a.judgment_background.draw(bg_layout, z=z_bg1_a.tuple, a=ja_bar * (1 - p_sprites))
+            sprites_b.judgment_background.draw(bg_layout, z=z_bg1_b.tuple, a=ja_bar * p_sprites)
 
     p_left = left_border_style.progress
     p_right = right_border_style.progress
@@ -1047,12 +1047,12 @@ def draw_fallback_stage(
         layout_b = layout_stage_lane_by_edges(l - 0.25, l)
         layout_t = layout_stage_lane_by_edges(tilt_widened_edge(l - 0.25, l - 1), l)
         ActiveSkin.stage_left_border.draw(
-            place(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br)), z=z_mid, a=la
+            place(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br)), z=z_mid.tuple, a=la
         )
         layout_b = layout_stage_lane_by_edges(r, r + 0.25)
         layout_t = layout_stage_lane_by_edges(r, tilt_widened_edge(r + 0.25, r + 1))
         ActiveSkin.stage_right_border.draw(
-            place(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br)), z=z_mid, a=la
+            place(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br)), z=z_mid.tuple, a=la
         )
 
         eps = 0.001
@@ -1064,17 +1064,17 @@ def draw_fallback_stage(
             k_end = ceil((r - shifted_pivot - eps) / division_size) - 1
             for k in range(k_start, k_end + 1):
                 pos = shifted_pivot + k * division_size
-                ActiveSkin.lane.draw(place(layout_stage_lane_by_edges(prev, pos)), a=la, z=z_lo)
+                ActiveSkin.lane.draw(place(layout_stage_lane_by_edges(prev, pos)), a=la, z=z_lo.tuple)
                 prev = pos
-        ActiveSkin.lane.draw(place(layout_stage_lane_by_edges(prev, r)), a=la, z=z_lo)
+        ActiveSkin.lane.draw(place(layout_stage_lane_by_edges(prev, r)), a=la, z=z_lo.tuple)
 
     if ja * w_default > 0:
         layout = place(perspective_rect(l_jl, r_jl, t=1 - nh, b=1 + nh, travel=travel))
-        ActiveSkin.judgment_line.draw(layout, z=z_hi, a=ja * w_default)
+        ActiveSkin.judgment_line.draw(layout, z=z_hi.tuple, a=ja * w_default)
     if ja * w_single_line > 0:
         half_thick = nh / JUDGE_LINE_BORDER_FACTOR / 2
         layout = place(perspective_rect(l_jl, r_jl, t=1 - half_thick, b=1 + half_thick, travel=travel))
-        ActiveSkin.judgment_line.draw(layout, z=z_single, a=ja * w_single_line)
+        ActiveSkin.judgment_line.draw(layout, z=z_single.tuple, a=ja * w_single_line)
 
     draw_per_stage_cover(l, r, lane_alpha, z, transform)
 
@@ -1096,18 +1096,18 @@ def draw_per_stage_cover(l: float, r: float, lane_alpha: float, order: int, tran
         match Options.stage_cover_mode:
             case StageCoverMode.STAGE:
                 layout = layout_stage_cover(l, r)
-                ActiveSkin.cover.draw(place(layout), z=z_cover, a=Options.stage_cover_alpha * ca)
+                ActiveSkin.cover.draw(place(layout), z=z_cover.tuple, a=Options.stage_cover_alpha * ca)
             case StageCoverMode.STAGE_AND_LINE:
                 cover_layout, line_layout = layout_stage_cover_and_line(l, r)
-                ActiveSkin.cover.draw(place(cover_layout), z=z_cover, a=Options.stage_cover_alpha * ca)
-                ActiveSkin.guide_neutral.draw(place(line_layout), z=z_line, a=0.75 * ca)
+                ActiveSkin.cover.draw(place(cover_layout), z=z_cover.tuple, a=Options.stage_cover_alpha * ca)
+                ActiveSkin.guide_neutral.draw(place(line_layout), z=z_line.tuple, a=0.75 * ca)
             case StageCoverMode.FULL_WIDTH:
                 pass
             case _:
                 assert_never(Options.stage_cover_mode)
     if Options.hidden > 0:
         layout = layout_hidden_cover(l, r)
-        ActiveSkin.cover.draw(place(layout), z=z_hidden, a=ca)
+        ActiveSkin.cover.draw(place(layout), z=z_hidden.tuple, a=ca)
 
 
 def draw_stage_cover():
@@ -1116,20 +1116,20 @@ def draw_stage_cover():
             case StageCoverMode.STAGE:
                 if not LevelConfig.dynamic_stages:
                     layout = layout_stage_cover()
-                    ActiveSkin.cover.draw(layout, z=get_z(LAYER_COVER), a=Options.stage_cover_alpha)
+                    ActiveSkin.cover.draw(layout, z=get_z(LAYER_COVER).tuple, a=Options.stage_cover_alpha)
             case StageCoverMode.STAGE_AND_LINE:
                 if not LevelConfig.dynamic_stages:
                     cover_layout, line_layout = layout_stage_cover_and_line()
-                    ActiveSkin.cover.draw(cover_layout, z=get_z(LAYER_COVER), a=Options.stage_cover_alpha)
-                    ActiveSkin.guide_neutral.draw(line_layout, z=get_z(LAYER_COVER, etc=1), a=0.75)
+                    ActiveSkin.cover.draw(cover_layout, z=get_z(LAYER_COVER).tuple, a=Options.stage_cover_alpha)
+                    ActiveSkin.guide_neutral.draw(line_layout, z=get_z(LAYER_COVER, etc=1).tuple, a=0.75)
             case StageCoverMode.FULL_WIDTH:
                 layout = layout_full_width_stage_cover()
-                ActiveSkin.cover.draw(layout, z=get_z(LAYER_COVER), a=Options.stage_cover_alpha)
+                ActiveSkin.cover.draw(layout, z=get_z(LAYER_COVER).tuple, a=Options.stage_cover_alpha)
             case _:
                 assert_never(Options.stage_cover_mode)
     if Options.hidden > 0 and not LevelConfig.dynamic_stages:
         layout = layout_hidden_cover()
-        ActiveSkin.cover.draw(layout, z=get_z(LAYER_COVER), a=1)
+        ActiveSkin.cover.draw(layout, z=get_z(LAYER_COVER).tuple, a=1)
 
 
 def play_lane_hit_effects(lane: float, sfx: bool = True, *, transform: AffineTransform2d):
