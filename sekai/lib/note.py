@@ -960,13 +960,13 @@ def schedule_note_slot_effects(
         return
     sprite_set = get_note_sprite_set(kind, direction)
     slot_sprite = sprite_set.slot
-    if slot_sprite.is_available and not single_line:
+    if slot_sprite.is_available and not single_line and size > 0:
         for slot_lane in iter_slot_lanes(lane, size, pivot_lane=pivot_lane, half_offset=half_offset):
             get_archetype_by_name(archetype_names.SLOT_EFFECT).spawn(
                 sprite=slot_sprite, start_time=target_time, lane=slot_lane, y_offset=y_offset, transform=transform
             )
     slot_glow_sprite = sprite_set.slot_glow
-    if slot_glow_sprite.is_available:
+    if slot_glow_sprite.is_available and size > 0:
         get_archetype_by_name(archetype_names.SLOT_GLOW_EFFECT).spawn(
             sprite=slot_glow_sprite,
             start_time=target_time,

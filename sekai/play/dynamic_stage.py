@@ -294,10 +294,11 @@ class StageStyleChange(PlayArchetype, BaseEvent):
     judge_line_alpha: float = imported(name="judgeLineAlpha")
     division_line_alpha: float = imported(name="divisionLineAlpha", default=1)
     note_alpha: float = imported(name="noteAlpha", default=1)
+    mask_notes: bool = imported(name="maskNotes", default=False)
     ease: EaseType = imported()
     next_ref: EntityRef[StageStyleChange] = imported(name="next")
 
-    time: float = entity_data()
+    time: float = shared_memory()
 
     @callback(order=-2)
     def preprocess(self):

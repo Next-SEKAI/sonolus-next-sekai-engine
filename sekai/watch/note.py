@@ -55,7 +55,15 @@ from sekai.lib.note import (
     schedule_note_slot_effects,
 )
 from sekai.lib.options import Options
-from sekai.lib.stage import DivisionParity, JudgeLineStyle, get_stage_props, resolve_judge_line_style
+from sekai.lib.stage import (
+    DivisionParity,
+    JudgeLineStyle,
+    VisualMask,
+    get_stage_props,
+    masked_note_extents,
+    masked_note_extents_by_limits,
+    resolve_judge_line_style,
+)
 from sekai.lib.timescale import (
     CompositeTime,
     group_force_note_speed,
@@ -239,17 +247,23 @@ class WatchBaseNote(WatchArchetype):
                     props.lane,
                     props.center_weight,
                 )
+            render_size = self.size
+            if not self.is_attached:
+                visual_lane, render_size = masked_note_extents(visual_lane, self.size, props)
         else:
             pivot_lane = 0.0
             y_offset = 0.0
             half_offset = False
             single_line = False
             visual_lane = self.visual_lane_at(t)
+            render_size = self.size
             transform @= self.stage_transform_at(t)
+        if self.is_attached:
+            visual_lane, render_size = self.visual_extents_at(t)
         schedule_note_slot_effects(
             self.kind,
             visual_lane,
-            self.size,
+            render_size,
             t,
             self.direction,
             y_offset=y_offset,
@@ -286,11 +300,14 @@ class WatchBaseNote(WatchArchetype):
             return
         if Options.disable_fake_notes and not self.is_scored:
             return
+        render_lane, render_size = self.visual_extents
+        if render_size <= 0:
+            return
         if self.has_stage_transform():
             draw_note(
                 self.kind,
-                self.visual_lane,
-                self.size,
+                render_lane,
+                render_size,
                 self.visual_progress,
                 self.direction,
                 self.target_time,
@@ -300,8 +317,8 @@ class WatchBaseNote(WatchArchetype):
         else:
             draw_note(
                 self.kind,
-                self.visual_lane,
-                self.size,
+                render_lane,
+                render_size,
                 self.visual_progress,
                 self.direction,
                 self.target_time,
@@ -372,11 +389,12 @@ class WatchBaseNote(WatchArchetype):
         if time() < self.despawn_time():
             return
         if (not is_replay() or self.played_hit_effects) and self.is_scored:
+            render_lane, render_size = self.visual_extents
             play_note_hit_effects(
                 self.kind,
                 self.effect_kind,
-                self.visual_lane,
-                self.size,
+                render_lane,
+                render_size,
                 self.direction,
                 self.judgment,
                 y_offset=self.visual_y_offset,
@@ -527,6 +545,54 @@ class WatchBaseNote(WatchArchetype):
     @property
     def visual_lane(self) -> float:
         return self.visual_lane_at(time())
+
+    def _basic_visual_mask_at(self, t: float) -> VisualMask:
+        result = +VisualMask
+        if self.stage_ref.index > 0:
+            props = get_stage_props(self.stage_ref.get(), t)
+            result.left = props.lane - props.width
+            result.right = props.lane + props.width
+            result.enabled = props.mask_notes
+            if result.enabled:
+                result.stage_index = self.stage_ref.index
+        return result
+
+    def visual_mask_at(self, t: float) -> VisualMask:
+        result = +VisualMask
+        if not self.is_attached:
+            result @= self._basic_visual_mask_at(t)
+            return result
+
+        head_mask = self.attach_head_ref.get()._basic_visual_mask_at(t)
+        tail_mask = self.attach_tail_ref.get()._basic_visual_mask_at(t)
+        if head_mask.enabled and not tail_mask.enabled:
+            result @= head_mask
+            return result
+        if tail_mask.enabled and not head_mask.enabled:
+            result @= tail_mask
+            return result
+        if not head_mask.enabled:
+            return result
+
+        result.left = lerp(head_mask.left, tail_mask.left, self.attach_eased_frac)
+        result.right = lerp(head_mask.right, tail_mask.right, self.attach_eased_frac)
+        result.enabled = True
+        if head_mask.stage_index == tail_mask.stage_index and head_mask.stage_index > 0:
+            result.stage_index = head_mask.stage_index
+        return result
+
+    @property
+    def visual_mask(self) -> VisualMask:
+        return self.visual_mask_at(time())
+
+    def visual_extents_at(self, t: float) -> tuple[float, float]:
+        render_lane = self.visual_lane_at(t)
+        mask = self.visual_mask_at(t)
+        return masked_note_extents_by_limits(render_lane, self.size, mask.left, mask.right, mask.enabled)
+
+    @property
+    def visual_extents(self) -> tuple[float, float]:
+        return self.visual_extents_at(time())
 
     @property
     def _basic_visual_y_offset(self) -> float:

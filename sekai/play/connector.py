@@ -36,6 +36,7 @@ from sekai.lib.ease import EaseType, ease
 from sekai.lib.layout import StageTransform, blend_stage_transform
 from sekai.lib.note import draw_connector_hitbox_overlay, draw_slide_note_head, get_attach_params
 from sekai.lib.options import Options
+from sekai.lib.stage import VisualMask, masked_note_extents_by_limits
 from sekai.lib.streams import Streams
 from sekai.lib.timescale import group_hide_notes, update_timescale_group
 from sekai.play import input_manager, note
@@ -166,7 +167,7 @@ class Connector(PlayArchetype):
                         self.active_connector_info.active_start_time = time()
                     self.active_connector_info.last_active_time = time()
             if time() in self.visual_active_interval:
-                visual_lane, visual_size = self.get_attached_params(time())
+                visual_lane, visual_size = self.current_visual_head_extents()
                 head = self.head
                 tail = self.tail
                 self.active_connector_info.visual_lane = visual_lane
@@ -218,6 +219,9 @@ class Connector(PlayArchetype):
             head_transform = +StageTransform
             tail_transform = +StageTransform
             tail_transform @= tail.visual_stage_transform()
+            head_mask = +VisualMask
+            head_mask @= head.visual_mask
+            tail_mask = tail.visual_mask
             if time() >= head.target_time and not segment_head.segment_through_judge_line:
                 head_visual_progress = 1.0 - remap_clamped(
                     head.target_time, tail.target_time, head.visual_y_offset, tail.visual_y_offset, time()
@@ -242,6 +246,9 @@ class Connector(PlayArchetype):
                     )
                     head_lane = lerp(head.visual_lane, tail.visual_lane, head_interp_frac)
                     head_size = lerp(head.size, tail.size, head_interp_frac)
+                    if head_mask.enabled and tail_mask.enabled:
+                        head_mask.left = lerp(head_mask.left, tail_mask.left, head_interp_frac)
+                        head_mask.right = lerp(head_mask.right, tail_mask.right, head_interp_frac)
                     # Head has crossed the judge line, so its transform is the connector's blend at that point.
                     head_transform @= blend_stage_transform(
                         head.visual_stage_transform(), tail.visual_stage_transform(), head_interp_frac
@@ -280,6 +287,8 @@ class Connector(PlayArchetype):
                 tail_transform=tail_transform,
                 head_note_alpha=head_note_alpha,
                 tail_note_alpha=tail.visual_note_alpha,
+                head_mask=head_mask,
+                tail_mask=tail_mask,
             )
 
     def draw_hitbox(self):
@@ -302,6 +311,36 @@ class Connector(PlayArchetype):
             tail_size=tail.size,
             tail_target_time=tail.target_time,
             target_time=target_time,
+        )
+
+    def current_visual_head_extents(self) -> tuple[float, float]:
+        head = self.head
+        tail = self.tail
+        result_lane = head.visual_lane
+        result_size = head.size
+        head_mask = head.visual_mask
+        tail_mask = tail.visual_mask
+        mask_left = head_mask.left
+        mask_right = head_mask.right
+        if self.ease_type != EaseType.NONE:
+            head_ease_frac = remap_clamped(
+                head.target_time, tail.target_time, head.head_ease_frac, tail.tail_ease_frac, time()
+            )
+            interp_frac = unlerp_clamped(
+                ease(self.ease_type, head.head_ease_frac),
+                ease(self.ease_type, tail.tail_ease_frac),
+                ease(self.ease_type, head_ease_frac),
+            )
+            result_lane = lerp(head.visual_lane, tail.visual_lane, interp_frac)
+            result_size = lerp(head.size, tail.size, interp_frac)
+            mask_left = lerp(head_mask.left, tail_mask.left, interp_frac)
+            mask_right = lerp(head_mask.right, tail_mask.right, interp_frac)
+        return masked_note_extents_by_limits(
+            result_lane,
+            result_size,
+            mask_left,
+            mask_right,
+            head_mask.enabled and tail_mask.enabled,
         )
 
     @property
@@ -377,6 +416,10 @@ class SlideManager(PlayArchetype):
             ) if info.is_active:
                 replace = info.connector_kind != self.last_kind
                 self.last_kind = info.connector_kind
+                update_connector_sfx(self.sfx, info.connector_kind, replace)
+                if self.last_effect_kind != info.connector_kind:
+                    connector_effect_kind_stream[offset_adjusted_time()] = info.connector_kind
+                    self.last_effect_kind = info.connector_kind
                 update_circular_connector_particle(
                     self.circular_particle,
                     info.connector_kind,
@@ -393,10 +436,6 @@ class SlideManager(PlayArchetype):
                     info.visual_y_offset,
                     transform=head_transform,
                 )
-                update_connector_sfx(self.sfx, info.connector_kind, replace)
-                if self.last_effect_kind != info.connector_kind:
-                    connector_effect_kind_stream[offset_adjusted_time()] = info.connector_kind
-                    self.last_effect_kind = info.connector_kind
                 trail_period = CONNECTOR_TRAIL_SPAWN_PERIOD / Options.effect_animation_speed
                 if time() >= self.next_trail_spawn_time:
                     self.next_trail_spawn_time = max(
@@ -406,27 +445,28 @@ class SlideManager(PlayArchetype):
                     spawn_linear_connector_trail_particle(
                         info.connector_kind, info.visual_lane, info.visual_y_offset, transform=head_transform
                     )
-                slot_period = CONNECTOR_SLOT_SPAWN_PERIOD / Options.effect_animation_speed
-                if time() >= self.next_slot_spawn_time:
-                    self.next_slot_spawn_time = max(
-                        self.next_slot_spawn_time + slot_period,
-                        time() + slot_period / 2,
-                    )
-                    spawn_connector_slot_particles(
+                if info.visual_size > 0:
+                    slot_period = CONNECTOR_SLOT_SPAWN_PERIOD / Options.effect_animation_speed
+                    if time() >= self.next_slot_spawn_time:
+                        self.next_slot_spawn_time = max(
+                            self.next_slot_spawn_time + slot_period,
+                            time() + slot_period / 2,
+                        )
+                        spawn_connector_slot_particles(
+                            info.connector_kind,
+                            info.visual_lane,
+                            info.visual_size,
+                            info.visual_y_offset,
+                            transform=head_transform,
+                        )
+                    draw_connector_slot_glow_effect(
                         info.connector_kind,
+                        info.active_start_time,
                         info.visual_lane,
                         info.visual_size,
                         info.visual_y_offset,
                         transform=head_transform,
                     )
-                draw_connector_slot_glow_effect(
-                    info.connector_kind,
-                    info.active_start_time,
-                    info.visual_lane,
-                    info.visual_size,
-                    info.visual_y_offset,
-                    transform=head_transform,
-                )
             case _:
                 destroy_looped_sfx(self.sfx)
                 destroy_looped_particle(self.circular_particle)
@@ -441,7 +481,7 @@ class SlideManager(PlayArchetype):
                 | ConnectorKind.ACTIVE_FAKE_NORMAL
                 | ConnectorKind.ACTIVE_FAKE_CRITICAL
                 | ConnectorKind.DAMAGE
-            ):
+            ) if info.visual_size > 0:
                 draw_slide_note_head(
                     self.active_head.kind,
                     info.connector_kind,
@@ -467,10 +507,16 @@ class SlideManager(PlayArchetype):
         if next_ref.index > 0:
             seg_tail = next_ref.get()
             frac = remap_clamped(seg_head.target_time, seg_tail.target_time, 0.0, 1.0, time())
+            ease_frac = lerp(seg_head.head_ease_frac, seg_tail.tail_ease_frac, frac)
+            transform_frac = unlerp_clamped(
+                ease(seg_head.connector_ease, seg_head.head_ease_frac),
+                ease(seg_head.connector_ease, seg_tail.tail_ease_frac),
+                ease(seg_head.connector_ease, ease_frac),
+            )
             result @= blend_stage_transform(
                 seg_head.visual_stage_transform(),
                 seg_tail.visual_stage_transform(),
-                ease(seg_head.connector_ease, frac),
+                transform_frac,
             )
             note_alpha = lerp(seg_head.visual_note_alpha, seg_tail.visual_note_alpha, frac)
         else:

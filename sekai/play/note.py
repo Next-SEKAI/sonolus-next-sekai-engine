@@ -67,7 +67,14 @@ from sekai.lib.note import (
     schedule_note_auto_sfx,
 )
 from sekai.lib.options import Options
-from sekai.lib.stage import DivisionParity, JudgeLineStyle, get_stage_props, resolve_judge_line_style
+from sekai.lib.stage import (
+    DivisionParity,
+    JudgeLineStyle,
+    VisualMask,
+    get_stage_props,
+    masked_note_extents_by_limits,
+    resolve_judge_line_style,
+)
 from sekai.lib.timescale import (
     CompositeTime,
     group_force_note_speed,
@@ -361,11 +368,14 @@ class BaseNote(PlayArchetype):
             return
         if Options.disable_fake_notes and not self.is_scored:
             return
+        render_lane, render_size = self.visual_extents
+        if render_size <= 0:
+            return
         if self.has_stage_transform():
             draw_note(
                 self.kind,
-                self.visual_lane,
-                self.size,
+                render_lane,
+                render_size,
                 self.visual_progress,
                 self.direction,
                 self.target_time,
@@ -375,8 +385,8 @@ class BaseNote(PlayArchetype):
         else:
             draw_note(
                 self.kind,
-                self.visual_lane,
-                self.size,
+                render_lane,
+                render_size,
                 self.visual_progress,
                 self.direction,
                 self.target_time,
@@ -430,11 +440,12 @@ class BaseNote(PlayArchetype):
     def terminate(self):
         if self.should_play_hit_effects:
             # We do this here for parallelism, and to reduce compilation time.
+            render_lane, render_size = self.visual_extents
             play_note_hit_effects(
                 self.kind,
                 self.effect_kind,
-                self.visual_lane,
-                self.size,
+                render_lane,
+                render_size,
                 self.direction,
                 self.result.judgment,
                 y_offset=self.visual_y_offset,
@@ -818,6 +829,49 @@ class BaseNote(PlayArchetype):
     @property
     def visual_lane(self) -> float:
         return self.visual_lane_at(time())
+
+    @property
+    def _basic_visual_mask(self) -> VisualMask:
+        result = +VisualMask
+        if self.stage_ref.index > 0:
+            props = self.stage_ref.get().props
+            result.left = props.lane - props.width
+            result.right = props.lane + props.width
+            result.enabled = props.mask_notes
+            if result.enabled:
+                result.stage_index = self.stage_ref.index
+        return result
+
+    @property
+    def visual_mask(self) -> VisualMask:
+        result = +VisualMask
+        if not self.is_attached:
+            result @= self._basic_visual_mask
+            return result
+
+        head_mask = self.attach_head_ref.get()._basic_visual_mask
+        tail_mask = self.attach_tail_ref.get()._basic_visual_mask
+        if head_mask.enabled and not tail_mask.enabled:
+            result @= head_mask
+            return result
+        if tail_mask.enabled and not head_mask.enabled:
+            result @= tail_mask
+            return result
+        if not head_mask.enabled:
+            return result
+
+        result.left = lerp(head_mask.left, tail_mask.left, self.attach_eased_frac)
+        result.right = lerp(head_mask.right, tail_mask.right, self.attach_eased_frac)
+        result.enabled = True
+        if head_mask.stage_index == tail_mask.stage_index and head_mask.stage_index > 0:
+            result.stage_index = head_mask.stage_index
+        return result
+
+    @property
+    def visual_extents(self) -> tuple[float, float]:
+        render_lane = self.visual_lane
+        mask = self.visual_mask
+        return masked_note_extents_by_limits(render_lane, self.size, mask.left, mask.right, mask.enabled)
 
     @property
     def _basic_visual_y_offset(self) -> float:
