@@ -70,7 +70,7 @@ description.en = "Reduces note speed to compensate for the reduced visible area 
 description.ko = "노트 시작 위치로 인해 줄어든 표시 영역을 보정하기 위해 노트 속도를 낮춥니다."
 description.fr = "Réduit la vitesse des notes pour compenser la perte de surface d'affichage due au masquage."
 description.ru = "Понижает скорость нот чтобы компенсировать уменьшенную видимую зону от покрытия сцены."
-description.vi = "Tự động giảm tốc độ Note để bù trừ cho phần diện tích hiển thị bị rút ngắn bởi tường chắn.\n\n- Chế độ Toàn bộ: Tất cả các Note đều được giảm tốc độ sao cho thời gian chạy trên màn hình của mỗi Note đều được giữ nguyên so với khi không có tường chắn. \n\n- Chế độ Mặc định: Chỉ các Note Group với tốc độ Note đặt trước sẽ được bù trừ để bảo đảm hiển thị toàn vẹn các Note Group đó khi có tường chắn, các Note khác không bị tác động."
+description.vi = "Tự động giảm tốc độ Note để bù trừ cho phần diện tích hiển thị bị rút ngắn bởi tường chắn.\n\n- Chế độ Toàn bộ: Tất cả các Note đều được giảm tốc độ sao cho thời gian chạy trên màn hình của mỗi Note đều được giữ nguyên so với khi không có tường chắn.\n- Chế độ Mặc định: Chỉ các Note Group với tốc độ Note đặt trước sẽ được bù trừ để bảo đảm hiển thị toàn vẹn các Note Group đó khi có tường chắn, các Note khác không bị tác động."
 
 [options.stage_cover_scroll_speed_compensation.values]
 off.en = "Off"
