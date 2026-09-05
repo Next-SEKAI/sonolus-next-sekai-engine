@@ -687,6 +687,31 @@ def draw_connector_default_segment(
     draw_connector_quad(layout, visual_state, normal_sprite, active_sprite, z_normal, z_active, base_a)
 
 
+def connector_is_off_screen(
+    start_travel: float,
+    end_travel: float,
+    head_transform: StageTransform | None,
+    tail_transform: StageTransform | None,
+) -> bool:
+    if DynamicLayout.rotate != 0:
+        return False
+    head_y_offset = 0.0
+    tail_y_offset = 0.0
+    if head_transform is not None:
+        if head_transform.sr != 0:
+            return False
+        head_y_offset = head_transform.ty
+    if tail_transform is not None:
+        if tail_transform.sr != 0:
+            return False
+        tail_y_offset = tail_transform.ty
+    if head_y_offset != tail_y_offset:
+        return False
+    start_y = start_travel * DynamicLayout.h_scale + DynamicLayout.t + head_y_offset
+    end_y = end_travel * DynamicLayout.h_scale + DynamicLayout.t + tail_y_offset
+    return max(start_y, end_y) < screen().b or min(start_y, end_y) > screen().t
+
+
 def draw_connector_default(
     kind: ConnectorKind,
     visual_state: ConnectorVisualState,
@@ -736,6 +761,16 @@ def draw_connector_default(
         return
     start_alpha = lerp(head_alpha, tail_alpha, start_frac)
     end_alpha = lerp(head_alpha, tail_alpha, end_frac)
+    alpha_option = get_connector_alpha_option(kind)
+    if max(start_alpha, end_alpha) <= 0:
+        return
+    if connector_is_off_screen(
+        start_travel,
+        end_travel,
+        head_transform,
+        tail_transform,
+    ):
+        return
     start_pos_y = pre_rotation_vec_at(start_lane, start_travel).y
     end_pos_y = pre_rotation_vec_at(end_lane, end_travel).y
 
@@ -793,8 +828,7 @@ def draw_connector_default(
                 last_pos_offset = current_pos_offset
             total_pos_offsets += abs(last_pos_offset) ** 0.6
             curve_change_scale = total_pos_offsets * 1.5
-    alpha_option = get_connector_alpha_option(kind)
-    alpha_change_delta = min(abs(start_alpha - end_alpha) * alpha_option, 1.0)
+    alpha_change_delta = abs(clamp(start_alpha * alpha_option, 0, 1) - clamp(end_alpha * alpha_option, 0, 1))
     alpha_change_scale = max(
         alpha_change_delta**0.8 * 3,
         alpha_change_delta**0.5 * abs(start_pos_y - end_pos_y) * 3,
