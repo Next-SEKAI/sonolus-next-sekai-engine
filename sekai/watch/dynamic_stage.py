@@ -126,7 +126,7 @@ class WatchDynamicStage(WatchArchetype):
     def despawn_time(self) -> float:
         return self.end_time
 
-    @callback(order=-1)
+    @callback(order=-2)
     def update_sequential(self):
         self.props @= get_stage_props(self)
 

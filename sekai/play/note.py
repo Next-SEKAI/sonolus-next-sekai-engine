@@ -77,8 +77,11 @@ from sekai.lib.note import (
 from sekai.lib.options import Options
 from sekai.lib.stage import (
     DivisionParity,
+    InputGeometry,
+    InputGeometryContext,
     JudgeLineStyle,
     VisualMask,
+    get_stage_pivot_lane,
     get_stage_props,
     interpolate_visual_masks,
     masked_note_extents_by_limits,
@@ -822,10 +825,43 @@ class BaseNote(PlayArchetype):
     def visual_progress(self) -> float:
         return self.progress - self.visual_y_offset
 
+    def _basic_input_geometry(self, context: InputGeometryContext) -> InputGeometry:
+        result = +InputGeometry
+        if self.stage_ref.index > 0:
+            result @= context.stage_geometry(self.stage_ref.get())
+            result.lane += self.rel_lane
+        else:
+            result.lane = self.lane
+            result.transform @= identity_stage_transform()
+        return result
+
+    def input_geometry(self, context: InputGeometryContext) -> InputGeometry:
+        result = +InputGeometry
+        if self.is_attached:
+            head = self.attach_head_ref.get()
+            tail = self.attach_tail_ref.get()
+            head_geometry = head._basic_input_geometry(context)
+            tail_geometry = tail._basic_input_geometry(context)
+            result.lane = lerp(head_geometry.lane, tail_geometry.lane, self.attach_eased_frac)
+            result.mask @= interpolate_visual_masks(head_geometry.mask, tail_geometry.mask, self.attach_eased_frac)
+            result.y_offset = lerp(
+                head_geometry.y_offset,
+                tail_geometry.y_offset,
+                get_attach_frac(head.target_time, tail.target_time, self.target_time),
+            )
+            result.transform @= blend_stage_transform(
+                head_geometry.transform,
+                tail_geometry.transform,
+                get_attach_eased_frac(self.connector_ease, head.target_time, tail.target_time, self.target_time),
+            )
+        else:
+            result @= self._basic_input_geometry(context)
+        return result
+
     def _basic_visual_lane_at(self, t: float) -> float:
         if self.stage_ref.index <= 0:
             return self.lane
-        return get_stage_props(self.stage_ref.get(), t).pivot_lane + self.rel_lane
+        return get_stage_pivot_lane(self.stage_ref.get(), t) + self.rel_lane
 
     def visual_lane_at(self, t: float) -> float:
         if self.is_attached:
@@ -835,8 +871,20 @@ class BaseNote(PlayArchetype):
         return self._basic_visual_lane_at(t)
 
     @property
+    def _basic_visual_lane(self) -> float:
+        if self.stage_ref.index <= 0:
+            return self.lane
+        return self.stage_ref.get().props.pivot_lane + self.rel_lane
+
+    @property
     def visual_lane(self) -> float:
-        return self.visual_lane_at(time())
+        if self.is_attached:
+            return lerp(
+                self.attach_head_ref.get()._basic_visual_lane,
+                self.attach_tail_ref.get()._basic_visual_lane,
+                self.attach_eased_frac,
+            )
+        return self._basic_visual_lane
 
     @property
     def _basic_visual_mask(self) -> VisualMask:
@@ -1105,11 +1153,15 @@ def compute_slide_input_bounds(ease_type: EaseType, head: BaseNote, tail: BaseNo
         tail.tail_ease_frac,
         t,
     )
-    input_lane = lerp(head.visual_lane_at(t), tail.visual_lane_at(t), input_interp_frac)
+    # Account for input offset by querying camera and stage geometry at the input timestamp.
+    context = InputGeometryContext.at(t)
+    head_geometry = head.input_geometry(context)
+    tail_geometry = tail.input_geometry(context)
+    input_lane = lerp(head_geometry.lane, tail_geometry.lane, input_interp_frac)
     input_size = lerp(head.size, tail.size, input_interp_frac)
     input_mask = interpolate_visual_masks(
-        head.visual_mask_at(t, left_limit=True),
-        tail.visual_mask_at(t, left_limit=True),
+        head_geometry.mask,
+        tail_geometry.mask,
         input_interp_frac,
     )
     input_lane, input_size = masked_note_extents_by_limits(
@@ -1120,20 +1172,17 @@ def compute_slide_input_bounds(ease_type: EaseType, head: BaseNote, tail: BaseNo
         input_mask.enabled,
     )
     input_y_offset = lerp(
-        head.y_offset_at(t, left_limit=True),
-        tail.y_offset_at(t, left_limit=True),
+        head_geometry.y_offset,
+        tail_geometry.y_offset,
         input_frac,
     )
-    # Input arrives one input offset late, so the whole view state (stage transforms and layout)
-    # is queried at t, looking back by the offset rather than using the current frame. Use the
-    # left limit consistently with fixed-note judgment geometry at an event on the same timestamp.
     input_transform = blend_stage_transform(
-        head.stage_transform_at(t, left_limit=True),
-        tail.stage_transform_at(t, left_limit=True),
+        head_geometry.transform,
+        tail_geometry.transform,
         input_interp_frac,
     )
     return compute_hitbox(
-        camera_layout_transform_at_time(t, left_limit=True),
+        context.layout,
         input_lane,
         input_size,
         leniency,

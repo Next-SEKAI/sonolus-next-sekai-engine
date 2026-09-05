@@ -150,7 +150,7 @@ class DynamicStage(PlayArchetype):
     def should_spawn(self) -> bool:
         return time() >= self.start_time
 
-    @callback(order=-1)
+    @callback(order=-2)
     def update_sequential(self):
         self.props @= get_stage_props(self)
         if time() >= self.end_time:

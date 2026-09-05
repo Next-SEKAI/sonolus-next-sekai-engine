@@ -98,16 +98,9 @@ class WatchConnector(WatchArchetype):
         update_timescale_group(self.segment_head.timescale_group)
 
         if self.active_head_ref.index > 0 and time() in self.visual_active_interval:
-            visual_lane, visual_size = self.current_visual_head_extents()
-            head = self.head
-            tail = self.tail
-            self.active_connector_info.visual_lane = visual_lane
-            self.active_connector_info.visual_size = visual_size
-            self.active_connector_info.visual_y_offset = lerp(
-                head.visual_y_offset,
-                tail.visual_y_offset,
-                safe_unlerp_clamped(head.target_time, tail.target_time, time()),
-            )
+            # Callback order decides which connector wins when visual intervals overlap.
+            self.active_connector_info.visual_connector_index = self.index + 1
+            self.active_connector_info.visual_update_time = time()
             self.active_connector_info.connector_kind = self.kind
         if group_hide_notes(self.segment_head.timescale_group) and self.active_head_ref.index > 0:
             self.active_connector_info.connector_kind = ConnectorKind.NONE
@@ -368,6 +361,12 @@ class WatchSlideManager(WatchArchetype):
     active_head_ref: EntityRef[note.WatchBaseNote] = entity_memory()
     active_tail_ref: EntityRef[note.WatchBaseNote] = entity_memory()
 
+    visual_lane: float = entity_memory()
+    visual_size: float = entity_memory()
+    visual_y_offset: float = entity_memory()
+    segment_head_ref: EntityRef[note.WatchBaseNote] = entity_memory()
+    segment_cursor_time: float = entity_memory()
+
     last_kind: ConnectorKind = entity_memory()
     circular_particle: ParticleHandle = entity_memory()
     linear_particle: ParticleHandle = entity_memory()
@@ -375,6 +374,8 @@ class WatchSlideManager(WatchArchetype):
     next_slot_spawn_time: float = entity_memory()
 
     def initialize(self):
+        self.segment_head_ref @= self.active_head_ref
+        self.segment_cursor_time = -1e8
         self.next_trail_spawn_time = -1e8
         self.next_slot_spawn_time = -1e8
 
@@ -391,9 +392,19 @@ class WatchSlideManager(WatchArchetype):
             destroy_looped_particle(self.linear_particle)
             self.next_trail_spawn_time = time() + CONNECTOR_TRAIL_SPAWN_PERIOD / Options.effect_animation_speed
             self.next_slot_spawn_time = time() + CONNECTOR_SLOT_SPAWN_PERIOD / Options.effect_animation_speed
+        info = self.active_head.active_connector_info
+        if info.visual_connector_index > 0 and info.visual_update_time == time():
+            connector = EntityRef[WatchConnector](index=info.visual_connector_index - 1).get()
+            visual_lane, visual_size = connector.current_visual_head_extents()
+            self.visual_lane = visual_lane
+            self.visual_size = visual_size
+            self.visual_y_offset = lerp(
+                connector.head.visual_y_offset,
+                connector.tail.visual_y_offset,
+                safe_unlerp_clamped(connector.head.target_time, connector.tail.target_time, time()),
+            )
         if time() < self.active_head.target_time:
             return
-        info = self.active_head.active_connector_info
         segment_transform, segment_note_alpha = self.active_segment_transform_and_note_alpha()
         head_transform = segment_transform.transform()
         connector_kind = (
@@ -414,17 +425,17 @@ class WatchSlideManager(WatchArchetype):
                     update_circular_connector_particle(
                         self.circular_particle,
                         connector_kind,
-                        info.visual_lane,
+                        self.visual_lane,
                         replace,
-                        info.visual_y_offset,
+                        self.visual_y_offset,
                         transform=head_transform,
                     )
                     update_linear_connector_particle(
                         self.linear_particle,
                         connector_kind,
-                        info.visual_lane,
+                        self.visual_lane,
                         replace,
-                        info.visual_y_offset,
+                        self.visual_y_offset,
                         transform=head_transform,
                     )
                     trail_period = CONNECTOR_TRAIL_SPAWN_PERIOD / Options.effect_animation_speed
@@ -434,9 +445,9 @@ class WatchSlideManager(WatchArchetype):
                             time() + trail_period / 2,
                         )
                         spawn_linear_connector_trail_particle(
-                            connector_kind, info.visual_lane, info.visual_y_offset, transform=head_transform
+                            connector_kind, self.visual_lane, self.visual_y_offset, transform=head_transform
                         )
-                    if info.visual_size > 0:
+                    if self.visual_size > 0:
                         slot_period = CONNECTOR_SLOT_SPAWN_PERIOD / Options.effect_animation_speed
                         if time() >= self.next_slot_spawn_time:
                             self.next_slot_spawn_time = max(
@@ -445,17 +456,17 @@ class WatchSlideManager(WatchArchetype):
                             )
                             spawn_connector_slot_particles(
                                 connector_kind,
-                                info.visual_lane,
-                                info.visual_size,
-                                info.visual_y_offset,
+                                self.visual_lane,
+                                self.visual_size,
+                                self.visual_y_offset,
                                 transform=head_transform,
                             )
                         draw_connector_slot_glow_effect(
                             connector_kind,
                             self.active_head.target_time,
-                            info.visual_lane,
-                            info.visual_size,
-                            info.visual_y_offset,
+                            self.visual_lane,
+                            self.visual_size,
+                            self.visual_y_offset,
                             transform=head_transform,
                         )
                 else:
@@ -471,14 +482,14 @@ class WatchSlideManager(WatchArchetype):
                 | ConnectorKind.ACTIVE_FAKE_NORMAL
                 | ConnectorKind.ACTIVE_FAKE_CRITICAL
                 | ConnectorKind.DAMAGE
-            ) if info.visual_size > 0:
+            ) if self.visual_size > 0:
                 draw_slide_note_head(
                     self.active_head.kind,
                     info.connector_kind,
-                    info.visual_lane,
-                    info.visual_size,
+                    self.visual_lane,
+                    self.visual_size,
                     self.active_head.target_time,
-                    1.0 - info.visual_y_offset,
+                    1.0 - self.visual_y_offset,
                     transform=head_transform,
                     note_alpha=segment_note_alpha,
                 )
@@ -491,11 +502,16 @@ class WatchSlideManager(WatchArchetype):
 
     def active_segment_transform_and_note_alpha(self) -> tuple[StageTransform, float]:
         result = +StageTransform
-        head_ref = +self.active_head_ref
+        # The cached segment is valid only while playback moves forward.
+        if is_skip() or time() < self.segment_cursor_time:
+            self.segment_head_ref @= self.active_head_ref
+        head_ref = +self.segment_head_ref
         next_ref = +head_ref.get().next_ref
         while next_ref.index > 0 and time() >= next_ref.get().target_time:
             head_ref.index = next_ref.index
             next_ref.index = head_ref.get().next_ref.index
+        self.segment_head_ref @= head_ref
+        self.segment_cursor_time = time()
         seg_head = head_ref.get()
         note_alpha = seg_head.visual_note_alpha
         if next_ref.index > 0:

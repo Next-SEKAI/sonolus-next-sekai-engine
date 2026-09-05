@@ -69,9 +69,27 @@ def get_connector_interp_frac(
 ) -> float:
     if ease_type == EaseType.NONE:
         return 0.0
-    return safe_unlerp_clamped(
+    return get_connector_interp_frac_from_eased_endpoints(
+        ease_type,
         ease(ease_type, head_ease_frac),
         ease(ease_type, tail_ease_frac),
+        target_ease_frac,
+        fallback_frac,
+    )
+
+
+def get_connector_interp_frac_from_eased_endpoints(
+    ease_type: EaseType,
+    head_eased: float,
+    tail_eased: float,
+    target_ease_frac: float,
+    fallback_frac: float,
+) -> float:
+    if ease_type == EaseType.NONE:
+        return 0.0
+    return safe_unlerp_clamped(
+        head_eased,
+        tail_eased,
         ease(ease_type, target_ease_frac),
         fallback_frac,
     )
@@ -606,6 +624,18 @@ def masked_connector_extents_by_limits(
     return render_lane, render_size, masked_size
 
 
+class ConnectorTransformCache(Record):
+    valid: bool
+    interp_frac: float
+    transform: AffineTransform2d
+
+    def update(self, head: StageTransform, tail: StageTransform, interp_frac: float):
+        if not self.valid or self.interp_frac != interp_frac:
+            self.transform @= blend_stage_transform(head, tail, interp_frac).transform()
+            self.interp_frac = interp_frac
+            self.valid = True
+
+
 def draw_connector_default_segment(
     visual_state: ConnectorVisualState,
     normal_sprite: Sprite,
@@ -624,12 +654,16 @@ def draw_connector_default_segment(
     has_transform: bool,
     head_transform: StageTransform | None,
     tail_transform: StageTransform | None,
+    transform_cache: ConnectorTransformCache,
 ):
     layout = +Quad
     if has_transform:
         # Satisfy pyright
         assert head_transform is not None
         assert tail_transform is not None
+        transform_cache.update(head_transform, tail_transform, start_interp_frac)
+        start_transform = +transform_cache.transform
+        transform_cache.update(head_transform, tail_transform, end_interp_frac)
         layout @= st_slide_connector_segment(
             start_lane=start_lane,
             start_size=start_size,
@@ -637,8 +671,8 @@ def draw_connector_default_segment(
             end_lane=end_lane,
             end_size=end_size,
             end_travel=end_travel,
-            start_transform=blend_stage_transform(head_transform, tail_transform, start_interp_frac).transform(),
-            end_transform=blend_stage_transform(head_transform, tail_transform, end_interp_frac).transform(),
+            start_transform=start_transform,
+            end_transform=transform_cache.transform,
         )
     else:
         layout @= layout_slide_connector_segment(
@@ -684,10 +718,14 @@ def draw_connector_default(
     end_frac = safe_unlerp_clamped(head_visual_progress, tail_visual_progress, end_visual_progress, 1.0)
     start_ease_frac = lerp(head_ease_frac, tail_ease_frac, start_frac)
     end_ease_frac = lerp(head_ease_frac, tail_ease_frac, end_frac)
-    start_interp_frac = get_connector_interp_frac(
-        ease_type, head_ease_frac, tail_ease_frac, start_ease_frac, start_frac
+    head_eased = ease(ease_type, head_ease_frac)
+    tail_eased = ease(ease_type, tail_ease_frac)
+    start_interp_frac = get_connector_interp_frac_from_eased_endpoints(
+        ease_type, head_eased, tail_eased, start_ease_frac, start_frac
     )
-    end_interp_frac = get_connector_interp_frac(ease_type, head_ease_frac, tail_ease_frac, end_ease_frac, end_frac)
+    end_interp_frac = get_connector_interp_frac_from_eased_endpoints(
+        ease_type, head_eased, tail_eased, end_ease_frac, end_frac
+    )
     start_travel = approach(start_visual_progress)
     end_travel = approach(end_visual_progress)
     start_lane = lerp(head_lane, tail_lane, start_interp_frac)
@@ -742,7 +780,9 @@ def draw_connector_default(
             for r in (0.25, 0.75):
                 ease_frac = lerp(start_ease_frac, end_ease_frac, r)
                 raw_frac = lerp(start_frac, end_frac, r)
-                interp_frac = get_connector_interp_frac(ease_type, head_ease_frac, tail_ease_frac, ease_frac, raw_frac)
+                interp_frac = get_connector_interp_frac_from_eased_endpoints(
+                    ease_type, head_eased, tail_eased, ease_frac, raw_frac
+                )
                 visual_progress = lerp(start_visual_progress, end_visual_progress, r)
                 travel = approach(visual_progress)
                 lane = lerp(ref_head_lane, ref_tail_lane, interp_frac)
@@ -753,7 +793,8 @@ def draw_connector_default(
                 last_pos_offset = current_pos_offset
             total_pos_offsets += abs(last_pos_offset) ** 0.6
             curve_change_scale = total_pos_offsets * 1.5
-    alpha_change_delta = min(abs(start_alpha - end_alpha) * get_connector_alpha_option(kind), 1.0)
+    alpha_option = get_connector_alpha_option(kind)
+    alpha_change_delta = min(abs(start_alpha - end_alpha) * alpha_option, 1.0)
     alpha_change_scale = max(
         alpha_change_delta**0.8 * 3,
         alpha_change_delta**0.5 * abs(start_pos_y - end_pos_y) * 3,
@@ -783,13 +824,15 @@ def draw_connector_default(
     last_alpha = start_alpha
     last_target_time = lerp(head_target_time, tail_target_time, start_frac)
     last_interp_frac = start_interp_frac
+    transform_cache = +ConnectorTransformCache
+    transform_cache.valid = False
 
     for i in range(1, segment_count + 1):
         segment_frac = i / segment_count
         next_frac = lerp(start_frac, end_frac, segment_frac)
         next_ease_frac = lerp(start_ease_frac, end_ease_frac, segment_frac)
-        next_interp_frac = get_connector_interp_frac(
-            ease_type, head_ease_frac, tail_ease_frac, next_ease_frac, next_frac
+        next_interp_frac = get_connector_interp_frac_from_eased_endpoints(
+            ease_type, head_eased, tail_eased, next_ease_frac, next_frac
         )
         next_visual_progress = lerp(start_visual_progress, end_visual_progress, segment_frac)
         next_travel = approach(next_visual_progress)
@@ -799,10 +842,7 @@ def draw_connector_default(
         next_target_time = lerp(head_target_time, tail_target_time, next_frac)
 
         base_a = clamp(
-            get_alpha((last_target_time + next_target_time) / 2)
-            * (last_alpha + next_alpha)
-            / 2
-            * get_connector_alpha_option(kind),
+            get_alpha((last_target_time + next_target_time) / 2) * (last_alpha + next_alpha) / 2 * alpha_option,
             0,
             1,
         )
@@ -878,6 +918,7 @@ def draw_connector_default(
                             has_transform=has_transform,
                             head_transform=head_transform,
                             tail_transform=tail_transform,
+                            transform_cache=transform_cache,
                         )
                     subsegment_start_frac = subsegment_end_frac
                     subsegment_start_lane = subsegment_end_lane
@@ -921,6 +962,7 @@ def draw_connector_default(
                         has_transform=has_transform,
                         head_transform=head_transform,
                         tail_transform=tail_transform,
+                        transform_cache=transform_cache,
                     )
         elif last_size > 0 or next_size > 0:
             # Give a zero-size endpoint a positive size so lightweight rendering can draw the segment.
@@ -942,6 +984,7 @@ def draw_connector_default(
                 has_transform=has_transform,
                 head_transform=head_transform,
                 tail_transform=tail_transform,
+                transform_cache=transform_cache,
             )
 
         last_travel = next_travel
@@ -993,9 +1036,9 @@ def draw_connector_quad(
 
 
 class ActiveConnectorInfo(Record):
-    visual_lane: float
-    visual_size: float
-    visual_y_offset: float
+    # Zero means no selection; otherwise this is the connector entity index plus one.
+    visual_connector_index: int
+    visual_update_time: float
     input_bounds: Quad
     active_start_time: float
     last_active_time: float

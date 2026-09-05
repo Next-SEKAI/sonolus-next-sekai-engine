@@ -28,7 +28,7 @@ class StaticStage(PlayArchetype):
     def should_spawn(self) -> bool:
         return True
 
-    @callback(order=-2)
+    @callback(order=-3)
     def update_sequential(self):
         refresh_layout()
 

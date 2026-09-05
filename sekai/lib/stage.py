@@ -6,10 +6,13 @@ from typing import Protocol, assert_never, cast
 
 from sonolus.script import runtime
 from sonolus.script.archetype import EntityRef, get_archetype_by_name
+from sonolus.script.array import Dim
+from sonolus.script.containers import VarArray
 from sonolus.script.interval import clamp, lerp
 from sonolus.script.quad import Quad, QuadLike, Rect
 from sonolus.script.record import Record
 from sonolus.script.sprite import Sprite
+from sonolus.script.values import alloc
 from sonolus.script.vec import Vec2
 
 from sekai.lib import archetype_names
@@ -23,9 +26,11 @@ from sekai.lib.layout import (
     AffineTransform2d,
     DynamicLayout,
     Layout,
+    LayoutTransform,
     StageTransform,
     StageTransformAnchor,
     approach,
+    camera_layout_transform_at_time,
     compute_stage_transform,
     current_layout_transform,
     current_stage_tilt,
@@ -186,6 +191,61 @@ class VisualMask(Record):
     right: float
     enabled: bool
     stage_index: int
+
+
+class InputGeometry(Record):
+    lane: float
+    mask: VisualMask
+    y_offset: float
+    transform: StageTransform
+
+
+class StageInputGeometry(Record):
+    stage_index: int
+    geometry: InputGeometry
+
+
+class InputGeometryContext(Record):
+    time: float
+    layout: LayoutTransform
+    # An endpoint note attached to a segment uses that segment's head and tail stages.
+    # The connector's two endpoints therefore need at most four cache entries.
+    stages: VarArray[StageInputGeometry, Dim[4]]
+
+    @staticmethod
+    def at(t: float) -> InputGeometryContext:
+        result = alloc(InputGeometryContext)
+        result.time = t
+        result.layout @= camera_layout_transform_at_time(t, left_limit=True)
+        result.stages.clear()
+        return result
+
+    def stage_geometry(self, stage: DynamicStageLike) -> InputGeometry:
+        result = +InputGeometry
+        for cached in self.stages:
+            if cached.stage_index == stage.index:
+                result @= cached.geometry
+                return result
+
+        props = get_stage_input_props(stage, self.time)
+        # Lane includes events at the input timestamp; mask, offset, and transform use the left limit.
+        result.lane = get_stage_pivot_lane(stage, self.time)
+        result.mask.left = props.lane - props.width
+        result.mask.right = props.lane + props.width
+        result.mask.enabled = props.mask_notes
+        if props.mask_notes:
+            result.mask.stage_index = stage.index
+        result.y_offset = props.y_offset
+        result.transform @= compute_stage_transform(
+            self.layout,
+            props.rotate,
+            props.x_lane_translate,
+            props.y_lane_translate,
+            props.lane,
+            props.center_weight,
+        )
+        self.stages.append(StageInputGeometry(stage_index=stage.index, geometry=result))
+        return result
 
 
 def interpolate_visual_masks(head: VisualMask, tail: VisualMask, frac: float) -> VisualMask:
@@ -389,7 +449,18 @@ def get_stage_props(stage: DynamicStageLike, target_time: float | None = None, l
     first_style_change_ref = stage.first_style_change_ref
     first_transform_change_ref = stage.first_transform_change_ref
 
-    # Query mask changes
+    update_stage_mask_props(result, first_mask_change_ref, t, left_limit)
+
+    update_stage_pivot_props(result, first_pivot_change_ref, t, left_limit)
+
+    update_stage_style_props(result, first_style_change_ref, t, left_limit)
+
+    update_stage_transform_props(result, first_transform_change_ref, t, left_limit)
+
+    return result
+
+
+def update_stage_mask_props(result: StageProps, first_mask_change_ref: EntityRef, t: float, left_limit: bool):
     mask_a_ref, mask_b_ref = query_event_list(first_mask_change_ref, t, lambda e: e.time)
     if left_limit and mask_a_ref.index > 0:
         mask_curr = get_event_as(mask_a_ref, _stage_mask_change_archetype())
@@ -422,46 +493,8 @@ def get_stage_props(stage: DynamicStageLike, target_time: float | None = None, l
         result.width = mask_b.size
         result.mask_notes = mask_b.mask_notes
 
-    # Query pivot changes
-    pivot_a_ref, pivot_b_ref = query_event_list(first_pivot_change_ref, t, lambda e: e.time)
-    if left_limit and pivot_a_ref.index > 0:
-        pivot_curr = get_event_as(pivot_a_ref, _stage_pivot_change_archetype())
-        if pivot_curr.time == t:
-            pivot_probe_ref = +pivot_curr.prev_ref
-            while pivot_probe_ref.index > 0:
-                if get_event_as(pivot_probe_ref, _stage_pivot_change_archetype()).time != t:
-                    break
-                pivot_a_ref.index = pivot_probe_ref.index
-                pivot_probe_ref.index = get_event_as(pivot_probe_ref, _stage_pivot_change_archetype()).prev_ref.index
-            pivot_b_ref.index = pivot_a_ref.index
-            pivot_a_ref.index = pivot_probe_ref.index
-    if pivot_a_ref.index > 0:
-        pivot_a = get_event_as(pivot_a_ref, _stage_pivot_change_archetype())
-        result.pivot_lane = pivot_a.lane
-        result.division.start.size = int(pivot_a.division_size)
-        result.division.start.parity = pivot_a.division_parity
-        result.division.end @= result.division.start
-        result.y_offset = pivot_a.y_offset
-        if pivot_b_ref.index > 0:
-            pivot_b = get_event_as(pivot_b_ref, _stage_pivot_change_archetype())
-            t_a = pivot_a.time
-            t_b = pivot_b.time
-            if t_b > t_a:
-                p = ease(pivot_a.ease, (t - t_a) / (t_b - t_a))
-                result.pivot_lane = lerp(pivot_a.lane, pivot_b.lane, p)
-                result.division.end.size = int(pivot_b.division_size)
-                result.division.end.parity = pivot_b.division_parity
-                result.division.progress = p
-                result.y_offset = lerp(pivot_a.y_offset, pivot_b.y_offset, p)
-    elif pivot_b_ref.index > 0:
-        pivot_b = get_event_as(pivot_b_ref, _stage_pivot_change_archetype())
-        result.pivot_lane = pivot_b.lane
-        result.division.start.size = int(pivot_b.division_size)
-        result.division.start.parity = pivot_b.division_parity
-        result.division.end @= result.division.start
-        result.y_offset = pivot_b.y_offset
 
-    # Query style changes
+def update_stage_style_props(result: StageProps, first_style_change_ref: EntityRef, t: float, left_limit: bool):
     style_a_ref, style_b_ref = query_event_list(first_style_change_ref, t, lambda e: e.time)
     if left_limit and style_a_ref.index > 0:
         style_curr = get_event_as(style_a_ref, _stage_style_change_archetype())
@@ -526,7 +559,8 @@ def get_stage_props(stage: DynamicStageLike, target_time: float | None = None, l
         result.division_line_alpha = style_b.division_line_alpha
         result.note_alpha = style_b.note_alpha
 
-    # Query transform changes
+
+def update_stage_transform_props(result: StageProps, first_transform_change_ref: EntityRef, t: float, left_limit: bool):
     transform_a_ref, transform_b_ref = query_event_list(first_transform_change_ref, t, lambda e: e.time)
     if left_limit and transform_a_ref.index > 0:
         transform_curr = get_event_as(transform_a_ref, _stage_transform_change_archetype())
@@ -566,7 +600,59 @@ def get_stage_props(stage: DynamicStageLike, target_time: float | None = None, l
         result.y_lane_translate = transform_b.y_lane_translate
         result.center_weight = center_anchor_weight(transform_b.anchor)
 
+
+def get_stage_input_props(stage: DynamicStageLike, t: float) -> StageProps:
+    result = +StageProps
+    update_stage_mask_props(result, stage.first_mask_change_ref, t, True)
+    update_stage_pivot_props(result, stage.first_pivot_change_ref, t, True)
+    update_stage_transform_props(result, stage.first_transform_change_ref, t, True)
     return result
+
+
+def update_stage_pivot_props(result: StageProps, first_pivot_change_ref: EntityRef, t: float, left_limit: bool):
+    pivot_a_ref, pivot_b_ref = query_event_list(first_pivot_change_ref, t, lambda e: e.time)
+    if left_limit and pivot_a_ref.index > 0:
+        pivot_curr = get_event_as(pivot_a_ref, _stage_pivot_change_archetype())
+        if pivot_curr.time == t:
+            pivot_probe_ref = +pivot_curr.prev_ref
+            while pivot_probe_ref.index > 0:
+                if get_event_as(pivot_probe_ref, _stage_pivot_change_archetype()).time != t:
+                    break
+                pivot_a_ref.index = pivot_probe_ref.index
+                pivot_probe_ref.index = get_event_as(pivot_probe_ref, _stage_pivot_change_archetype()).prev_ref.index
+            pivot_b_ref.index = pivot_a_ref.index
+            pivot_a_ref.index = pivot_probe_ref.index
+    if pivot_a_ref.index > 0:
+        pivot_a = get_event_as(pivot_a_ref, _stage_pivot_change_archetype())
+        result.pivot_lane = pivot_a.lane
+        result.division.start.size = int(pivot_a.division_size)
+        result.division.start.parity = pivot_a.division_parity
+        result.division.end @= result.division.start
+        result.y_offset = pivot_a.y_offset
+        if pivot_b_ref.index > 0:
+            pivot_b = get_event_as(pivot_b_ref, _stage_pivot_change_archetype())
+            t_a = pivot_a.time
+            t_b = pivot_b.time
+            if t_b > t_a:
+                p = ease(pivot_a.ease, (t - t_a) / (t_b - t_a))
+                result.pivot_lane = lerp(pivot_a.lane, pivot_b.lane, p)
+                result.division.end.size = int(pivot_b.division_size)
+                result.division.end.parity = pivot_b.division_parity
+                result.division.progress = p
+                result.y_offset = lerp(pivot_a.y_offset, pivot_b.y_offset, p)
+    elif pivot_b_ref.index > 0:
+        pivot_b = get_event_as(pivot_b_ref, _stage_pivot_change_archetype())
+        result.pivot_lane = pivot_b.lane
+        result.division.start.size = int(pivot_b.division_size)
+        result.division.start.parity = pivot_b.division_parity
+        result.division.end @= result.division.start
+        result.y_offset = pivot_b.y_offset
+
+
+def get_stage_pivot_lane(stage: DynamicStageLike, t: float) -> float:
+    props = +StageProps
+    update_stage_pivot_props(props, stage.first_pivot_change_ref, t, False)
+    return props.pivot_lane
 
 
 def masked_note_extents(lane: float, size: float, props: StageProps, x_translate: float = 0.0) -> tuple[float, float]:

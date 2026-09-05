@@ -15,7 +15,7 @@ class WatchStaticStage(WatchArchetype):
     def despawn_time(self) -> float:
         return 1e8
 
-    @callback(order=-2)
+    @callback(order=-3)
     def update_sequential(self):
         refresh_layout()
 
