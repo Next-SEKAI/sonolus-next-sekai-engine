@@ -857,9 +857,15 @@ def layout_stage_lane_by_edges(l: float, r: float, y_offset: float = 0.0) -> Qua
     )
 
 
-def layout_particle_lane(lane: float, size: float, y_offset: float = 0.0) -> Quad:
+def layout_particle_lane(lane: float, size: float, y_offset: float = 0.0, *, extend_down: bool = True) -> Quad:
     return perspective_rect(
-        l=lane - size, r=lane + size, t=DynamicLayout.lane_t, b=DynamicLayout.lane_b, travel=approach(1 - y_offset)
+        l=lane - size,
+        r=lane + size,
+        t=DynamicLayout.lane_t,
+        b=lerp(DynamicLayout.lane_b, DynamicLayout.stage_lane_b, 0.6 * current_stage_tilt())
+        if extend_down
+        else DynamicLayout.lane_b,
+        travel=approach(1 - y_offset),
     )
 
 

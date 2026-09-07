@@ -915,7 +915,20 @@ def play_note_hit_effects(
         lane_y_offset = (
             y_offset if kind in {NoteKind.CRIT_FLICK, NoteKind.CRIT_HEAD_FLICK, NoteKind.CRIT_TAIL_FLICK} else 0.0
         )
-        layout = layout_particle_lane(lane, size, y_offset=lane_y_offset)
+        layout = layout_particle_lane(
+            lane,
+            size,
+            y_offset=lane_y_offset,
+            extend_down=kind
+            not in {
+                NoteKind.CRIT_FLICK,
+                NoteKind.CRIT_HEAD_FLICK,
+                NoteKind.CRIT_TAIL_FLICK,
+                NoteKind.CRIT_TRACE_FLICK,
+                NoteKind.CRIT_HEAD_TRACE_FLICK,
+                NoteKind.CRIT_TAIL_TRACE_FLICK,
+            },
+        )
         if particles.lane.is_available:
             particles.lane.spawn(place(layout), duration=1 / Options.effect_animation_speed)
         elif particles.lane_basic.is_available:
