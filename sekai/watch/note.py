@@ -26,7 +26,7 @@ from sekai.lib.connector import (
 )
 from sekai.lib.ease import EaseType
 from sekai.lib.layout import (
-    IDENTITY_AFFINE_TRANSFORM,
+    IDENTITY_STAGE_SCREEN_TRANSFORM,
     FlickDirection,
     Hitbox,
     StageTransform,
@@ -203,7 +203,7 @@ class WatchBaseNote(WatchArchetype):
                 get_leniency(self.kind),
                 self.target_time,
                 self.target_y_offset,
-                stage_transform=self.stage_transform_at(self.target_time, left_limit=True).transform(),
+                stage_transform=self.stage_transform_at(self.target_time, left_limit=True).to_screen_transform(),
                 left_limit=True,
             )
 
@@ -257,6 +257,7 @@ class WatchBaseNote(WatchArchetype):
                     props.y_lane_translate,
                     props.lane,
                     props.center_weight,
+                    props.elevation,
                 )
             render_size = self.size
             if not self.is_attached:
@@ -281,7 +282,7 @@ class WatchBaseNote(WatchArchetype):
             pivot_lane=pivot_lane,
             half_offset=half_offset,
             single_line=single_line,
-            transform=transform.transform(),
+            transform=transform.to_screen_transform(),
         )
 
     def spawn_time(self) -> float:
@@ -322,7 +323,7 @@ class WatchBaseNote(WatchArchetype):
                 self.visual_progress,
                 self.direction,
                 self.target_time,
-                transform=self.visual_stage_transform().transform(),
+                transform=self.visual_stage_transform().to_screen_transform(),
                 note_alpha=self.visual_note_alpha,
             )
         else:
@@ -333,7 +334,7 @@ class WatchBaseNote(WatchArchetype):
                 self.visual_progress,
                 self.direction,
                 self.target_time,
-                transform=IDENTITY_AFFINE_TRANSFORM,
+                transform=IDENTITY_STAGE_SCREEN_TRANSFORM,
                 note_alpha=self.visual_note_alpha,
             )
 
@@ -412,7 +413,7 @@ class WatchBaseNote(WatchArchetype):
                 pivot_lane=self.visual_pivot_lane,
                 half_offset=self.visual_half_offset,
                 lane_particles=self._stage_lane_particles_at(time()),
-                transform=self.visual_stage_transform().transform(),
+                transform=self.visual_stage_transform().to_screen_transform(),
             )
 
     def _basic_input_geometry(self, context: InputGeometryContext) -> InputGeometry:
@@ -539,6 +540,7 @@ class WatchBaseNote(WatchArchetype):
                 props.y_lane_translate,
                 props.lane,
                 props.center_weight,
+                props.elevation,
             )
         else:
             result @= identity_stage_transform()
@@ -786,7 +788,7 @@ def compute_slide_input_bounds(
         input_size,
         leniency,
         input_y_offset,
-        stage_transform=input_transform.transform(),
+        stage_transform=input_transform.to_screen_transform(),
     ).bounds
 
 

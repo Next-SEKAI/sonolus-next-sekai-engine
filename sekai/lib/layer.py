@@ -19,12 +19,14 @@ LAYER_TIME_LINE = 13
 LAYER_BPM_LINE = 14
 LAYER_TIMESCALE_LINE = 15
 
-LAYER_NOTE_SLIM_BODY = 16
-LAYER_NOTE_FLICK_BODY = 17
-LAYER_NOTE_BODY = 18
-LAYER_NOTE_TICK = 19
-LAYER_NOTE_ARROW = 20
-LAYER_SLOT_GLOW_EFFECT = 21
+LAYER_NOTE = 16
+
+ELEVATION_NOTE_SLIM_BODY = 0.0
+ELEVATION_NOTE_FLICK_BODY = 0.01
+ELEVATION_NOTE_BODY = 0.02
+ELEVATION_NOTE_TICK = 0.03
+ELEVATION_NOTE_ARROW = 0.04
+ELEVATION_SLOT_GLOW_EFFECT = 0.05
 
 LAYER_ACTIVE_SLIDE_CONNECTOR_OVER = 22
 LAYER_GUIDE_CONNECTOR_OVER = 23
@@ -43,19 +45,30 @@ class ZIndexes(Record):
         return self.z1, self.z2, self.z3, self.z4
 
 
-def get_z(layer: int, time: float = 0.0, lane: float = 0.0, etc: int = 0, *, invert_time: bool = False) -> ZIndexes:
+def get_z(
+    layer: int,
+    time: float = 0.0,
+    lane: float = 0.0,
+    etc: int = 0,
+    *,
+    elevation: float = 0.0,
+    invert_time: bool = False,
+) -> ZIndexes:
+    if LAYER_ACTIVE_SLIDE_CONNECTOR_BOTTOM <= layer <= LAYER_TIMESCALE_LINE:
+        elevation += (layer - LAYER_NOTE) * 0.01
+        layer = LAYER_NOTE
     return ZIndexes(
         z1=layer,
-        z2=time - runtime.time() if invert_time else runtime.time() - time,
-        z3=abs(lane) + (1 / 20) * (lane > 0),
-        z4=etc,
+        z2=elevation,
+        z3=time - runtime.time() if invert_time else runtime.time() - time,
+        z4=abs(lane) + (1 / 20) * (lane > 0) + etc * 1e-6,
     )
 
 
-def get_z_alt(layer: int, sublayer: int) -> ZIndexes:
+def get_z_alt(layer: int, sublayer: int, *, elevation: float = 0.0) -> ZIndexes:
     return ZIndexes(
         z1=layer,
-        z2=sublayer,
-        z3=0.0,
+        z2=elevation,
+        z3=sublayer,
         z4=0.0,
     )

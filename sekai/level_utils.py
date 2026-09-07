@@ -151,6 +151,7 @@ class LevelStageTransformChange:
     y_lane_translate: float = 0.0
     anchor: StageTransformAnchor = StageTransformAnchor.DEFAULT
     ease: EaseType = EaseType.LINEAR
+    elevation: float = 0.0
 
 
 @dataclass
@@ -600,6 +601,7 @@ def _build_stage(level_stage: LevelStage) -> tuple[DynamicStage, list[PlayArchet
             rotate=tr.rotate,
             x_lane_translate=tr.x_lane_translate,
             y_lane_translate=tr.y_lane_translate,
+            elevation=tr.elevation,
             anchor=tr.anchor,
             ease=tr.ease,
         )

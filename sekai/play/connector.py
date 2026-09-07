@@ -413,7 +413,7 @@ class SlideManager(PlayArchetype):
         if time() < self.active_head.target_time:
             return
         segment_transform, segment_note_alpha = self.active_segment_transform_and_note_alpha()
-        head_transform = segment_transform.transform()
+        head_transform = segment_transform.to_screen_transform()
         match info.connector_kind:
             case (
                 ConnectorKind.ACTIVE_NORMAL

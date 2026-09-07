@@ -406,7 +406,7 @@ class WatchSlideManager(WatchArchetype):
         if time() < self.active_head.target_time:
             return
         segment_transform, segment_note_alpha = self.active_segment_transform_and_note_alpha()
-        head_transform = segment_transform.transform()
+        head_transform = segment_transform.to_screen_transform()
         connector_kind = (
             Streams.connector_effect_kinds[self.active_head.index].get_previous_inclusive(time())
             if is_replay()

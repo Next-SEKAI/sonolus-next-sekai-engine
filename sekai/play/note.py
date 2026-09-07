@@ -35,7 +35,7 @@ from sekai.lib.connector import (
 )
 from sekai.lib.ease import EaseType
 from sekai.lib.layout import (
-    IDENTITY_AFFINE_TRANSFORM,
+    IDENTITY_STAGE_SCREEN_TRANSFORM,
     DynamicLayout,
     FlickDirection,
     Hitbox,
@@ -247,7 +247,7 @@ class BaseNote(PlayArchetype):
                 get_leniency(self.kind),
                 self.target_time,
                 self.target_y_offset,
-                stage_transform=self.stage_transform_at(self.target_time, left_limit=True).transform(),
+                stage_transform=self.stage_transform_at(self.target_time, left_limit=True).to_screen_transform(),
                 left_limit=True,
             )
 
@@ -390,7 +390,7 @@ class BaseNote(PlayArchetype):
                 self.visual_progress,
                 self.direction,
                 self.target_time,
-                transform=self.visual_stage_transform().transform(),
+                transform=self.visual_stage_transform().to_screen_transform(),
                 note_alpha=self.visual_note_alpha,
             )
         else:
@@ -401,7 +401,7 @@ class BaseNote(PlayArchetype):
                 self.visual_progress,
                 self.direction,
                 self.target_time,
-                transform=IDENTITY_AFFINE_TRANSFORM,
+                transform=IDENTITY_STAGE_SCREEN_TRANSFORM,
                 note_alpha=self.visual_note_alpha,
             )
 
@@ -464,7 +464,7 @@ class BaseNote(PlayArchetype):
                 half_offset=self.visual_half_offset,
                 single_line=self.visual_single_line,
                 lane_particles=self.visual_lane_particles,
-                transform=self.visual_stage_transform().transform(),
+                transform=self.visual_stage_transform().to_screen_transform(),
             )
         if self.is_scored:
             self.result.haptic = get_note_haptic_feedback(self.kind, self.result.judgment)
@@ -1059,6 +1059,7 @@ class BaseNote(PlayArchetype):
                 props.y_lane_translate,
                 props.lane,
                 props.center_weight,
+                props.elevation,
             )
         else:
             result @= identity_stage_transform()
@@ -1187,7 +1188,7 @@ def compute_slide_input_bounds(ease_type: EaseType, head: BaseNote, tail: BaseNo
         input_size,
         leniency,
         input_y_offset,
-        stage_transform=input_transform.transform(),
+        stage_transform=input_transform.to_screen_transform(),
     ).bounds
 
 

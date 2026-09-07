@@ -38,22 +38,23 @@ from sekai.lib.connector import ActiveConnectorKind, ConnectorKind
 from sekai.lib.ease import EaseType, ease, safe_unlerp_clamped
 from sekai.lib.effect import EMPTY_EFFECT, SFX_DISTANCE, Effects, first_available_effect
 from sekai.lib.layer import (
-    LAYER_NOTE_ARROW,
-    LAYER_NOTE_BODY,
-    LAYER_NOTE_FLICK_BODY,
-    LAYER_NOTE_SLIM_BODY,
-    LAYER_NOTE_TICK,
+    ELEVATION_NOTE_ARROW,
+    ELEVATION_NOTE_BODY,
+    ELEVATION_NOTE_FLICK_BODY,
+    ELEVATION_NOTE_SLIM_BODY,
+    ELEVATION_NOTE_TICK,
+    LAYER_NOTE,
     LAYER_OVERLAY,
     ZIndexes,
     get_z,
     get_z_alt,
 )
 from sekai.lib.layout import (
-    IDENTITY_AFFINE_TRANSFORM,
-    AffineTransform2d,
+    IDENTITY_STAGE_SCREEN_TRANSFORM,
     DynamicLayout,
     FlickDirection,
     Hitbox,
+    StageScreenTransform,
     approach,
     get_alpha,
     hidden_amount,
@@ -72,6 +73,7 @@ from sekai.lib.layout import (
     layout_tick_effect,
     preempt_time,
     progress_to,
+    transformed_vec_at,
 )
 from sekai.lib.level_config import LevelConfig
 from sekai.lib.options import Options, ScoreMode, VibrateMode
@@ -349,7 +351,7 @@ def draw_note(
     visual_progress: float,
     direction: FlickDirection,
     target_time: float,
-    transform: AffineTransform2d,
+    transform: StageScreenTransform,
     note_alpha: float,
 ):
     if not DynamicLayout.progress_start <= visual_progress <= DynamicLayout.progress_cutoff:
@@ -371,7 +373,7 @@ def draw_slide_note_head(
     target_time: float,
     visual_progress: float = 1.0,
     *,
-    transform: AffineTransform2d,
+    transform: StageScreenTransform,
     note_alpha: float,
 ):
     if hidden_amount() > 0:
@@ -529,7 +531,7 @@ def get_note_sprite_set(kind: NoteKind, direction: FlickDirection) -> NoteSprite
     return result
 
 
-def get_note_body_layer(kind: NoteKind) -> int:
+def get_note_body_elevation(kind: NoteKind) -> float:
     match kind:
         case (
             NoteKind.NORM_FLICK
@@ -539,7 +541,7 @@ def get_note_body_layer(kind: NoteKind) -> int:
             | NoteKind.NORM_TAIL_FLICK
             | NoteKind.CRIT_TAIL_FLICK
         ):
-            return LAYER_NOTE_FLICK_BODY
+            return ELEVATION_NOTE_FLICK_BODY
         case (
             NoteKind.NORM_TRACE
             | NoteKind.CRIT_TRACE
@@ -555,9 +557,9 @@ def get_note_body_layer(kind: NoteKind) -> int:
             | NoteKind.CRIT_TAIL_TRACE_FLICK
             | NoteKind.DAMAGE
         ):
-            return LAYER_NOTE_SLIM_BODY
+            return ELEVATION_NOTE_SLIM_BODY
         case _:
-            return LAYER_NOTE_BODY
+            return ELEVATION_NOTE_BODY
 
 
 def draw_note_body(
@@ -567,12 +569,12 @@ def draw_note_body(
     size: float,
     travel: float,
     target_time: float,
-    transform: AffineTransform2d,
+    transform: StageScreenTransform,
     note_alpha: float,
 ):
-    layer = get_note_body_layer(kind)
+    elevation = transform.elevation + get_note_body_elevation(kind)
     a = min(get_alpha(target_time) * note_alpha, 1.0)
-    z = get_z(layer, time=target_time, lane=lane)
+    z = get_z(LAYER_NOTE, time=target_time, lane=lane, elevation=elevation)
 
     def place(q):
         return transform.transform_quad(q)
@@ -597,11 +599,11 @@ def draw_note_body(
 
 
 def draw_note_tick(
-    sprite: Sprite, lane: float, travel: float, target_time: float, transform: AffineTransform2d, note_alpha: float
+    sprite: Sprite, lane: float, travel: float, target_time: float, transform: StageScreenTransform, note_alpha: float
 ):
     a = min(get_alpha(target_time) * note_alpha, 1.0)
-    z = get_z(LAYER_NOTE_TICK, time=target_time, lane=lane)
-    layout = transform.transform_quad(layout_tick(lane, travel))
+    z = get_z(LAYER_NOTE, time=target_time, lane=lane, elevation=transform.elevation + ELEVATION_NOTE_TICK)
+    layout = transform.transform_billboard(layout_tick(lane, travel), transformed_vec_at(lane, travel))
     sprite.draw(layout, z=z.tuple, a=a)
 
 
@@ -613,7 +615,7 @@ def draw_note_arrow(
     travel: float,
     target_time: float,
     direction: FlickDirection,
-    transform: AffineTransform2d,
+    transform: StageScreenTransform,
     note_alpha: float,
 ):
     match direction:
@@ -628,14 +630,23 @@ def draw_note_arrow(
             assert_never(direction)
     animation_alpha = (1 - ease_in_cubic(animation_progress)) if Options.marker_animation else 1
     a = min(get_alpha(target_time) * animation_alpha * note_alpha, 1.0)
-    z = get_z(LAYER_NOTE_ARROW, time=target_time, lane=lane, etc=direction + 6 * (not is_critical(kind)))
+    z = get_z(
+        LAYER_NOTE,
+        time=target_time,
+        lane=lane,
+        etc=direction + 6 * (not is_critical(kind)),
+        elevation=transform.elevation + ELEVATION_NOTE_ARROW,
+    )
+    anchor = transformed_vec_at(lane, travel)
     match sprites.render_type:
         case ArrowRenderType.NORMAL:
-            layout = transform.transform_quad(layout_flick_arrow(lane, size, direction, travel, animation_progress))
+            layout = transform.transform_billboard(
+                layout_flick_arrow(lane, size, direction, travel, animation_progress), anchor
+            )
             sprites.get_sprite(size, direction).draw(layout, z=z.tuple, a=a)
         case ArrowRenderType.FALLBACK:
-            layout = transform.transform_quad(
-                layout_flick_arrow_fallback(lane, size, direction, travel, animation_progress)
+            layout = transform.transform_billboard(
+                layout_flick_arrow_fallback(lane, size, direction, travel, animation_progress), anchor
             )
             sprites.get_sprite(size, direction).draw(layout, z=z.tuple, a=a)
 
@@ -853,7 +864,7 @@ def play_note_hit_effects(
     single_line: bool = False,
     lane_particles: bool = True,
     *,
-    transform: AffineTransform2d,
+    transform: StageScreenTransform,
 ):
     def place(q):
         return transform.transform_quad(q)
@@ -866,9 +877,12 @@ def play_note_hit_effects(
         return
     particles = get_note_particles(kind, direction)
     if Options.note_effect_enabled:
+        anchor = transformed_vec_at(lane, approach(1 - y_offset))
         if particles.linear.is_available:
             layout = layout_linear_effect(lane, shear=0, y_offset=y_offset)
-            particles.linear.spawn(place(layout), duration=0.5 / Options.effect_animation_speed)
+            particles.linear.spawn(
+                transform.transform_billboard(layout, anchor), duration=0.5 / Options.effect_animation_speed
+            )
         if particles.circular.is_available:
             layout = layout_circular_effect(lane, w=1.75, h=1.05, y_offset=y_offset)
             particles.circular.spawn(place(layout), duration=0.6 / Options.effect_animation_speed)
@@ -883,14 +897,20 @@ def play_note_hit_effects(
                 case _:
                     assert_never(direction)
             layout = layout_rotated_linear_effect(lane, shear=shear, y_offset=y_offset)
-            particles.directional.spawn(place(layout), duration=0.32 / Options.effect_animation_speed)
+            particles.directional.spawn(
+                transform.transform_billboard(layout, anchor), duration=0.32 / Options.effect_animation_speed
+            )
         if particles.tick.is_available:
             layout = layout_tick_effect(lane, y_offset=y_offset)
-            particles.tick.spawn(place(layout), duration=0.6 / Options.effect_animation_speed)
+            particles.tick.spawn(
+                transform.transform_billboard(layout, anchor), duration=0.6 / Options.effect_animation_speed
+            )
         if particles.slot_linear.is_available:
             for slot_lane in iter_slot_lanes(lane, size, pivot_lane=pivot_lane, half_offset=half_offset):
                 layout = layout_linear_effect(slot_lane, shear=0, y_offset=y_offset)
-                particles.slot_linear.spawn(place(layout), duration=0.5 / Options.effect_animation_speed)
+                particles.slot_linear.spawn(
+                    transform.transform_billboard(layout, anchor), duration=0.5 / Options.effect_animation_speed
+                )
     if Options.lane_effect_enabled and lane_particles:
         lane_y_offset = (
             y_offset if kind in {NoteKind.CRIT_FLICK, NoteKind.CRIT_HEAD_FLICK, NoteKind.CRIT_TAIL_FLICK} else 0.0
@@ -965,7 +985,7 @@ def schedule_note_slot_effects(
     half_offset: bool = False,
     single_line: bool = False,
     *,
-    transform: AffineTransform2d,
+    transform: StageScreenTransform,
 ):
     if is_tutorial():
         return
@@ -1013,7 +1033,7 @@ def draw_tutorial_note_slot_effects(
                 start_time=start_time,
                 end_time=start_time + SLOT_EFFECT_DURATION / Options.effect_animation_speed,
                 lane=slot_lane,
-                transform=IDENTITY_AFFINE_TRANSFORM,
+                transform=IDENTITY_STAGE_SCREEN_TRANSFORM,
             )
     slot_glow_sprite = sprite_set.slot_glow
     if (
@@ -1026,7 +1046,7 @@ def draw_tutorial_note_slot_effects(
             end_time=start_time + SLOT_GLOW_EFFECT_DURATION / Options.effect_animation_speed,
             lane=lane,
             size=size,
-            transform=IDENTITY_AFFINE_TRANSFORM,
+            transform=IDENTITY_STAGE_SCREEN_TRANSFORM,
         )
 
 

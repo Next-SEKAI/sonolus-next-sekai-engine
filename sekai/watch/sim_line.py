@@ -55,8 +55,8 @@ class WatchSimLine(WatchArchetype):
             right_lane=right_lane,
             right_visual_progress=self.right.visual_progress,
             right_target_time=self.right.target_time,
-            left_transform=self.left.visual_stage_transform().transform(),
-            right_transform=self.right.visual_stage_transform().transform(),
+            left_transform=self.left.visual_stage_transform().to_screen_transform(),
+            right_transform=self.right.visual_stage_transform().to_screen_transform(),
             left_note_alpha=self.left.visual_note_alpha,
             right_note_alpha=self.right.visual_note_alpha,
         )

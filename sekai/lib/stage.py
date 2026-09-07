@@ -21,12 +21,12 @@ from sekai.lib.ease import EaseType, ease
 from sekai.lib.effect import SFX_DISTANCE, Effects
 from sekai.lib.layer import LAYER_COVER, LAYER_OVERLAY, LAYER_STAGE, ZIndexes, get_z, get_z_alt
 from sekai.lib.layout import (
-    IDENTITY_AFFINE_TRANSFORM,
+    IDENTITY_STAGE_SCREEN_TRANSFORM,
     TEST_ASPECT_SCALE,
-    AffineTransform2d,
     DynamicLayout,
     Layout,
     LayoutTransform,
+    StageScreenTransform,
     StageTransform,
     StageTransformAnchor,
     approach,
@@ -129,7 +129,6 @@ class StageProps(Record):
     judge_line_color: Transition[JudgeLineColor]
     left_border_style: Transition[StageBorderStyle]
     right_border_style: Transition[StageBorderStyle]
-    order: int
     lane_alpha: float
     judge_line_alpha: float
     y_offset: float
@@ -142,6 +141,7 @@ class StageProps(Record):
     x_lane_translate: float
     y_lane_translate: float
     center_weight: float
+    elevation: float
 
     def stage_transform(self) -> StageTransform:
         return compute_stage_transform(
@@ -151,6 +151,7 @@ class StageProps(Record):
             self.y_lane_translate,
             self.lane,
             self.center_weight,
+            self.elevation,
         )
 
     def has_transform(self) -> bool:
@@ -159,9 +160,10 @@ class StageProps(Record):
             or self.x_lane_translate != 0.0
             or self.y_lane_translate != 0.0
             or self.center_weight != 0.0
+            or self.elevation != 0.0
         )
 
-    def draw(self):
+    def draw(self, order: int):
         transform = +StageTransform
         if self.has_transform():
             transform @= self.stage_transform()
@@ -176,13 +178,13 @@ class StageProps(Record):
             judge_line_style=self.judge_line_style,
             left_border_style=self.left_border_style,
             right_border_style=self.right_border_style,
-            order=self.order,
+            order=order,
             lane_alpha=self.lane_alpha,
             judge_line_alpha=self.judge_line_alpha,
             y_offset=self.y_offset,
             full_width=self.full_width,
             division_line_alpha=self.division_line_alpha,
-            transform=transform.transform(),
+            transform=transform.to_screen_transform(),
         )
 
 
@@ -243,6 +245,7 @@ class InputGeometryContext(Record):
             props.y_lane_translate,
             props.lane,
             props.center_weight,
+            props.elevation,
         )
         self.stages.append(StageInputGeometry(stage_index=stage.index, geometry=result))
         return result
@@ -322,6 +325,7 @@ class StageTransformChangeLike(Protocol):
     x_lane_translate: float
     y_lane_translate: float
     anchor: StageTransformAnchor
+    elevation: float
     ease: EaseType
     next_ref: EntityRef
     prev_ref: EntityRef
@@ -440,7 +444,6 @@ def get_next_event_time(stage: DynamicStageLike, t: float) -> float:
 def get_stage_props(stage: DynamicStageLike, target_time: float | None = None, left_limit: bool = False) -> StageProps:
     t = target_time if target_time is not None else runtime.time()
     result = +StageProps
-    result.order = stage.index
     result.note_alpha = 1.0
     result.mask_notes = False
 
@@ -580,6 +583,7 @@ def update_stage_transform_props(result: StageProps, first_transform_change_ref:
         result.rotate = transform_a.rotate
         result.x_lane_translate = transform_a.x_lane_translate
         result.y_lane_translate = transform_a.y_lane_translate
+        result.elevation = transform_a.elevation
         result.center_weight = center_anchor_weight(transform_a.anchor)
         if transform_b_ref.index > 0:
             transform_b = get_event_as(transform_b_ref, _stage_transform_change_archetype())
@@ -590,6 +594,7 @@ def update_stage_transform_props(result: StageProps, first_transform_change_ref:
                 result.rotate = lerp(transform_a.rotate, transform_b.rotate, p)
                 result.x_lane_translate = lerp(transform_a.x_lane_translate, transform_b.x_lane_translate, p)
                 result.y_lane_translate = lerp(transform_a.y_lane_translate, transform_b.y_lane_translate, p)
+                result.elevation = lerp(transform_a.elevation, transform_b.elevation, p)
                 result.center_weight = lerp(
                     center_anchor_weight(transform_a.anchor), center_anchor_weight(transform_b.anchor), p
                 )
@@ -598,6 +603,7 @@ def update_stage_transform_props(result: StageProps, first_transform_change_ref:
         result.rotate = transform_b.rotate
         result.x_lane_translate = transform_b.x_lane_translate
         result.y_lane_translate = transform_b.y_lane_translate
+        result.elevation = transform_b.elevation
         result.center_weight = center_anchor_weight(transform_b.anchor)
 
 
@@ -741,7 +747,7 @@ def draw_basic_stage():
             left_border_style=StageBorderStyle.DEFAULT,
             right_border_style=StageBorderStyle.DEFAULT,
             order=0,
-            transform=IDENTITY_AFFINE_TRANSFORM,
+            transform=IDENTITY_STAGE_SCREEN_TRANSFORM,
         )
 
 
@@ -790,7 +796,7 @@ def draw_dynamic_stage(
     full_width: float = 0,
     division_line_alpha: float = 1,
     *,
-    transform: AffineTransform2d,
+    transform: StageScreenTransform,
 ):
     division = normalize_transition(division)
     judge_line_color = normalize_transition(judge_line_color)
@@ -834,23 +840,23 @@ def draw_dynamic_stage(
     half_jl = lerp(width, FULL_WIDTH_HALF_EXTENT, fw)
     l_jl = lane - half_jl
     r_jl = lane + half_jl
-    z_bg0 = get_z_alt(LAYER_STAGE, order * 17)
-    z_bg1_a = get_z_alt(LAYER_STAGE, order * 17 + 1)
-    z_bg1_b = get_z_alt(LAYER_STAGE, order * 17 + 2)
-    z_lane0 = get_z_alt(LAYER_STAGE, order * 17 + 3)
-    z_lane1 = get_z_alt(LAYER_STAGE, order * 17 + 4)
-    z_a0 = get_z_alt(LAYER_STAGE, order * 17 + 5)
-    z_a1 = get_z_alt(LAYER_STAGE, order * 17 + 6)
-    z_a2 = get_z_alt(LAYER_STAGE, order * 17 + 7)
-    z_a3 = get_z_alt(LAYER_STAGE, order * 17 + 8)
-    z_b0 = get_z_alt(LAYER_STAGE, order * 17 + 9)
-    z_b1 = get_z_alt(LAYER_STAGE, order * 17 + 10)
-    z_b2 = get_z_alt(LAYER_STAGE, order * 17 + 11)
-    z_b3 = get_z_alt(LAYER_STAGE, order * 17 + 12)
-    z_a4 = get_z_alt(LAYER_STAGE, order * 17 + 13)
-    z_b4 = get_z_alt(LAYER_STAGE, order * 17 + 14)
-    z_single_a = get_z_alt(LAYER_STAGE, order * 17 + 15)
-    z_single_b = get_z_alt(LAYER_STAGE, order * 17 + 16)
+    z_bg0 = get_z_alt(LAYER_STAGE, order * 17, elevation=transform.elevation)
+    z_bg1_a = get_z_alt(LAYER_STAGE, order * 17 + 1, elevation=transform.elevation)
+    z_bg1_b = get_z_alt(LAYER_STAGE, order * 17 + 2, elevation=transform.elevation)
+    z_lane0 = get_z_alt(LAYER_STAGE, order * 17 + 3, elevation=transform.elevation)
+    z_lane1 = get_z_alt(LAYER_STAGE, order * 17 + 4, elevation=transform.elevation)
+    z_a0 = get_z_alt(LAYER_STAGE, order * 17 + 5, elevation=transform.elevation)
+    z_a1 = get_z_alt(LAYER_STAGE, order * 17 + 6, elevation=transform.elevation)
+    z_a2 = get_z_alt(LAYER_STAGE, order * 17 + 7, elevation=transform.elevation)
+    z_a3 = get_z_alt(LAYER_STAGE, order * 17 + 8, elevation=transform.elevation)
+    z_b0 = get_z_alt(LAYER_STAGE, order * 17 + 9, elevation=transform.elevation)
+    z_b1 = get_z_alt(LAYER_STAGE, order * 17 + 10, elevation=transform.elevation)
+    z_b2 = get_z_alt(LAYER_STAGE, order * 17 + 11, elevation=transform.elevation)
+    z_b3 = get_z_alt(LAYER_STAGE, order * 17 + 12, elevation=transform.elevation)
+    z_a4 = get_z_alt(LAYER_STAGE, order * 17 + 13, elevation=transform.elevation)
+    z_b4 = get_z_alt(LAYER_STAGE, order * 17 + 14, elevation=transform.elevation)
+    z_single_a = get_z_alt(LAYER_STAGE, order * 17 + 15, elevation=transform.elevation)
+    z_single_b = get_z_alt(LAYER_STAGE, order * 17 + 16, elevation=transform.elevation)
 
     f = JUDGE_LINE_BORDER_FACTOR
 
@@ -1160,7 +1166,7 @@ def draw_fallback_stage(
     judge_line_style: Transition[JudgeLineStyle] | JudgeLineStyle = JudgeLineStyle.DEFAULT,
     full_width: float = 0,
     *,
-    transform: AffineTransform2d,
+    transform: StageScreenTransform,
 ):
     def place(q: QuadLike) -> QuadLike:
         return transform.transform_quad(q)
@@ -1176,10 +1182,10 @@ def draw_fallback_stage(
     half_jl = lerp(width, FULL_WIDTH_HALF_EXTENT, fw)
     l_jl = lane - half_jl
     r_jl = lane + half_jl
-    z_lo = get_z_alt(LAYER_STAGE, z * 4)
-    z_mid = get_z_alt(LAYER_STAGE, z * 4 + 1)
-    z_hi = get_z_alt(LAYER_STAGE, z * 4 + 2)
-    z_single = get_z_alt(LAYER_STAGE, z * 4 + 3)
+    z_lo = get_z_alt(LAYER_STAGE, z * 4, elevation=transform.elevation)
+    z_mid = get_z_alt(LAYER_STAGE, z * 4 + 1, elevation=transform.elevation)
+    z_hi = get_z_alt(LAYER_STAGE, z * 4 + 2, elevation=transform.elevation)
+    z_single = get_z_alt(LAYER_STAGE, z * 4 + 3, elevation=transform.elevation)
     la = lane_alpha * (1 - fw)
     ja = judge_line_alpha
     if la > 0:
@@ -1219,7 +1225,7 @@ def draw_fallback_stage(
     draw_per_stage_cover(l, r, lane_alpha, z, transform)
 
 
-def draw_per_stage_cover(l: float, r: float, lane_alpha: float, order: int, transform: AffineTransform2d):
+def draw_per_stage_cover(l: float, r: float, lane_alpha: float, order: int, transform: StageScreenTransform):
     if not LevelConfig.dynamic_stages:
         return
     ca = lane_alpha
@@ -1229,9 +1235,9 @@ def draw_per_stage_cover(l: float, r: float, lane_alpha: float, order: int, tran
     def place(q: QuadLike) -> QuadLike:
         return transform.transform_quad(q)
 
-    z_cover = get_z_alt(LAYER_COVER, order * 4)
-    z_line = get_z_alt(LAYER_COVER, order * 4 + 1)
-    z_hidden = get_z_alt(LAYER_COVER, order * 4 + 2)
+    z_cover = get_z_alt(LAYER_COVER, order * 4, elevation=transform.elevation)
+    z_line = get_z_alt(LAYER_COVER, order * 4 + 1, elevation=transform.elevation)
+    z_hidden = get_z_alt(LAYER_COVER, order * 4 + 2, elevation=transform.elevation)
     if stage_cover_amount() > 0:
         match Options.stage_cover_mode:
             case StageCoverMode.STAGE:
@@ -1272,7 +1278,7 @@ def draw_stage_cover():
         ActiveSkin.cover.draw(layout, z=get_z(LAYER_COVER).tuple, a=1)
 
 
-def play_lane_hit_effects(lane: float, sfx: bool = True, *, transform: AffineTransform2d):
+def play_lane_hit_effects(lane: float, sfx: bool = True, *, transform: StageScreenTransform):
     if sfx:
         play_lane_sfx(lane)
     play_lane_particle(lane, transform)
@@ -1288,7 +1294,7 @@ def schedule_lane_sfx(lane: float, target_time: float):
         Effects.stage.schedule(target_time, SFX_DISTANCE)
 
 
-def play_lane_particle(lane: float, transform: AffineTransform2d):
+def play_lane_particle(lane: float, transform: StageScreenTransform):
     if Options.lane_effect_enabled:
         layout = transform.transform_quad(layout_particle_lane(lane, 0.5))
         ActiveParticles.lane.spawn(layout, duration=0.3 / Options.effect_animation_speed)

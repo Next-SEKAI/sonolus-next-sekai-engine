@@ -126,6 +126,7 @@ A transform applied to a stage.
 * **rotate (float)**: Rotation of the stage in degrees about its default judge-line center (the stage's pivot `yOffset` does not move the rotation center). Positive values match the camera `rotate` direction. Defaults to 0.
 * **xLaneTranslate (float)**: Horizontal translation of the stage, in lane-width units. The direction respects the camera rotation and the amount respects the camera zoom. Defaults to 0.
 * **yLaneTranslate (float)**: Vertical translation of the stage, in the same lane-width units as `xLaneTranslate` (positive moves the stage up the screen, in the camera's rotated frame). Defaults to 0.
+* **elevation (float)**: Elevation of the stage before its rotation and translation. In terms of lane widths, adjusted for tilt. Defaults to 0.
 * **anchor (StageTransformAnchor)**: Where the vertical translation is measured from. Takes on one of the following values:
   * DEFAULT = 0
   * CENTER = 1

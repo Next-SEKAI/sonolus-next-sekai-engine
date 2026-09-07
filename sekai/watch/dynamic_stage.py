@@ -73,6 +73,7 @@ class WatchStageTransformChange(WatchArchetype, BaseEvent):
     rotate: float = imported()
     x_lane_translate: float = imported(name="xLaneTranslate")
     y_lane_translate: float = imported(name="yLaneTranslate")
+    elevation: float = imported()
     anchor: StageTransformAnchor = imported(name="anchor")
     ease: EaseType = imported()
     next_ref: EntityRef[WatchStageTransformChange] = imported(name="next")
@@ -134,7 +135,7 @@ class WatchDynamicStage(WatchArchetype):
         t = time()
         if t < self.draw_start_time or t > self.draw_end_time:
             return
-        self.props.draw()
+        self.props.draw(self.index)
 
 
 class WatchStageMaskChange(WatchArchetype, BaseEvent):

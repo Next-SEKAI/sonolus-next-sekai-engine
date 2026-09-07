@@ -19,6 +19,7 @@ from sekai.lib.buckets import SLIDE_TICK_JUDGMENT_WINDOW
 from sekai.lib.ease import EaseType, ease, safe_unlerp_clamped
 from sekai.lib.effect import Effects
 from sekai.lib.layer import (
+    ELEVATION_SLOT_GLOW_EFFECT,
     LAYER_ACTIVE_SLIDE_CONNECTOR_BOTTOM,
     LAYER_ACTIVE_SLIDE_CONNECTOR_OVER,
     LAYER_ACTIVE_SLIDE_CONNECTOR_TOP,
@@ -27,13 +28,13 @@ from sekai.lib.layer import (
     LAYER_GUIDE_CONNECTOR_OVER,
     LAYER_GUIDE_CONNECTOR_TOP,
     LAYER_GUIDE_CONNECTOR_UNDER,
-    LAYER_SLOT_GLOW_EFFECT,
+    LAYER_NOTE,
     ZIndexes,
     get_z,
 )
 from sekai.lib.layout import (
-    AffineTransform2d,
     DynamicLayout,
+    StageScreenTransform,
     StageTransform,
     approach,
     blend_stage_transform,
@@ -46,6 +47,7 @@ from sekai.lib.layout import (
     pre_rotation_vec_at,
     st_slide_connector_segment,
     stage_transform_is_identity,
+    transformed_vec_at,
 )
 from sekai.lib.options import Options
 from sekai.lib.particle import ActiveParticles
@@ -241,7 +243,7 @@ def get_damage_connector_active_sprite() -> Sprite:
 
 
 def get_connector_z(
-    kind: ConnectorKind, target_time: float, lane: float, active: bool, layer: ConnectorLayer
+    kind: ConnectorKind, target_time: float, lane: float, active: bool, layer: ConnectorLayer, *, elevation: float = 0.0
 ) -> ZIndexes:
     result = +ZIndexes
     match kind:
@@ -258,6 +260,7 @@ def get_connector_z(
                         time=target_time,
                         lane=lane,
                         etc=get_active_connector_z_offset(kind, active),
+                        elevation=elevation,
                         invert_time=True,
                     )
                 case ConnectorLayer.BOTTOM:
@@ -266,6 +269,7 @@ def get_connector_z(
                         time=target_time,
                         lane=lane,
                         etc=get_active_connector_z_offset(kind, active),
+                        elevation=elevation,
                         invert_time=True,
                     )
                 case ConnectorLayer.UNDER:
@@ -274,6 +278,7 @@ def get_connector_z(
                         time=target_time,
                         lane=lane,
                         etc=get_active_connector_z_offset(kind, active),
+                        elevation=elevation,
                         invert_time=True,
                     )
                 case ConnectorLayer.OVER:
@@ -282,6 +287,7 @@ def get_connector_z(
                         time=target_time,
                         lane=lane,
                         etc=get_active_connector_z_offset(kind, active),
+                        elevation=elevation,
                         invert_time=True,
                     )
                 case _:
@@ -296,9 +302,13 @@ def get_connector_z(
             | ConnectorKind.GUIDE_CYAN
             | ConnectorKind.GUIDE_BLACK
         ):
-            result @= get_guide_connector_layer_z(layer, target_time, lane, kind - ConnectorKind.GUIDE_NEUTRAL)
+            result @= get_guide_connector_layer_z(
+                layer, target_time, lane, kind - ConnectorKind.GUIDE_NEUTRAL, elevation=elevation
+            )
         case ConnectorKind.DAMAGE | ConnectorKind.FAKE_DAMAGE:
-            result @= get_guide_connector_layer_z(layer, target_time, lane, get_active_connector_z_offset(kind, active))
+            result @= get_guide_connector_layer_z(
+                layer, target_time, lane, get_active_connector_z_offset(kind, active), elevation=elevation
+            )
         case ConnectorKind.NONE:
             pass
         case _:
@@ -306,7 +316,9 @@ def get_connector_z(
     return result
 
 
-def get_guide_connector_layer_z(layer: ConnectorLayer, target_time: float, lane: float, etc: int) -> ZIndexes:
+def get_guide_connector_layer_z(
+    layer: ConnectorLayer, target_time: float, lane: float, etc: int, *, elevation: float = 0.0
+) -> ZIndexes:
     result = +ZIndexes
     match layer:
         case ConnectorLayer.TOP:
@@ -315,6 +327,7 @@ def get_guide_connector_layer_z(layer: ConnectorLayer, target_time: float, lane:
                 time=target_time,
                 lane=lane,
                 etc=etc,
+                elevation=elevation,
                 invert_time=True,
             )
         case ConnectorLayer.BOTTOM:
@@ -323,6 +336,7 @@ def get_guide_connector_layer_z(layer: ConnectorLayer, target_time: float, lane:
                 time=target_time,
                 lane=lane,
                 etc=etc,
+                elevation=elevation,
                 invert_time=True,
             )
         case ConnectorLayer.UNDER:
@@ -331,6 +345,7 @@ def get_guide_connector_layer_z(layer: ConnectorLayer, target_time: float, lane:
                 time=target_time,
                 lane=lane,
                 etc=etc,
+                elevation=elevation,
                 invert_time=True,
             )
         case ConnectorLayer.OVER:
@@ -339,6 +354,7 @@ def get_guide_connector_layer_z(layer: ConnectorLayer, target_time: float, lane:
                 time=target_time,
                 lane=lane,
                 etc=etc,
+                elevation=elevation,
                 invert_time=True,
             )
         case _:
@@ -592,6 +608,11 @@ def draw_connector(
                 tail_mask=tail_mask,
             )
         case SegmentPresentation.FULL_SCREEN:
+            if head_transform is not None and tail_transform is not None:
+                judge_frac = safe_unlerp_clamped(head_target_time, tail_target_time, time())
+                elevation = lerp(head_transform.projection.elevation, tail_transform.projection.elevation, judge_frac)
+                z_normal.z2 += elevation
+                z_active.z2 += elevation
             draw_connector_full_screen(
                 kind=kind,
                 visual_state=visual_state,
@@ -627,11 +648,11 @@ def masked_connector_extents_by_limits(
 class ConnectorTransformCache(Record):
     valid: bool
     interp_frac: float
-    transform: AffineTransform2d
+    transform: StageScreenTransform
 
     def update(self, head: StageTransform, tail: StageTransform, interp_frac: float):
         if not self.valid or self.interp_frac != interp_frac:
-            self.transform @= blend_stage_transform(head, tail, interp_frac).transform()
+            self.transform @= blend_stage_transform(head, tail, interp_frac).to_screen_transform()
             self.interp_frac = interp_frac
             self.valid = True
 
@@ -657,6 +678,8 @@ def draw_connector_default_segment(
     transform_cache: ConnectorTransformCache,
 ):
     layout = +Quad
+    segment_z_normal = +z_normal
+    segment_z_active = +z_active
     if has_transform:
         # Satisfy pyright
         assert head_transform is not None
@@ -664,6 +687,10 @@ def draw_connector_default_segment(
         transform_cache.update(head_transform, tail_transform, start_interp_frac)
         start_transform = +transform_cache.transform
         transform_cache.update(head_transform, tail_transform, end_interp_frac)
+        # Keep the segment below both endpoint notes.
+        elevation = min(start_transform.elevation, transform_cache.transform.elevation)
+        segment_z_normal.z2 += elevation
+        segment_z_active.z2 += elevation
         layout @= st_slide_connector_segment(
             start_lane=start_lane,
             start_size=start_size,
@@ -684,7 +711,7 @@ def draw_connector_default_segment(
             end_travel=end_travel,
         )
 
-    draw_connector_quad(layout, visual_state, normal_sprite, active_sprite, z_normal, z_active, base_a)
+    draw_connector_quad(layout, visual_state, normal_sprite, active_sprite, segment_z_normal, segment_z_active, base_a)
 
 
 def connector_is_off_screen(
@@ -698,11 +725,11 @@ def connector_is_off_screen(
     head_y_offset = 0.0
     tail_y_offset = 0.0
     if head_transform is not None:
-        if head_transform.sr != 0:
+        if head_transform.sr != 0 or head_transform.projection.elevation != 0:
             return False
         head_y_offset = head_transform.ty
     if tail_transform is not None:
-        if tail_transform.sr != 0:
+        if tail_transform.sr != 0 or tail_transform.projection.elevation != 0:
             return False
         tail_y_offset = tail_transform.ty
     if head_y_offset != tail_y_offset:
@@ -1090,7 +1117,7 @@ def update_circular_connector_particle(
     replace: bool,
     y_offset: float = 0.0,
     *,
-    transform: AffineTransform2d,
+    transform: StageScreenTransform,
 ):
     if not Options.note_effect_enabled:
         return
@@ -1116,11 +1143,13 @@ def update_linear_connector_particle(
     replace: bool,
     y_offset: float = 0.0,
     *,
-    transform: AffineTransform2d,
+    transform: StageScreenTransform,
 ):
     if not Options.note_effect_enabled:
         return
-    layout = transform.transform_quad(layout_linear_effect(lane, shear=0, y_offset=y_offset))
+    layout = transform.transform_billboard(
+        layout_linear_effect(lane, shear=0, y_offset=y_offset), transformed_vec_at(lane, approach(1 - y_offset))
+    )
     particle = +Particle
     if replace or handle.id == 0:
         match kind:
@@ -1140,11 +1169,13 @@ def spawn_linear_connector_trail_particle(
     lane: float,
     y_offset: float = 0.0,
     *,
-    transform: AffineTransform2d,
+    transform: StageScreenTransform,
 ):
     if not Options.note_effect_enabled:
         return
-    layout = transform.transform_quad(layout_linear_effect(lane, shear=0, y_offset=y_offset))
+    layout = transform.transform_billboard(
+        layout_linear_effect(lane, shear=0, y_offset=y_offset), transformed_vec_at(lane, approach(1 - y_offset))
+    )
     particle = +Particle
     match kind:
         case ConnectorKind.ACTIVE_NORMAL | ConnectorKind.ACTIVE_FAKE_NORMAL:
@@ -1162,7 +1193,7 @@ def spawn_connector_slot_particles(
     size: float,
     y_offset: float = 0.0,
     *,
-    transform: AffineTransform2d,
+    transform: StageScreenTransform,
 ):
     if not Options.note_effect_enabled:
         return
@@ -1175,7 +1206,10 @@ def spawn_connector_slot_particles(
         case _:
             assert_never(kind)
     for slot_lane in iter_slot_lanes(lane, size):
-        layout = transform.transform_quad(layout_linear_effect(slot_lane, shear=0, y_offset=y_offset))
+        layout = transform.transform_billboard(
+            layout_linear_effect(slot_lane, shear=0, y_offset=y_offset),
+            transformed_vec_at(slot_lane, approach(1 - y_offset)),
+        )
         particle.spawn(layout, duration=0.5 / Options.effect_animation_speed)
 
 
@@ -1186,7 +1220,7 @@ def draw_connector_slot_glow_effect(
     size: float,
     y_offset: float = 0.0,
     *,
-    transform: AffineTransform2d,
+    transform: StageScreenTransform,
 ):
     sprite = +Sprite
     match kind:
@@ -1197,8 +1231,13 @@ def draw_connector_slot_glow_effect(
         case _:
             assert_never(kind)
     height = (3.25 + (cos((time() - start_time) * 8 * pi) + 1) / 2) / 4.25
-    layout = transform.transform_quad(layout_slot_glow_effect(lane, size, height, y_offset=y_offset))
-    z = get_z(LAYER_SLOT_GLOW_EFFECT, start_time, lane, invert_time=True)
+    layout = transform.transform_billboard(
+        layout_slot_glow_effect(lane, size, height, y_offset=y_offset),
+        transformed_vec_at(lane, approach(1 - y_offset)),
+    )
+    z = get_z(
+        LAYER_NOTE, start_time, lane, elevation=transform.elevation + ELEVATION_SLOT_GLOW_EFFECT, invert_time=True
+    )
     a = remap_clamped(start_time, start_time + 0.25, 0.0, 0.3, time())
     sprite.draw(layout, z=z.tuple, a=a)
 

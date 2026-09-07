@@ -91,6 +91,7 @@ class StageTransformChange(PlayArchetype, BaseEvent):
     rotate: float = imported()
     x_lane_translate: float = imported(name="xLaneTranslate")
     y_lane_translate: float = imported(name="yLaneTranslate")
+    elevation: float = imported()
     anchor: StageTransformAnchor = imported(name="anchor")
     ease: EaseType = imported()
     next_ref: EntityRef[StageTransformChange] = imported(name="next")
@@ -181,15 +182,15 @@ class DynamicStage(PlayArchetype):
             transform @= p.stage_transform()
         else:
             transform @= identity_stage_transform()
-        transform_mat = transform.transform()
-        total_hitbox = transform_mat.transform_quad(layout_lane_area(leftmost - 0.5, rightmost + 0.5))
+        screen_transform = transform.to_screen_transform()
+        total_hitbox = screen_transform.transform_quad(layout_lane_area(leftmost - 0.5, rightmost + 0.5))
         empty_lanes = StageMemory.empty_lanes
         for touch in input_manager.processed_touches():
             if not total_hitbox.contains_point(touch.position):
                 continue
             if not input_manager.is_allowed_empty(touch):
                 continue
-            lane = touch_to_lane(touch.position, transform_mat)
+            lane = touch_to_lane(touch.position, screen_transform)
             rel = lane - p.pivot_lane
             if half_offset:
                 rounded_lane = clamp(p.pivot_lane + round(rel), lo, hi)
@@ -197,12 +198,12 @@ class DynamicStage(PlayArchetype):
                 rounded_lane = clamp(p.pivot_lane + round(rel - 0.5) + 0.5, lo, hi)
             if touch.started:
                 play_lane_hit_effects(
-                    rounded_lane, sfx=time() > PlayLevelMemory.last_note_sfx_time + 0.6, transform=transform_mat
+                    rounded_lane, sfx=time() > PlayLevelMemory.last_note_sfx_time + 0.6, transform=screen_transform
                 )
                 if not empty_lanes.is_full():
                     empty_lanes.append(rounded_lane)
             else:
-                prev_lane = touch_to_lane(touch.prev_position, transform_mat)
+                prev_lane = touch_to_lane(touch.prev_position, screen_transform)
                 prev_rel = prev_lane - p.pivot_lane
                 if half_offset:
                     prev_rounded_lane = clamp(p.pivot_lane + round(prev_rel), lo, hi)
@@ -210,7 +211,7 @@ class DynamicStage(PlayArchetype):
                     prev_rounded_lane = clamp(p.pivot_lane + round(prev_rel - 0.5) + 0.5, lo, hi)
                 if rounded_lane != prev_rounded_lane:
                     play_lane_hit_effects(
-                        rounded_lane, sfx=time() > PlayLevelMemory.last_note_sfx_time + 0.6, transform=transform_mat
+                        rounded_lane, sfx=time() > PlayLevelMemory.last_note_sfx_time + 0.6, transform=screen_transform
                     )
                     if not empty_lanes.is_full():
                         empty_lanes.append(rounded_lane)
@@ -219,7 +220,7 @@ class DynamicStage(PlayArchetype):
         t = time()
         if t < self.draw_start_time or t > self.draw_end_time:
             return
-        self.props.draw()
+        self.props.draw(self.index)
 
 
 class StageMaskChange(PlayArchetype, BaseEvent):
