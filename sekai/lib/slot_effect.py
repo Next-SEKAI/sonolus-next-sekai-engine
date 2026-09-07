@@ -2,7 +2,7 @@ from sonolus.script.interval import lerp, unlerp_clamped
 from sonolus.script.runtime import time
 from sonolus.script.sprite import Sprite
 
-from sekai.lib.layer import ELEVATION_SLOT_GLOW_EFFECT, LAYER_NOTE, LAYER_SLOT_EFFECT, get_z
+from sekai.lib.layer import get_z, layers
 from sekai.lib.layout import (
     StageScreenTransform,
     approach,
@@ -31,9 +31,7 @@ def draw_slot_glow_effect(
         layout_slot_glow_effect(lane, size, height, y_offset=y_offset),
         transformed_vec_at(lane, approach(1 - y_offset)),
     )
-    z = get_z(
-        LAYER_NOTE, start_time, lane, elevation=transform.elevation + ELEVATION_SLOT_GLOW_EFFECT, invert_time=True
-    )
+    z = get_z(layers.slot_glow_effect, start_time, lane, elevation=transform.elevation, invert_time=True)
     a = lerp(1, 0, progress)
     sprite.draw(layout, z=z.tuple, a=a)
 
@@ -49,6 +47,6 @@ def draw_slot_effect(
 ):
     progress = unlerp_clamped(start_time, end_time, time())
     layout = transform.transform_quad(layout_slot_effect(lane, y_offset=y_offset))
-    z = get_z(LAYER_SLOT_EFFECT, start_time, lane, elevation=transform.elevation, invert_time=True)
+    z = get_z(layers.slot_effect, start_time, lane, elevation=transform.elevation, invert_time=True)
     a = lerp(1, 0, progress)
     sprite.draw(layout, z=z.tuple, a=a)

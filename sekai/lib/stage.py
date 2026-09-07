@@ -19,7 +19,7 @@ from sekai.lib import archetype_names
 from sekai.lib.baseevent import get_event_as, query_event_list
 from sekai.lib.ease import EaseType, ease
 from sekai.lib.effect import SFX_DISTANCE, Effects
-from sekai.lib.layer import LAYER_COVER, LAYER_OVERLAY, LAYER_STAGE, ZIndexes, get_z, get_z_alt
+from sekai.lib.layer import ZIndexes, get_z, get_z_alt, layers
 from sekai.lib.layout import (
     IDENTITY_STAGE_SCREEN_TRANSFORM,
     TEST_ASPECT_SCALE,
@@ -755,10 +755,10 @@ def draw_aspect_box(sprite: Sprite, ratio: float, sub: int):
     bottom = Rect(l=-hw - e, r=hw + e, t=-hh + e, b=-hh - e)
     left = Rect(l=-hw - e, r=-hw + e, t=hh, b=-hh)
     right = Rect(l=hw - e, r=hw + e, t=hh, b=-hh)
-    sprite.draw(top.as_quad(), z=get_z_alt(LAYER_OVERLAY, 1000 + 4 * sub).tuple, a=1.0)
-    sprite.draw(bottom.as_quad(), z=get_z_alt(LAYER_OVERLAY, 1000 + 4 * sub + 1).tuple, a=1.0)
-    sprite.draw(left.as_quad(), z=get_z_alt(LAYER_OVERLAY, 1000 + 4 * sub + 2).tuple, a=1.0)
-    sprite.draw(right.as_quad(), z=get_z_alt(LAYER_OVERLAY, 1000 + 4 * sub + 3).tuple, a=1.0)
+    sprite.draw(top.as_quad(), z=get_z_alt(layers.overlay, 1000 + 4 * sub).tuple, a=1.0)
+    sprite.draw(bottom.as_quad(), z=get_z_alt(layers.overlay, 1000 + 4 * sub + 1).tuple, a=1.0)
+    sprite.draw(left.as_quad(), z=get_z_alt(layers.overlay, 1000 + 4 * sub + 2).tuple, a=1.0)
+    sprite.draw(right.as_quad(), z=get_z_alt(layers.overlay, 1000 + 4 * sub + 3).tuple, a=1.0)
 
 
 def draw_test_aspect_overlay():
@@ -804,7 +804,7 @@ def draw_basic_stage():
 
 def draw_sekai_stage():
     layout = layout_sekai_stage()
-    ActiveSkin.sekai_stage.draw(layout, z=get_z(LAYER_STAGE).tuple)
+    ActiveSkin.sekai_stage.draw(layout, z=get_z(layers.stage).tuple)
 
 
 def get_judgment_sprites(judge_line_color: JudgeLineColor) -> JudgmentSpriteSet:
@@ -893,23 +893,23 @@ def draw_dynamic_stage(
     half_jl = lerp(width, FULL_WIDTH_HALF_EXTENT, fw)
     l_jl = lane - half_jl
     r_jl = lane + half_jl
-    z_bg0 = get_z_alt(LAYER_STAGE, order * 17, elevation=transform.elevation)
-    z_bg1_a = get_z_alt(LAYER_STAGE, order * 17 + 1, elevation=transform.elevation)
-    z_bg1_b = get_z_alt(LAYER_STAGE, order * 17 + 2, elevation=transform.elevation)
-    z_lane0 = get_z_alt(LAYER_STAGE, order * 17 + 3, elevation=transform.elevation)
-    z_lane1 = get_z_alt(LAYER_STAGE, order * 17 + 4, elevation=transform.elevation)
-    z_a0 = get_z_alt(LAYER_STAGE, order * 17 + 5, elevation=transform.elevation)
-    z_a1 = get_z_alt(LAYER_STAGE, order * 17 + 6, elevation=transform.elevation)
-    z_a2 = get_z_alt(LAYER_STAGE, order * 17 + 7, elevation=transform.elevation)
-    z_a3 = get_z_alt(LAYER_STAGE, order * 17 + 8, elevation=transform.elevation)
-    z_b0 = get_z_alt(LAYER_STAGE, order * 17 + 9, elevation=transform.elevation)
-    z_b1 = get_z_alt(LAYER_STAGE, order * 17 + 10, elevation=transform.elevation)
-    z_b2 = get_z_alt(LAYER_STAGE, order * 17 + 11, elevation=transform.elevation)
-    z_b3 = get_z_alt(LAYER_STAGE, order * 17 + 12, elevation=transform.elevation)
-    z_a4 = get_z_alt(LAYER_STAGE, order * 17 + 13, elevation=transform.elevation)
-    z_b4 = get_z_alt(LAYER_STAGE, order * 17 + 14, elevation=transform.elevation)
-    z_single_a = get_z_alt(LAYER_STAGE, order * 17 + 15, elevation=transform.elevation)
-    z_single_b = get_z_alt(LAYER_STAGE, order * 17 + 16, elevation=transform.elevation)
+    z_bg0 = get_z_alt(layers.stage, order * 17, elevation=transform.elevation)
+    z_bg1_a = get_z_alt(layers.stage, order * 17 + 1, elevation=transform.elevation)
+    z_bg1_b = get_z_alt(layers.stage, order * 17 + 2, elevation=transform.elevation)
+    z_lane0 = get_z_alt(layers.stage, order * 17 + 3, elevation=transform.elevation)
+    z_lane1 = get_z_alt(layers.stage, order * 17 + 4, elevation=transform.elevation)
+    z_a0 = get_z_alt(layers.stage, order * 17 + 5, elevation=transform.elevation)
+    z_a1 = get_z_alt(layers.stage, order * 17 + 6, elevation=transform.elevation)
+    z_a2 = get_z_alt(layers.stage, order * 17 + 7, elevation=transform.elevation)
+    z_a3 = get_z_alt(layers.stage, order * 17 + 8, elevation=transform.elevation)
+    z_b0 = get_z_alt(layers.stage, order * 17 + 9, elevation=transform.elevation)
+    z_b1 = get_z_alt(layers.stage, order * 17 + 10, elevation=transform.elevation)
+    z_b2 = get_z_alt(layers.stage, order * 17 + 11, elevation=transform.elevation)
+    z_b3 = get_z_alt(layers.stage, order * 17 + 12, elevation=transform.elevation)
+    z_a4 = get_z_alt(layers.stage, order * 17 + 13, elevation=transform.elevation)
+    z_b4 = get_z_alt(layers.stage, order * 17 + 14, elevation=transform.elevation)
+    z_single_a = get_z_alt(layers.stage, order * 17 + 15, elevation=transform.elevation)
+    z_single_b = get_z_alt(layers.stage, order * 17 + 16, elevation=transform.elevation)
 
     f = JUDGE_LINE_BORDER_FACTOR
 
@@ -1234,10 +1234,10 @@ def draw_fallback_stage(
     half_jl = lerp(width, FULL_WIDTH_HALF_EXTENT, fw)
     l_jl = lane - half_jl
     r_jl = lane + half_jl
-    z_lo = get_z_alt(LAYER_STAGE, z * 4, elevation=transform.elevation)
-    z_mid = get_z_alt(LAYER_STAGE, z * 4 + 1, elevation=transform.elevation)
-    z_hi = get_z_alt(LAYER_STAGE, z * 4 + 2, elevation=transform.elevation)
-    z_single = get_z_alt(LAYER_STAGE, z * 4 + 3, elevation=transform.elevation)
+    z_lo = get_z_alt(layers.stage, z * 4, elevation=transform.elevation)
+    z_mid = get_z_alt(layers.stage, z * 4 + 1, elevation=transform.elevation)
+    z_hi = get_z_alt(layers.stage, z * 4 + 2, elevation=transform.elevation)
+    z_single = get_z_alt(layers.stage, z * 4 + 3, elevation=transform.elevation)
     la = lane_alpha * (1 - fw)
     ja = judge_line_alpha
     left_width = border_width(normalize_transition(left_border_style), 0.25, 0.125, 0.025)
@@ -1290,9 +1290,9 @@ def draw_per_stage_cover(l: float, r: float, lane_alpha: float, order: int, tran
     def place(q: QuadLike) -> QuadLike:
         return transform.transform_quad(q)
 
-    z_cover = get_z_alt(LAYER_COVER, order * 4, elevation=transform.elevation)
-    z_line = get_z_alt(LAYER_COVER, order * 4 + 1, elevation=transform.elevation)
-    z_hidden = get_z_alt(LAYER_COVER, order * 4 + 2, elevation=transform.elevation)
+    z_cover = get_z_alt(layers.cover, order * 4, elevation=transform.elevation)
+    z_line = get_z_alt(layers.cover, order * 4 + 1, elevation=transform.elevation)
+    z_hidden = get_z_alt(layers.cover, order * 4 + 2, elevation=transform.elevation)
     if stage_cover_amount() > 0:
         match Options.stage_cover_mode:
             case StageCoverMode.STAGE:
@@ -1317,20 +1317,20 @@ def draw_stage_cover():
             case StageCoverMode.STAGE:
                 if not LevelConfig.dynamic_stages:
                     layout = layout_stage_cover()
-                    ActiveSkin.cover.draw(layout, z=get_z(LAYER_COVER).tuple, a=Options.stage_cover_alpha)
+                    ActiveSkin.cover.draw(layout, z=get_z(layers.cover).tuple, a=Options.stage_cover_alpha)
             case StageCoverMode.STAGE_AND_LINE:
                 if not LevelConfig.dynamic_stages:
                     cover_layout, line_layout = layout_stage_cover_and_line()
-                    ActiveSkin.cover.draw(cover_layout, z=get_z(LAYER_COVER).tuple, a=Options.stage_cover_alpha)
-                    ActiveSkin.guide_neutral.draw(line_layout, z=get_z(LAYER_COVER, etc=1).tuple, a=0.75)
+                    ActiveSkin.cover.draw(cover_layout, z=get_z(layers.cover).tuple, a=Options.stage_cover_alpha)
+                    ActiveSkin.guide_neutral.draw(line_layout, z=get_z(layers.cover, etc=1).tuple, a=0.75)
             case StageCoverMode.FULL_WIDTH:
                 layout = layout_full_width_stage_cover()
-                ActiveSkin.cover.draw(layout, z=get_z(LAYER_COVER).tuple, a=Options.stage_cover_alpha)
+                ActiveSkin.cover.draw(layout, z=get_z(layers.cover).tuple, a=Options.stage_cover_alpha)
             case _:
                 assert_never(Options.stage_cover_mode)
     if hidden_amount() > 0 and not LevelConfig.dynamic_stages:
         layout = layout_hidden_cover()
-        ActiveSkin.cover.draw(layout, z=get_z(LAYER_COVER).tuple, a=1)
+        ActiveSkin.cover.draw(layout, z=get_z(layers.cover).tuple, a=1)
 
 
 def play_lane_hit_effects(lane: float, sfx: bool = True, *, transform: StageScreenTransform):

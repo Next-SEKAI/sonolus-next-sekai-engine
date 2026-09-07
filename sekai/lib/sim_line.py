@@ -1,6 +1,6 @@
 from sonolus.script.interval import clamp, lerp, unlerp, unlerp_clamped
 
-from sekai.lib.layer import LAYER_SIM_LINE, get_z
+from sekai.lib.layer import get_z, layers
 from sekai.lib.layout import DynamicLayout, StageScreenTransform, approach, get_alpha, layout_sim_line
 from sekai.lib.options import Options
 from sekai.lib.skin import ActiveSkin
@@ -51,7 +51,7 @@ def draw_sim_line(
     progress_diff = abs(left_visual_progress - right_visual_progress)
     fade_alpha = unlerp_clamped(1, 0.5, progress_diff)
     z = get_z(
-        LAYER_SIM_LINE,
+        layers.sim_line,
         (left_target_time + right_target_time) / 2,
         (left_lane + right_lane) / 2,
         # Keep the line below both endpoint notes.

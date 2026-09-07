@@ -4,7 +4,7 @@ from sonolus.script.interval import lerp
 from sonolus.script.quad import Quad
 from sonolus.script.values import swap
 
-from sekai.lib.layer import LAYER_PREVIEW_COVER, LAYER_STAGE, ZIndexes, get_z, get_z_alt
+from sekai.lib.layer import ZIndexes, get_z, get_z_alt, layers
 from sekai.lib.skin import ActiveSkin
 from sekai.lib.stage import (
     DivisionParity,
@@ -46,17 +46,17 @@ def draw_preview_stage():
     for col in range(PreviewLayout.column_count):
         left_border_layout = layout_preview_lane_by_edges(-6.5, -6, col)
         right_border_layout = layout_preview_lane_by_edges(6, 6.5, col)
-        ActiveSkin.stage_left_border.draw(left_border_layout, z=get_z(LAYER_STAGE).tuple)
-        ActiveSkin.stage_right_border.draw(right_border_layout, z=get_z(LAYER_STAGE).tuple)
+        ActiveSkin.stage_left_border.draw(left_border_layout, z=get_z(layers.stage).tuple)
+        ActiveSkin.stage_right_border.draw(right_border_layout, z=get_z(layers.stage).tuple)
         for lane in (-5, -3, -1, 1, 3, 5):
             layout = layout_preview_lane(lane, 1, col)
-            ActiveSkin.lane.draw(layout, z=get_z(LAYER_STAGE).tuple)
+            ActiveSkin.lane.draw(layout, z=get_z(layers.stage).tuple)
 
 
 def draw_preview_cover():
     bottom_layout = layout_preview_bottom_cover()
     top_layout = layout_preview_top_cover()
-    z = get_z(LAYER_PREVIEW_COVER)
+    z = get_z(layers.preview_cover)
     ActiveSkin.cover.draw(
         bottom_layout,
         z=z.tuple,
@@ -73,13 +73,13 @@ def draw_preview_dynamic_stage(stage: DynamicStageLike, start_time: float, end_t
         return
 
     z_sub_base = stage.index * 7
-    z_bg = get_z_alt(LAYER_STAGE, z_sub_base + 0)
-    z_left_a = get_z_alt(LAYER_STAGE, z_sub_base + 1)
-    z_left_b = get_z_alt(LAYER_STAGE, z_sub_base + 2)
-    z_right_a = get_z_alt(LAYER_STAGE, z_sub_base + 3)
-    z_right_b = get_z_alt(LAYER_STAGE, z_sub_base + 4)
-    z_div_a = get_z_alt(LAYER_STAGE, z_sub_base + 5)
-    z_div_b = get_z_alt(LAYER_STAGE, z_sub_base + 6)
+    z_bg = get_z_alt(layers.stage, z_sub_base + 0)
+    z_left_a = get_z_alt(layers.stage, z_sub_base + 1)
+    z_left_b = get_z_alt(layers.stage, z_sub_base + 2)
+    z_right_a = get_z_alt(layers.stage, z_sub_base + 3)
+    z_right_b = get_z_alt(layers.stage, z_sub_base + 4)
+    z_div_a = get_z_alt(layers.stage, z_sub_base + 5)
+    z_div_b = get_z_alt(layers.stage, z_sub_base + 6)
 
     start_col = max(0, time_to_preview_col(start_time))
     end_col = min(PreviewLayout.column_count - 1, time_to_preview_col(end_time))

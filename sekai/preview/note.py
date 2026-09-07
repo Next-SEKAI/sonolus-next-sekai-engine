@@ -9,19 +9,14 @@ from sonolus.script.timing import beat_to_time
 
 from sekai.lib.connector import ConnectorKind, ConnectorLayer, SegmentPresentation
 from sekai.lib.ease import EaseType
-from sekai.lib.layer import (
-    ELEVATION_NOTE_ARROW,
-    ELEVATION_NOTE_TICK,
-    LAYER_NOTE,
-    get_z,
-)
+from sekai.lib.layer import get_z, layers
 from sekai.lib.layout import FlickDirection
 from sekai.lib.note import (
     NoteKind,
     get_attach_eased_frac,
     get_attach_frac,
     get_attach_params,
-    get_note_body_elevation,
+    get_note_body_layer,
     get_note_sprite_set,
     is_critical,
     map_note_kind,
@@ -233,8 +228,7 @@ def draw_note(kind: NoteKind, lane: float, size: float, direction: FlickDirectio
 def draw_note_body(
     sprites: BodySpriteSet, kind: NoteKind, lane: float, size: float, target_time: float, col: int, y: float
 ):
-    elevation = get_note_body_elevation(kind)
-    z = get_z(LAYER_NOTE, time=get_adjusted_time(target_time, col), lane=lane, elevation=elevation)
+    z = get_z(get_note_body_layer(kind), time=get_adjusted_time(target_time, col), lane=lane)
     match sprites.render_type:
         case BodyRenderType.NORMAL:
             left_layout, middle_layout, right_layout = layout_preview_regular_note_body(lane, size, col, y)
@@ -265,8 +259,7 @@ def draw_note_arrow(
     y: float,
 ):
     z = get_z(
-        LAYER_NOTE,
-        elevation=ELEVATION_NOTE_ARROW,
+        layers.note_arrow,
         time=get_adjusted_time(target_time, col),
         lane=lane,
         etc=direction + 6 * (not is_critical(kind)),
@@ -281,7 +274,7 @@ def draw_note_arrow(
 
 
 def draw_note_tick(sprite: Sprite, lane: float, target_time: float, col: int, y: float):
-    z = get_z(LAYER_NOTE, time=get_adjusted_time(target_time, col), lane=lane, elevation=ELEVATION_NOTE_TICK)
+    z = get_z(layers.note_tick, time=get_adjusted_time(target_time, col), lane=lane)
     layout = layout_preview_tick(lane, col, y)
     sprite.draw(layout, z=z.tuple)
 

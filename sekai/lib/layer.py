@@ -1,37 +1,135 @@
 from sonolus.script import runtime
 from sonolus.script.record import Record
 
-LAYER_BACKGROUND_COVER = 0
-LAYER_ACTIVE_SLIDE_CONNECTOR_UNDER = 1
-LAYER_GUIDE_CONNECTOR_UNDER = 2
-LAYER_STAGE = 3
-LAYER_COVER = 4
-LAYER_SLOT_EFFECT = 5
 
-LAYER_BEAT_LINE = 6
-LAYER_ACTIVE_SLIDE_CONNECTOR_BOTTOM = 7
-LAYER_GUIDE_CONNECTOR_BOTTOM = 8
-LAYER_ACTIVE_SLIDE_CONNECTOR_TOP = 9
-LAYER_GUIDE_CONNECTOR_TOP = 10
-LAYER_PREVIEW_COVER = 11
-LAYER_SIM_LINE = 12
-LAYER_TIME_LINE = 13
-LAYER_BPM_LINE = 14
-LAYER_TIMESCALE_LINE = 15
+class Layer(Record):
+    layer: int
+    sublayer: int
 
-LAYER_NOTE = 16
 
-ELEVATION_NOTE_SLIM_BODY = 0.0
-ELEVATION_NOTE_FLICK_BODY = 0.01
-ELEVATION_NOTE_BODY = 0.02
-ELEVATION_NOTE_TICK = 0.03
-ELEVATION_NOTE_ARROW = 0.04
-ELEVATION_SLOT_GLOW_EFFECT = 0.05
+class _Layers(Record):
+    @property
+    def background_cover(self) -> Layer:
+        return Layer(0, 0)
 
-LAYER_ACTIVE_SLIDE_CONNECTOR_OVER = 22
-LAYER_GUIDE_CONNECTOR_OVER = 23
+    @property
+    def active_slide_connector_under(self) -> Layer:
+        return Layer(1, 0)
 
-LAYER_OVERLAY = 24
+    @property
+    def guide_connector_under(self) -> Layer:
+        return Layer(2, 0)
+
+    @property
+    def stage(self) -> Layer:
+        if runtime.is_preview():
+            return Layer(3, 0)
+        return Layer(16, -9)
+
+    @property
+    def cover(self) -> Layer:
+        if runtime.is_preview():
+            return Layer(4, 0)
+        return Layer(16, -8)
+
+    @property
+    def slot_effect(self) -> Layer:
+        if runtime.is_preview():
+            return Layer(5, 0)
+        return Layer(16, -7)
+
+    @property
+    def beat_line(self) -> Layer:
+        return Layer(6, 0)
+
+    @property
+    def active_slide_connector_bottom(self) -> Layer:
+        if runtime.is_preview():
+            return Layer(7, 0)
+        return Layer(16, -5)
+
+    @property
+    def guide_connector_bottom(self) -> Layer:
+        if runtime.is_preview():
+            return Layer(8, 0)
+        return Layer(16, -4)
+
+    @property
+    def active_slide_connector_top(self) -> Layer:
+        if runtime.is_preview():
+            return Layer(9, 0)
+        return Layer(16, -3)
+
+    @property
+    def guide_connector_top(self) -> Layer:
+        if runtime.is_preview():
+            return Layer(10, 0)
+        return Layer(16, -2)
+
+    @property
+    def preview_cover(self) -> Layer:
+        return Layer(11, 0)
+
+    @property
+    def sim_line(self) -> Layer:
+        if runtime.is_preview():
+            return Layer(12, 0)
+        return Layer(16, -1)
+
+    @property
+    def time_line(self) -> Layer:
+        return Layer(13, 0)
+
+    @property
+    def bpm_line(self) -> Layer:
+        return Layer(14, 0)
+
+    @property
+    def timescale_line(self) -> Layer:
+        return Layer(15, 0)
+
+    @property
+    def note(self) -> Layer:
+        return Layer(16, 0)
+
+    @property
+    def note_slim_body(self) -> Layer:
+        return Layer(16, 0)
+
+    @property
+    def note_flick_body(self) -> Layer:
+        return Layer(16, 1)
+
+    @property
+    def note_body(self) -> Layer:
+        return Layer(16, 2)
+
+    @property
+    def note_tick(self) -> Layer:
+        return Layer(16, 3)
+
+    @property
+    def note_arrow(self) -> Layer:
+        return Layer(16, 4)
+
+    @property
+    def slot_glow_effect(self) -> Layer:
+        return Layer(16, 5)
+
+    @property
+    def active_slide_connector_over(self) -> Layer:
+        return Layer(22, 0)
+
+    @property
+    def guide_connector_over(self) -> Layer:
+        return Layer(23, 0)
+
+    @property
+    def overlay(self) -> Layer:
+        return Layer(24, 0)
+
+
+layers = _Layers()
 
 
 class ZIndexes(Record):
@@ -46,7 +144,7 @@ class ZIndexes(Record):
 
 
 def get_z(
-    layer: int,
+    layer: Layer,
     time: float = 0.0,
     lane: float = 0.0,
     etc: int = 0,
@@ -54,21 +152,18 @@ def get_z(
     elevation: float = 0.0,
     invert_time: bool = False,
 ) -> ZIndexes:
-    if LAYER_ACTIVE_SLIDE_CONNECTOR_BOTTOM <= layer <= LAYER_TIMESCALE_LINE:
-        elevation += (layer - LAYER_NOTE) * 0.01
-        layer = LAYER_NOTE
     return ZIndexes(
-        z1=layer,
-        z2=elevation,
+        z1=layer.layer,
+        z2=elevation + layer.sublayer * 0.01,
         z3=time - runtime.time() if invert_time else runtime.time() - time,
         z4=abs(lane) + (1 / 20) * (lane > 0) + etc * 1e-6,
     )
 
 
-def get_z_alt(layer: int, sublayer: int, *, elevation: float = 0.0) -> ZIndexes:
+def get_z_alt(layer: Layer, order: int, *, elevation: float = 0.0) -> ZIndexes:
     return ZIndexes(
-        z1=layer,
-        z2=elevation,
-        z3=sublayer,
+        z1=layer.layer,
+        z2=elevation + layer.sublayer * 0.01,
+        z3=order,
         z4=0.0,
     )

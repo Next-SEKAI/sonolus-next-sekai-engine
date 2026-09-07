@@ -37,18 +37,7 @@ from sekai.lib.buckets import (
 from sekai.lib.connector import ActiveConnectorKind, ConnectorKind
 from sekai.lib.ease import EaseType, ease, safe_unlerp_clamped
 from sekai.lib.effect import EMPTY_EFFECT, SFX_DISTANCE, Effects, first_available_effect
-from sekai.lib.layer import (
-    ELEVATION_NOTE_ARROW,
-    ELEVATION_NOTE_BODY,
-    ELEVATION_NOTE_FLICK_BODY,
-    ELEVATION_NOTE_SLIM_BODY,
-    ELEVATION_NOTE_TICK,
-    LAYER_NOTE,
-    LAYER_OVERLAY,
-    ZIndexes,
-    get_z,
-    get_z_alt,
-)
+from sekai.lib.layer import Layer, ZIndexes, get_z, get_z_alt, layers
 from sekai.lib.layout import (
     IDENTITY_STAGE_SCREEN_TRANSFORM,
     DynamicLayout,
@@ -531,7 +520,8 @@ def get_note_sprite_set(kind: NoteKind, direction: FlickDirection) -> NoteSprite
     return result
 
 
-def get_note_body_elevation(kind: NoteKind) -> float:
+def get_note_body_layer(kind: NoteKind) -> Layer:
+    result = +Layer
     match kind:
         case (
             NoteKind.NORM_FLICK
@@ -541,7 +531,7 @@ def get_note_body_elevation(kind: NoteKind) -> float:
             | NoteKind.NORM_TAIL_FLICK
             | NoteKind.CRIT_TAIL_FLICK
         ):
-            return ELEVATION_NOTE_FLICK_BODY
+            result @= layers.note_flick_body
         case (
             NoteKind.NORM_TRACE
             | NoteKind.CRIT_TRACE
@@ -557,9 +547,10 @@ def get_note_body_elevation(kind: NoteKind) -> float:
             | NoteKind.CRIT_TAIL_TRACE_FLICK
             | NoteKind.DAMAGE
         ):
-            return ELEVATION_NOTE_SLIM_BODY
+            result @= layers.note_slim_body
         case _:
-            return ELEVATION_NOTE_BODY
+            result @= layers.note_body
+    return result
 
 
 def draw_note_body(
@@ -572,9 +563,8 @@ def draw_note_body(
     transform: StageScreenTransform,
     note_alpha: float,
 ):
-    elevation = transform.elevation + get_note_body_elevation(kind)
     a = min(get_alpha(target_time) * note_alpha, 1.0)
-    z = get_z(LAYER_NOTE, time=target_time, lane=lane, elevation=elevation)
+    z = get_z(get_note_body_layer(kind), time=target_time, lane=lane, elevation=transform.elevation)
 
     def place(q):
         return transform.transform_quad(q)
@@ -602,7 +592,7 @@ def draw_note_tick(
     sprite: Sprite, lane: float, travel: float, target_time: float, transform: StageScreenTransform, note_alpha: float
 ):
     a = min(get_alpha(target_time) * note_alpha, 1.0)
-    z = get_z(LAYER_NOTE, time=target_time, lane=lane, elevation=transform.elevation + ELEVATION_NOTE_TICK)
+    z = get_z(layers.note_tick, time=target_time, lane=lane, elevation=transform.elevation)
     layout = transform.transform_billboard(layout_tick(lane, travel), transformed_vec_at(lane, travel))
     sprite.draw(layout, z=z.tuple, a=a)
 
@@ -631,11 +621,11 @@ def draw_note_arrow(
     animation_alpha = (1 - ease_in_cubic(animation_progress)) if Options.marker_animation else 1
     a = min(get_alpha(target_time) * animation_alpha * note_alpha, 1.0)
     z = get_z(
-        LAYER_NOTE,
+        layers.note_arrow,
         time=target_time,
         lane=lane,
         etc=direction + 6 * (not is_critical(kind)),
-        elevation=transform.elevation + ELEVATION_NOTE_ARROW,
+        elevation=transform.elevation,
     )
     anchor = transformed_vec_at(lane, travel)
     match sprites.render_type:
@@ -1385,7 +1375,7 @@ def get_hitbox_target_sprite(kind: NoteKind) -> Sprite:
 def draw_hitbox_bounds_overlay(bounds: Quad, sprite: Sprite, alpha: float):
     t = HITBOX_DEBUG_BORDER_THICKNESS
     a = alpha
-    z_bounds = get_z_alt(LAYER_OVERLAY, 0)
+    z_bounds = get_z_alt(layers.overlay, 0)
     draw_hitbox_line(sprite, bounds.tl, bounds.tr, t, z_bounds, a)
     draw_hitbox_line(sprite, bounds.bl, bounds.br, t, z_bounds, a)
     draw_hitbox_line(sprite, bounds.tl, bounds.bl, t, z_bounds, a)
@@ -1401,10 +1391,10 @@ def draw_connector_hitbox_overlay(bounds: Quad, alpha: float):
 def draw_hitbox_overlay(hitbox: Hitbox, kind: NoteKind, alpha: float, *, time_to_target: float):
     t = HITBOX_DEBUG_BORDER_THICKNESS
     a = alpha
-    z_triangle = get_z_alt(LAYER_OVERLAY, 1)
-    z_apex = get_z_alt(LAYER_OVERLAY, 2)
-    z_target = get_z_alt(LAYER_OVERLAY, 3)
-    z_target_dot = get_z_alt(LAYER_OVERLAY, 4)
+    z_triangle = get_z_alt(layers.overlay, 1)
+    z_apex = get_z_alt(layers.overlay, 2)
+    z_target = get_z_alt(layers.overlay, 3)
+    z_target_dot = get_z_alt(layers.overlay, 4)
 
     draw_hitbox_bounds_overlay(hitbox.bounds, get_hitbox_bounds_sprite(kind, time_to_target), alpha)
 

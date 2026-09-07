@@ -7,7 +7,7 @@ from sonolus.script.timing import beat_to_time
 
 from sekai.lib import archetype_names
 from sekai.lib.baseevent import init_event_list
-from sekai.lib.layer import LAYER_BEAT_LINE, ZIndexes, get_z
+from sekai.lib.layer import ZIndexes, get_z, layers
 from sekai.lib.layout import CameraInfo, get_camera_info, get_next_camera_event_time
 from sekai.lib.level_config import EngineRevision, LevelConfig, init_level_config
 from sekai.lib.particle import init_particles
@@ -91,19 +91,19 @@ def draw_beat_lines():
             else:
                 left_layout @= layout_preview_bar_line(t, extend="left_only", extend_scale=extend_scale)
                 right_layout @= layout_preview_bar_line(t, extend="right_only", extend_scale=extend_scale)
-            ActiveSkin.beat_line.draw(left_layout, z=get_z(LAYER_BEAT_LINE).tuple, a=0.5)
-            ActiveSkin.beat_line.draw(right_layout, z=get_z(LAYER_BEAT_LINE).tuple, a=0.5)
+            ActiveSkin.beat_line.draw(left_layout, z=get_z(layers.beat_line).tuple, a=0.5)
+            ActiveSkin.beat_line.draw(right_layout, z=get_z(layers.beat_line).tuple, a=0.5)
         beat += 1
 
 
 def draw_column_dividers():
     for col in range(1, PreviewLayout.column_count):
-        ActiveSkin.preview_divider.draw(layout_preview_column_divider(col), z=get_z(LAYER_BEAT_LINE).tuple, a=0.5)
+        ActiveSkin.preview_divider.draw(layout_preview_column_divider(col), z=get_z(layers.beat_line).tuple, a=0.5)
 
 
 def draw_camera_markers():
-    z_edge = get_z(LAYER_BEAT_LINE, etc=1)
-    z_target = get_z(LAYER_BEAT_LINE, etc=2)
+    z_edge = get_z(layers.beat_line, etc=1)
+    z_target = get_z(layers.beat_line, etc=2)
     for col in range(PreviewLayout.column_count):
         col_t_lo = col * PREVIEW_COLUMN_SECS
         col_t_hi = (col + 1) * PREVIEW_COLUMN_SECS

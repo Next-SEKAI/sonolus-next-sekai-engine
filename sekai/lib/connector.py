@@ -18,20 +18,7 @@ from sonolus.script.timing import beat_to_time
 from sekai.lib.buckets import SLIDE_TICK_JUDGMENT_WINDOW
 from sekai.lib.ease import EaseType, ease, safe_unlerp_clamped
 from sekai.lib.effect import Effects
-from sekai.lib.layer import (
-    ELEVATION_SLOT_GLOW_EFFECT,
-    LAYER_ACTIVE_SLIDE_CONNECTOR_BOTTOM,
-    LAYER_ACTIVE_SLIDE_CONNECTOR_OVER,
-    LAYER_ACTIVE_SLIDE_CONNECTOR_TOP,
-    LAYER_ACTIVE_SLIDE_CONNECTOR_UNDER,
-    LAYER_GUIDE_CONNECTOR_BOTTOM,
-    LAYER_GUIDE_CONNECTOR_OVER,
-    LAYER_GUIDE_CONNECTOR_TOP,
-    LAYER_GUIDE_CONNECTOR_UNDER,
-    LAYER_NOTE,
-    ZIndexes,
-    get_z,
-)
+from sekai.lib.layer import ZIndexes, get_z, layers
 from sekai.lib.layout import (
     DynamicLayout,
     StageScreenTransform,
@@ -256,7 +243,7 @@ def get_connector_z(
             match layer:
                 case ConnectorLayer.TOP:
                     result @= get_z(
-                        LAYER_ACTIVE_SLIDE_CONNECTOR_TOP,
+                        layers.active_slide_connector_top,
                         time=target_time,
                         lane=lane,
                         etc=get_active_connector_z_offset(kind, active),
@@ -265,7 +252,7 @@ def get_connector_z(
                     )
                 case ConnectorLayer.BOTTOM:
                     result @= get_z(
-                        LAYER_ACTIVE_SLIDE_CONNECTOR_BOTTOM,
+                        layers.active_slide_connector_bottom,
                         time=target_time,
                         lane=lane,
                         etc=get_active_connector_z_offset(kind, active),
@@ -274,7 +261,7 @@ def get_connector_z(
                     )
                 case ConnectorLayer.UNDER:
                     result @= get_z(
-                        LAYER_ACTIVE_SLIDE_CONNECTOR_UNDER,
+                        layers.active_slide_connector_under,
                         time=target_time,
                         lane=lane,
                         etc=get_active_connector_z_offset(kind, active),
@@ -283,7 +270,7 @@ def get_connector_z(
                     )
                 case ConnectorLayer.OVER:
                     result @= get_z(
-                        LAYER_ACTIVE_SLIDE_CONNECTOR_OVER,
+                        layers.active_slide_connector_over,
                         time=target_time,
                         lane=lane,
                         etc=get_active_connector_z_offset(kind, active),
@@ -323,7 +310,7 @@ def get_guide_connector_layer_z(
     match layer:
         case ConnectorLayer.TOP:
             result @= get_z(
-                LAYER_GUIDE_CONNECTOR_TOP,
+                layers.guide_connector_top,
                 time=target_time,
                 lane=lane,
                 etc=etc,
@@ -332,7 +319,7 @@ def get_guide_connector_layer_z(
             )
         case ConnectorLayer.BOTTOM:
             result @= get_z(
-                LAYER_GUIDE_CONNECTOR_BOTTOM,
+                layers.guide_connector_bottom,
                 time=target_time,
                 lane=lane,
                 etc=etc,
@@ -341,7 +328,7 @@ def get_guide_connector_layer_z(
             )
         case ConnectorLayer.UNDER:
             result @= get_z(
-                LAYER_GUIDE_CONNECTOR_UNDER,
+                layers.guide_connector_under,
                 time=target_time,
                 lane=lane,
                 etc=etc,
@@ -350,7 +337,7 @@ def get_guide_connector_layer_z(
             )
         case ConnectorLayer.OVER:
             result @= get_z(
-                LAYER_GUIDE_CONNECTOR_OVER,
+                layers.guide_connector_over,
                 time=target_time,
                 lane=lane,
                 etc=etc,
@@ -1235,9 +1222,7 @@ def draw_connector_slot_glow_effect(
         layout_slot_glow_effect(lane, size, height, y_offset=y_offset),
         transformed_vec_at(lane, approach(1 - y_offset)),
     )
-    z = get_z(
-        LAYER_NOTE, start_time, lane, elevation=transform.elevation + ELEVATION_SLOT_GLOW_EFFECT, invert_time=True
-    )
+    z = get_z(layers.slot_glow_effect, start_time, lane, elevation=transform.elevation, invert_time=True)
     a = remap_clamped(start_time, start_time + 0.25, 0.0, 0.3, time())
     sprite.draw(layout, z=z.tuple, a=a)
 
