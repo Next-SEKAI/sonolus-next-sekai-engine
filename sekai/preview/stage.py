@@ -1,7 +1,7 @@
 from math import ceil, floor
-from typing import assert_never
 
 from sonolus.script.interval import lerp
+from sonolus.script.quad import Quad
 from sonolus.script.values import swap
 
 from sekai.lib.layer import LAYER_PREVIEW_COVER, LAYER_STAGE, ZIndexes, get_z, get_z_alt
@@ -12,6 +12,9 @@ from sekai.lib.stage import (
     DynamicStageLike,
     StageBorderStyle,
     StageProps,
+    border_blend_alpha,
+    border_sprite_transition,
+    border_width,
     get_next_event_time,
     get_stage_props,
 )
@@ -65,15 +68,7 @@ def draw_preview_cover():
 
 
 def draw_preview_dynamic_stage(stage: DynamicStageLike, start_time: float, end_time: float):
-    """Draw a dynamic stage in preview by walking time in fixed increments.
-
-    Each column shows a slice of the song along the y-axis. Within each column we
-    step from `col_lo` to `col_hi` in increments of PREVIEW_DYNAMIC_STAGE_TIME_INCREMENT,
-    and for every (t_a, t_b) sub-slice we sample stage props at both ends and draw a
-    slanted quad whose left/right edges follow the mask between t_a and t_b. Style and
-    division transitions are cross-faded by drawing both sides at progress-weighted
-    alpha. See draw_dynamic_stage_division_set for the per-divider logic.
-    """
+    """Draw stage geometry in small time slices."""
     if end_time <= start_time:
         return
 
@@ -192,82 +187,61 @@ def draw_dynamic_stage_border_slice(
         clip_edge_a = lerp(edge_a, edge_b, frac_lo)
         clip_edge_b = lerp(edge_a, edge_b, frac_hi)
 
-    if style_b.start == style_b.end:
-        draw_border_strip_for_style(
-            is_left, style_b.start, clip_edge_a, clip_edge_b, col, clip_t_a, clip_t_b, alpha, z_a
-        )
-    else:
-        if style_a.start == style_b.start and style_a.end == style_b.end:
-            progress = (style_a.progress + style_b.progress) / 2
-        else:
-            # Just go with b
-            progress = style_b.progress
-        if 1 - progress > 0:
-            draw_border_strip_for_style(
-                is_left, style_b.start, clip_edge_a, clip_edge_b, col, clip_t_a, clip_t_b, alpha * (1 - progress), z_a
-            )
-        if progress > 0:
-            draw_border_strip_for_style(
-                is_left, style_b.end, clip_edge_a, clip_edge_b, col, clip_t_a, clip_t_b, alpha * progress, z_b
-            )
-
-
-def draw_border_strip_for_style(
-    is_left: bool,
-    style: StageBorderStyle,
-    edge_a: float,
-    edge_b: float,
-    col: int,
-    t_a: float,
-    t_b: float,
-    alpha: float,
-    z: ZIndexes,
-):
-    if alpha <= 0:
+    width_a = border_width(
+        style_a,
+        PREVIEW_DYNAMIC_STAGE_BORDER_DEFAULT_W,
+        PREVIEW_DYNAMIC_STAGE_BORDER_MEDIUM_W,
+        PREVIEW_DYNAMIC_STAGE_BORDER_LIGHT_W,
+    )
+    width_b = border_width(
+        style_b,
+        PREVIEW_DYNAMIC_STAGE_BORDER_DEFAULT_W,
+        PREVIEW_DYNAMIC_STAGE_BORDER_MEDIUM_W,
+        PREVIEW_DYNAMIC_STAGE_BORDER_LIGHT_W,
+    )
+    offset_a = border_width(
+        style_a, PREVIEW_DYNAMIC_STAGE_BORDER_DEFAULT_W / 2, PREVIEW_DYNAMIC_STAGE_BORDER_MEDIUM_W / 2, 0
+    )
+    offset_b = border_width(
+        style_b, PREVIEW_DYNAMIC_STAGE_BORDER_DEFAULT_W / 2, PREVIEW_DYNAMIC_STAGE_BORDER_MEDIUM_W / 2, 0
+    )
+    frac_a = (clip_t_a - t_a) / (t_b - t_a)
+    frac_b = (clip_t_b - t_a) / (t_b - t_a)
+    clip_width_a = lerp(width_a, width_b, frac_a)
+    clip_width_b = lerp(width_a, width_b, frac_b)
+    if max(clip_width_a, clip_width_b) <= 0:
         return
-    match style:
-        case StageBorderStyle.DEFAULT:
-            draw_solid_border_strip(
-                is_left, PREVIEW_DYNAMIC_STAGE_BORDER_DEFAULT_W, edge_a, edge_b, col, t_a, t_b, alpha, z
-            )
-        case StageBorderStyle.MEDIUM:
-            draw_solid_border_strip(
-                is_left, PREVIEW_DYNAMIC_STAGE_BORDER_MEDIUM_W, edge_a, edge_b, col, t_a, t_b, alpha, z
-            )
-        case StageBorderStyle.LIGHT:
-            draw_light_border_strip(PREVIEW_DYNAMIC_STAGE_BORDER_LIGHT_W, edge_a, edge_b, col, t_a, t_b, alpha, z)
-        case StageBorderStyle.DISABLED:
-            return
-        case _:
-            assert_never(style)
-
-
-def draw_solid_border_strip(
-    is_left: bool,
-    width: float,
-    edge_a: float,
-    edge_b: float,
-    col: int,
-    t_a: float,
-    t_b: float,
-    alpha: float,
-    z: ZIndexes,
-):
     sign = -1 if is_left else 1
-    center_a = edge_a + sign * width / 2
-    center_b = edge_b + sign * width / 2
-    layout = layout_preview_lane_rotated_strip(center_a, center_b, t_a, t_b, width, col)
-    if not is_left:
-        swap(layout.bl, layout.br)
-        swap(layout.tl, layout.tr)
-    ActiveSkin.stage_border_preview.draw(layout, z=z.tuple, a=alpha)
+    center_a = clip_edge_a + sign * lerp(offset_a, offset_b, frac_a)
+    center_b = clip_edge_b + sign * lerp(offset_a, offset_b, frac_b)
+    layout_a = layout_preview_lane_rotated_strip(center_a, center_b, clip_t_a, clip_t_b, clip_width_a, col)
+    layout_b = layout_preview_lane_rotated_strip(center_a, center_b, clip_t_a, clip_t_b, clip_width_b, col)
+    layout = Quad(bl=layout_a.bl, br=layout_a.br, tl=layout_b.tl, tr=layout_b.tr)
 
+    style = +style_b
+    if style_a.start == style_b.start and style_a.end == style_b.end:
+        progress_a = lerp(style_a.progress, style_b.progress, frac_a)
+        progress_b = lerp(style_a.progress, style_b.progress, frac_b)
+        style.progress = (progress_a + progress_b) / 2
+    style = border_sprite_transition(style)
 
-def draw_light_border_strip(
-    width: float, edge_a: float, edge_b: float, col: int, t_a: float, t_b: float, alpha: float, z: ZIndexes
-):
-    layout = layout_preview_lane_rotated_strip(edge_a, edge_b, t_a, t_b, width, col)
-    ActiveSkin.lane_divider_preview.draw(layout, z=z.tuple, a=alpha)
+    def draw_border(style: StageBorderStyle, z: ZIndexes, a: float):
+        if a <= 0:
+            return
+        if style == StageBorderStyle.LIGHT:
+            ActiveSkin.lane_divider_preview.draw(layout, z=z.tuple, a=a)
+        else:
+            flipped = +layout
+            if not is_left:
+                swap(flipped.bl, flipped.br)
+                swap(flipped.tl, flipped.tr)
+            ActiveSkin.stage_border_preview.draw(flipped, z=z.tuple, a=a)
+
+    if style.start == style.end:
+        draw_border(style.start, z_a, alpha)
+    else:
+        draw_border(style.start, z_a, border_blend_alpha(alpha, style.progress))
+        draw_border(style.end, z_b, alpha * style.progress)
 
 
 def draw_dynamic_stage_dividers_slice(

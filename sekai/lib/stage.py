@@ -105,6 +105,57 @@ class Transition[T](Record):
     progress: float
 
 
+def border_style_width(style: StageBorderStyle, default: float, medium: float, light: float) -> float:
+    match style:
+        case StageBorderStyle.DEFAULT:
+            return default
+        case StageBorderStyle.MEDIUM:
+            return medium
+        case StageBorderStyle.LIGHT:
+            return light
+        case StageBorderStyle.DISABLED:
+            return 0.0
+        case _:
+            assert_never(style)
+
+
+def border_width(style: Transition[StageBorderStyle], default: float, medium: float, light: float) -> float:
+    return lerp(
+        border_style_width(style.start, default, medium, light),
+        border_style_width(style.end, default, medium, light),
+        style.progress,
+    )
+
+
+def border_sprite_transition(style: Transition[StageBorderStyle]) -> Transition[StageBorderStyle]:
+    result = +style
+    if result.start == StageBorderStyle.MEDIUM:
+        result.start = StageBorderStyle.DEFAULT
+    if result.end == StageBorderStyle.MEDIUM:
+        result.end = StageBorderStyle.DEFAULT
+    if result.start == StageBorderStyle.DISABLED:
+        result.start = result.end
+    if result.end == StageBorderStyle.DISABLED:
+        result.end = result.start
+    if result.start == result.end:
+        result.progress = 0.0
+    return result
+
+
+def blend_border_layout(start: QuadLike, end: QuadLike, progress: float) -> Quad:
+    return Quad(
+        bl=start.bl + (end.bl - start.bl) * progress,
+        br=start.br + (end.br - start.br) * progress,
+        tl=start.tl + (end.tl - start.tl) * progress,
+        tr=start.tr + (end.tr - start.tr) * progress,
+    )
+
+
+def border_blend_alpha(alpha: float, progress: float) -> float:
+    remaining = 1 - alpha * progress
+    return alpha * (1 - progress) / remaining if remaining > 0 else 0.0
+
+
 def judge_line_style_weight(style: Transition[JudgeLineStyle], target: JudgeLineStyle) -> float:
     weight = 0.0
     if style.start == target:
@@ -810,7 +861,7 @@ def draw_dynamic_stage(
     sprites_same = judge_line_color.start == judge_line_color.end
     sprites_a = get_judgment_sprites(judge_line_color.start)
     sprites_b = get_judgment_sprites(judge_line_color.end)
-    p_sprites = judge_line_color.progress
+    p_sprites = 0.0 if sprites_same else judge_line_color.progress
 
     w_default = judge_line_style_weight(judge_line_style, JudgeLineStyle.DEFAULT)
     w_single_line = judge_line_style_weight(judge_line_style, JudgeLineStyle.SINGLE_LINE)
@@ -829,6 +880,8 @@ def draw_dynamic_stage(
             y_offset,
             judge_line_style,
             fw,
+            left_border_style=left_border_style,
+            right_border_style=right_border_style,
             transform=transform,
         )
         return
@@ -860,47 +913,45 @@ def draw_dynamic_stage(
 
     f = JUDGE_LINE_BORDER_FACTOR
 
-    def draw_left_border(style: StageBorderStyle, z: ZIndexes, a: float):
-        match style:
-            case StageBorderStyle.DEFAULT | StageBorderStyle.MEDIUM:
-                scale = 0.5 if style == StageBorderStyle.MEDIUM else 1.0
-                layout_b = layout_stage_lane_by_edges(
-                    l - 0.08 * scale, l
-                )  # Artificially thicken the top so it renders better
-                layout_t = layout_stage_lane_by_edges(tilt_widened_edge(l - 0.08 * scale, l - 0.64 * scale), l)
-                ActiveSkin.stage_border.draw(
-                    place(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br)), z=z.tuple, a=a
-                )
-            case StageBorderStyle.LIGHT:
-                layout_b = layout_stage_lane_by_edges(l - 0.0125, l + 0.0125)
-                layout_t = layout_stage_lane_by_edges(
-                    tilt_widened_edge(l - 0.0125, l - 0.1), tilt_widened_edge(l + 0.0125, l + 0.1)
-                )
-                ActiveSkin.lane_divider.draw(
-                    place(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br)), z=z.tuple, a=a
-                )
-            case StageBorderStyle.DISABLED:
-                pass
-            case _:
-                assert_never(style)
+    def layout_lane_border(style: StageBorderStyle, edge: float, is_left: bool) -> Quad:
+        border_w = border_style_width(style, 0.08, 0.04, 0.025)
+        if style == StageBorderStyle.LIGHT:
+            left = edge - border_w / 2
+            right = edge + border_w / 2
+        elif is_left:
+            left = edge - border_w
+            right = edge
+        else:
+            left = edge
+            right = edge + border_w
+        bottom = layout_stage_lane_by_edges(left, right)
+        top = layout_stage_lane_by_edges(
+            tilt_widened_edge(left, edge + 8 * (left - edge)),
+            tilt_widened_edge(right, edge + 8 * (right - edge)),
+        )
+        return Quad(bl=bottom.bl, br=bottom.br, tl=top.tl, tr=top.tr)
 
-    def draw_right_border(style: StageBorderStyle, z: ZIndexes, a: float):
+    left_border_layout = blend_border_layout(
+        layout_lane_border(left_border_style.start, l, True),
+        layout_lane_border(left_border_style.end, l, True),
+        left_border_style.progress,
+    )
+    right_border_layout = blend_border_layout(
+        layout_lane_border(right_border_style.start, r, False),
+        layout_lane_border(right_border_style.end, r, False),
+        right_border_style.progress,
+    )
+
+    def draw_border(style: StageBorderStyle, is_left: bool, q: Quad, z: ZIndexes, a: float):
+        if a <= 0 or (q.bl == q.br and q.tl == q.tr):
+            return
         match style:
             case StageBorderStyle.DEFAULT | StageBorderStyle.MEDIUM:
-                scale = 0.5 if style == StageBorderStyle.MEDIUM else 1.0
-                layout_b = layout_stage_lane_by_edges(r + 0.08 * scale, r)  # Flip horizontally
-                layout_t = layout_stage_lane_by_edges(tilt_widened_edge(r + 0.08 * scale, r + 0.64 * scale), r)
-                ActiveSkin.stage_border.draw(
-                    place(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br)), z=z.tuple, a=a
-                )
+                if not is_left:
+                    q = Quad(bl=q.br, br=q.bl, tl=q.tr, tr=q.tl)
+                ActiveSkin.stage_border.draw(place(q), z=z.tuple, a=a)
             case StageBorderStyle.LIGHT:
-                layout_b = layout_stage_lane_by_edges(r - 0.0125, r + 0.0125)
-                layout_t = layout_stage_lane_by_edges(
-                    tilt_widened_edge(r - 0.0125, r - 0.1), tilt_widened_edge(r + 0.0125, r + 0.1)
-                )
-                ActiveSkin.lane_divider.draw(
-                    place(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br)), z=z.tuple, a=a
-                )
+                ActiveSkin.lane_divider.draw(place(q), z=z.tuple, a=a)
             case StageBorderStyle.DISABLED:
                 pass
             case _:
@@ -931,18 +982,18 @@ def draw_dynamic_stage(
 
     thickness_scale = lerp(1.0, clamp(1 / travel, 1, 4) if travel > 0 else 4, current_stage_tilt())
     judgment_divider_size = 0.014 * thickness_scale * tilt_width_factor(travel) * DynamicLayout.w_scale
-    judgment_divider_offset = Vec2(judgment_divider_size, 0).rotate(-DynamicLayout.rotate)
     divider_depth_b = tilt_depth(1 + nh - nh / f + 0.001, travel)
     divider_depth_t = tilt_depth(1 - nh + nh / f - 0.001, travel)
 
-    def layout_judgment_divider(lane: float):
+    def layout_judgment_divider(lane: float, half_width: float):
+        offset = Vec2(half_width, 0).rotate(-DynamicLayout.rotate)
         b = transformed_vec_at(lane, divider_depth_b)
         t = transformed_vec_at(lane, divider_depth_t)
         return Quad(
-            bl=b - judgment_divider_offset,
-            tl=t - judgment_divider_offset,
-            tr=t + judgment_divider_offset,
-            br=b + judgment_divider_offset,
+            bl=b - offset,
+            tl=t - offset,
+            tr=t + offset,
+            br=b + offset,
         )
 
     def draw_judgment_dividers(
@@ -956,52 +1007,51 @@ def draw_dynamic_stage(
 
         for k in range(k_start, k_end + 1):
             pos = shifted_pivot + k
-            div_layout = place(layout_judgment_divider(pos))
+            div_layout = place(layout_judgment_divider(pos, judgment_divider_size))
             edge_weight = abs(pos - lane) / width if width > 0 else 0
             sprites.judgment_center.draw(div_layout, z=z_lo.tuple, a=a)
             sprites.judgment_edge.draw(div_layout, z=z_hi.tuple, a=a * edge_weight)
 
-    def draw_left_judgment_border(sprites: JudgmentSpriteSet, style: StageBorderStyle, z: ZIndexes, a: float):
-        match style:
-            case StageBorderStyle.DEFAULT | StageBorderStyle.MEDIUM:
-                if width <= 0:
-                    return
-                layout = place(
-                    perspective_rect(
-                        l,
-                        min(l + 1 / f / 2, lane),
-                        1 - nh + nh / f,
-                        1 + nh - nh / f,
-                        travel,
-                    )
-                )
-                sprites.judgment_edge_left.draw(layout, z=z.tuple, a=a)
-            case StageBorderStyle.LIGHT:
-                layout = place(layout_judgment_divider(l))
-                sprites.judgment_edge.draw(layout, z=z.tuple, a=a)
-            case StageBorderStyle.DISABLED:
-                pass
-            case _:
-                assert_never(style)
+    def layout_judgment_border(style: StageBorderStyle, edge: float, is_left: bool) -> Quad:
+        result = +Quad
+        if style == StageBorderStyle.LIGHT:
+            result @= layout_judgment_divider(edge, judgment_divider_size)
+        else:
+            border_w = max(0.0, min(1 / f / 2, width)) if style != StageBorderStyle.DISABLED else 0.0
+            result @= perspective_rect(
+                edge if is_left else edge - border_w,
+                edge + border_w if is_left else edge,
+                1 - nh + nh / f,
+                1 + nh - nh / f,
+                travel,
+            )
+        return result
 
-    def draw_right_judgment_border(sprites: JudgmentSpriteSet, style: StageBorderStyle, z: ZIndexes, a: float):
+    left_judgment_layout = blend_border_layout(
+        layout_judgment_border(left_border_style.start, l, True),
+        layout_judgment_border(left_border_style.end, l, True),
+        left_border_style.progress,
+    )
+    right_judgment_layout = blend_border_layout(
+        layout_judgment_border(right_border_style.start, r, False),
+        layout_judgment_border(right_border_style.end, r, False),
+        right_border_style.progress,
+    )
+    left_border_style = border_sprite_transition(left_border_style)
+    right_border_style = border_sprite_transition(right_border_style)
+
+    def draw_judgment_border(
+        sprites: JudgmentSpriteSet, style: StageBorderStyle, is_left: bool, q: Quad, z: ZIndexes, a: float
+    ):
+        if a <= 0 or (q.bl == q.br and q.tl == q.tr):
+            return
         match style:
             case StageBorderStyle.DEFAULT | StageBorderStyle.MEDIUM:
-                if width <= 0:
-                    return
-                layout = place(
-                    perspective_rect(
-                        r,
-                        max(r - 1 / f / 2, lane),
-                        1 - nh + nh / f,
-                        1 + nh - nh / f,
-                        travel,
-                    )
-                )
-                sprites.judgment_edge_left.draw(layout, z=z.tuple, a=a)
+                if not is_left:
+                    q = Quad(bl=q.br, br=q.bl, tl=q.tr, tr=q.tl)
+                sprites.judgment_edge_left.draw(place(q), z=z.tuple, a=a)
             case StageBorderStyle.LIGHT:
-                layout = place(layout_judgment_divider(r))
-                sprites.judgment_edge.draw(layout, z=z.tuple, a=a)
+                sprites.judgment_edge.draw(place(q), z=z.tuple, a=a)
             case StageBorderStyle.DISABLED:
                 pass
             case _:
@@ -1036,17 +1086,17 @@ def draw_dynamic_stage(
 
         p_left = left_border_style.progress
         if left_border_style.start == left_border_style.end:
-            draw_left_border(left_border_style.start, z_lane0, la)
+            draw_border(left_border_style.start, True, left_border_layout, z_lane0, la)
         else:
-            draw_left_border(left_border_style.start, z_lane0, la * (1 - p_left))
-            draw_left_border(left_border_style.end, z_lane1, la * p_left)
+            draw_border(left_border_style.start, True, left_border_layout, z_lane0, border_blend_alpha(la, p_left))
+            draw_border(left_border_style.end, True, left_border_layout, z_lane1, la * p_left)
 
         p_right = right_border_style.progress
         if right_border_style.start == right_border_style.end:
-            draw_right_border(right_border_style.start, z_lane0, la)
+            draw_border(right_border_style.start, False, right_border_layout, z_lane0, la)
         else:
-            draw_right_border(right_border_style.start, z_lane0, la * (1 - p_right))
-            draw_right_border(right_border_style.end, z_lane1, la * p_right)
+            draw_border(right_border_style.start, False, right_border_layout, z_lane0, border_blend_alpha(la, p_right))
+            draw_border(right_border_style.end, False, right_border_layout, z_lane1, la * p_right)
 
         la_div = la * division_line_alpha
         if la_div > 0:
@@ -1112,36 +1162,36 @@ def draw_dynamic_stage(
 
     if ja_dec > 0:
         if sprites_same and left_border_style.start == left_border_style.end:
-            draw_left_judgment_border(sprites_a, left_border_style.start, z_a0, ja_dec)
+            draw_judgment_border(sprites_a, left_border_style.start, True, left_judgment_layout, z_a0, ja_dec)
         else:
-            alpha_aa = (1 - p_sprites) * (1 - p_left)
-            alpha_ab = (1 - p_sprites) * p_left
-            alpha_ba = p_sprites * (1 - p_left)
-            alpha_bb = p_sprites * p_left
+            alpha_aa = border_blend_alpha(ja_dec * (1 - p_sprites), p_left)
+            alpha_ab = ja_dec * (1 - p_sprites) * p_left
+            alpha_ba = border_blend_alpha(ja_dec * p_sprites, p_left)
+            alpha_bb = ja_dec * p_sprites * p_left
             if alpha_aa > 0:
-                draw_left_judgment_border(sprites_a, left_border_style.start, z_a0, ja_dec * alpha_aa)
+                draw_judgment_border(sprites_a, left_border_style.start, True, left_judgment_layout, z_a0, alpha_aa)
             if alpha_ab > 0:
-                draw_left_judgment_border(sprites_a, left_border_style.end, z_a2, ja_dec * alpha_ab)
+                draw_judgment_border(sprites_a, left_border_style.end, True, left_judgment_layout, z_a2, alpha_ab)
             if alpha_ba > 0:
-                draw_left_judgment_border(sprites_b, left_border_style.start, z_b0, ja_dec * alpha_ba)
+                draw_judgment_border(sprites_b, left_border_style.start, True, left_judgment_layout, z_b0, alpha_ba)
             if alpha_bb > 0:
-                draw_left_judgment_border(sprites_b, left_border_style.end, z_b2, ja_dec * alpha_bb)
+                draw_judgment_border(sprites_b, left_border_style.end, True, left_judgment_layout, z_b2, alpha_bb)
 
         if sprites_same and right_border_style.start == right_border_style.end:
-            draw_right_judgment_border(sprites_a, right_border_style.start, z_a0, ja_dec)
+            draw_judgment_border(sprites_a, right_border_style.start, False, right_judgment_layout, z_a0, ja_dec)
         else:
-            alpha_aa = (1 - p_sprites) * (1 - p_right)
-            alpha_ab = (1 - p_sprites) * p_right
-            alpha_ba = p_sprites * (1 - p_right)
-            alpha_bb = p_sprites * p_right
+            alpha_aa = border_blend_alpha(ja_dec * (1 - p_sprites), p_right)
+            alpha_ab = ja_dec * (1 - p_sprites) * p_right
+            alpha_ba = border_blend_alpha(ja_dec * p_sprites, p_right)
+            alpha_bb = ja_dec * p_sprites * p_right
             if alpha_aa > 0:
-                draw_right_judgment_border(sprites_a, right_border_style.start, z_a0, ja_dec * alpha_aa)
+                draw_judgment_border(sprites_a, right_border_style.start, False, right_judgment_layout, z_a0, alpha_aa)
             if alpha_ab > 0:
-                draw_right_judgment_border(sprites_a, right_border_style.end, z_a2, ja_dec * alpha_ab)
+                draw_judgment_border(sprites_a, right_border_style.end, False, right_judgment_layout, z_a2, alpha_ab)
             if alpha_ba > 0:
-                draw_right_judgment_border(sprites_b, right_border_style.start, z_b0, ja_dec * alpha_ba)
+                draw_judgment_border(sprites_b, right_border_style.start, False, right_judgment_layout, z_b0, alpha_ba)
             if alpha_bb > 0:
-                draw_right_judgment_border(sprites_b, right_border_style.end, z_b2, ja_dec * alpha_bb)
+                draw_judgment_border(sprites_b, right_border_style.end, False, right_judgment_layout, z_b2, alpha_bb)
 
     if ja_single > 0:
         if sprites_same:
@@ -1166,6 +1216,8 @@ def draw_fallback_stage(
     judge_line_style: Transition[JudgeLineStyle] | JudgeLineStyle = JudgeLineStyle.DEFAULT,
     full_width: float = 0,
     *,
+    left_border_style: Transition[StageBorderStyle] | StageBorderStyle = StageBorderStyle.DEFAULT,
+    right_border_style: Transition[StageBorderStyle] | StageBorderStyle = StageBorderStyle.DEFAULT,
     transform: StageScreenTransform,
 ):
     def place(q: QuadLike) -> QuadLike:
@@ -1188,18 +1240,21 @@ def draw_fallback_stage(
     z_single = get_z_alt(LAYER_STAGE, z * 4 + 3, elevation=transform.elevation)
     la = lane_alpha * (1 - fw)
     ja = judge_line_alpha
+    left_width = border_width(normalize_transition(left_border_style), 0.25, 0.125, 0.025)
+    right_width = border_width(normalize_transition(right_border_style), 0.25, 0.125, 0.025)
     if la > 0:
-        # Artificially thicken the top so it renders better
-        layout_b = layout_stage_lane_by_edges(l - 0.25, l)
-        layout_t = layout_stage_lane_by_edges(tilt_widened_edge(l - 0.25, l - 1), l)
-        ActiveSkin.stage_left_border.draw(
-            place(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br)), z=z_mid.tuple, a=la
-        )
-        layout_b = layout_stage_lane_by_edges(r, r + 0.25)
-        layout_t = layout_stage_lane_by_edges(r, tilt_widened_edge(r + 0.25, r + 1))
-        ActiveSkin.stage_right_border.draw(
-            place(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br)), z=z_mid.tuple, a=la
-        )
+        if left_width > 0:
+            layout_b = layout_stage_lane_by_edges(l - left_width, l)
+            layout_t = layout_stage_lane_by_edges(tilt_widened_edge(l - left_width, l - 4 * left_width), l)
+            ActiveSkin.stage_left_border.draw(
+                place(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br)), z=z_mid.tuple, a=la
+            )
+        if right_width > 0:
+            layout_b = layout_stage_lane_by_edges(r, r + right_width)
+            layout_t = layout_stage_lane_by_edges(r, tilt_widened_edge(r + right_width, r + 4 * right_width))
+            ActiveSkin.stage_right_border.draw(
+                place(Quad(bl=layout_b.bl, tl=layout_t.tl, tr=layout_t.tr, br=layout_b.br)), z=z_mid.tuple, a=la
+            )
 
         eps = 0.001
         parity_offset = division_size / 2 if parity == DivisionParity.ODD else 0
