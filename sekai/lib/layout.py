@@ -1116,8 +1116,8 @@ def layout_slot_glow_effect(lane: float, size: float, height: float, y_offset: f
     up = Vec2(0, h).rotate(-DynamicLayout.rotate)
     l_min = transformed_vec_at(lane - size, travel)
     r_min = transformed_vec_at(lane + size, travel)
-    l_max = transformed_vec_at(lane - size * s, travel) + up
-    r_max = transformed_vec_at(lane + size * s, travel) + up
+    l_max = transformed_vec_at((lane - size) * s, travel) + up
+    r_max = transformed_vec_at((lane + size) * s, travel) + up
     return Quad(
         bl=l_min,
         br=r_min,
