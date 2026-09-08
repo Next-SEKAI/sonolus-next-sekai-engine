@@ -116,6 +116,11 @@ class WatchDynamicStage(WatchArchetype):
         init_event_list(self.first_pivot_change_ref)
         init_event_list(self.first_style_change_ref)
         init_event_list(self.first_transform_change_ref)
+        pivot_ref = +self.first_pivot_change_ref
+        while pivot_ref.index > 0:
+            pivot = pivot_ref.get()
+            pivot.y_offset = pivot.abs_y_offset + pivot.y_beat_offset * 60 / beat_to_bpm(pivot.beat) / preempt_time()
+            pivot_ref.index = pivot.next_ref.index
         self.start_time = get_start_time(self)
         self.end_time = get_end_time(self)
         self.draw_start_time = get_draw_start_time(self)
@@ -179,7 +184,6 @@ class WatchStagePivotChange(WatchArchetype, BaseEvent):
     def preprocess(self):
         LevelConfig.dynamic_stages = True
         self.time = beat_to_time(self.beat)
-        self.y_offset = self.abs_y_offset + self.y_beat_offset * 60 / beat_to_bpm(self.beat) / preempt_time()
         if Options.mirror:
             self.lane *= -1
 
