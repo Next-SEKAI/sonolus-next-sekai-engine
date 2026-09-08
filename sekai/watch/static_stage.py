@@ -38,6 +38,9 @@ class WatchScheduledLaneEffect(WatchArchetype):
     def despawn_time(self) -> float:
         return self.target_time + 1
 
+    def initialize(self):
+        self.played = False
+
     def update_parallel(self):
         if self.played:
             return
