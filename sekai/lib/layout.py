@@ -101,6 +101,7 @@ class DynamicLayout:
     progress_cutoff: float
     width_offset: float
     lane_t: float
+    safe_lane_t: float
     lane_b: float
     stage_lane_t: float
     stage_lane_b: float
@@ -585,6 +586,7 @@ def refresh_layout():
     tilt = current_stage_tilt()
 
     DynamicLayout.width_offset = (1 - tilt) * STAGE_WIDTH_MID
+    DynamicLayout.safe_lane_t = (1e-4 - DynamicLayout.width_offset) / max(tilt, 1e-6)
     vanish_tilt = max(tilt, STAGE_TILT_VANISH_MIN)
     vanish_ext = (1 - vanish_tilt) * STAGE_WIDTH_MID / vanish_tilt
     DynamicLayout.lane_t = LANE_T - vanish_ext
@@ -858,14 +860,17 @@ def layout_stage_lane_by_edges(l: float, r: float, y_offset: float = 0.0) -> Qua
 
 
 def layout_particle_lane(lane: float, size: float, y_offset: float = 0.0, *, extend_down: bool = True) -> Quad:
-    return perspective_rect(
-        l=lane - size,
-        r=lane + size,
-        t=DynamicLayout.lane_t,
-        b=lerp(DynamicLayout.lane_b, DynamicLayout.stage_lane_b, 0.6 * current_stage_tilt())
-        if extend_down
-        else DynamicLayout.lane_b,
-        travel=approach(1 - y_offset),
+    travel = approach(1 - y_offset)
+    top = max(tilt_depth(DynamicLayout.lane_t, travel), DynamicLayout.safe_lane_t)
+    bottom = DynamicLayout.lane_b
+    if extend_down:
+        bottom = lerp(bottom, DynamicLayout.stage_lane_b, 0.6 * current_stage_tilt())
+    bottom = max(tilt_depth(bottom, travel), top)
+    return Quad(
+        bl=transformed_vec_at(lane - size, bottom),
+        br=transformed_vec_at(lane + size, bottom),
+        tl=transformed_vec_at(lane - size, top),
+        tr=transformed_vec_at(lane + size, top),
     )
 
 
