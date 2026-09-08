@@ -272,6 +272,7 @@ class WatchBaseNote(WatchArchetype):
             transform @= self.stage_transform_at(t)
         if self.is_attached:
             visual_lane, render_size = self.visual_extents_at(t)
+            y_offset = self.y_offset_at(t)
         schedule_note_slot_effects(
             self.kind,
             visual_lane,

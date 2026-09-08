@@ -17,6 +17,7 @@ from sekai.play.common import PlayLevelMemory
 @level_memory
 class StageMemory:
     empty_lanes: VarArray[float, Dim[16]]
+    empty_lane_stages: VarArray[int, Dim[16]]
 
 
 class StaticStage(PlayArchetype):
@@ -38,7 +39,9 @@ class StaticStage(PlayArchetype):
         if LevelConfig.dynamic_stages:
             if len(empty_lanes) > 0:
                 Streams.empty_input_lanes[offset_adjusted_time()] = empty_lanes
+                Streams.empty_input_stages[offset_adjusted_time()] = StageMemory.empty_lane_stages
                 empty_lanes.clear()
+                StageMemory.empty_lane_stages.clear()
             return
         empty_lanes.clear()
         total_hitbox = layout_lane_area(-7, 7)

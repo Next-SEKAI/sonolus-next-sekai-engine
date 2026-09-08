@@ -202,6 +202,7 @@ class DynamicStage(PlayArchetype):
                 )
                 if not empty_lanes.is_full():
                     empty_lanes.append(rounded_lane)
+                    StageMemory.empty_lane_stages.append(self.index)
             else:
                 prev_lane = touch_to_lane(touch.prev_position, screen_transform)
                 prev_rel = prev_lane - p.pivot_lane
@@ -215,6 +216,7 @@ class DynamicStage(PlayArchetype):
                     )
                     if not empty_lanes.is_full():
                         empty_lanes.append(rounded_lane)
+                        StageMemory.empty_lane_stages.append(self.index)
 
     def update_parallel(self):
         t = time()
