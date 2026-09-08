@@ -864,8 +864,10 @@ def layout_particle_lane(lane: float, size: float, y_offset: float = 0.0, *, ext
     top = max(tilt_depth(DynamicLayout.lane_t, travel), DynamicLayout.safe_lane_t)
     bottom = DynamicLayout.lane_b
     if extend_down:
-        bottom = lerp(bottom, DynamicLayout.stage_lane_b, 0.6 * current_stage_tilt())
+        bottom = lerp(bottom, DynamicLayout.stage_lane_b, 0.25 * current_stage_tilt())
     bottom = max(tilt_depth(bottom, travel), top)
+    # Account for overshoot in the animation
+    top = max(top, lerp(DynamicLayout.safe_lane_t, bottom, 0.07 / 1.07))
     return Quad(
         bl=transformed_vec_at(lane - size, bottom),
         br=transformed_vec_at(lane + size, bottom),
