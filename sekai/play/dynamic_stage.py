@@ -64,7 +64,7 @@ class CameraChange(PlayArchetype, BaseEvent):
 
     time: float = entity_data()
 
-    @callback(order=-2)
+    @callback(order=-4)
     def preprocess(self):
         LevelConfig.dynamic_stages = True
         self.time = beat_to_time(self.beat)
@@ -98,7 +98,7 @@ class StageTransformChange(PlayArchetype, BaseEvent):
 
     time: float = entity_data()
 
-    @callback(order=-2)
+    @callback(order=-4)
     def preprocess(self):
         LevelConfig.dynamic_stages = True
         LevelConfig.has_stage_transforms = True
@@ -243,7 +243,7 @@ class StageMaskChange(PlayArchetype, BaseEvent):
 
     time: float = entity_data()
 
-    @callback(order=-2)
+    @callback(order=-4)
     def preprocess(self):
         LevelConfig.dynamic_stages = True
         self.time = beat_to_time(self.beat)
@@ -273,7 +273,7 @@ class StagePivotChange(PlayArchetype, BaseEvent):
     y_offset: float = entity_data()
     time: float = entity_data()
 
-    @callback(order=-2)
+    @callback(order=-4)
     def preprocess(self):
         LevelConfig.dynamic_stages = True
         self.time = beat_to_time(self.beat)
@@ -307,7 +307,7 @@ class StageStyleChange(PlayArchetype, BaseEvent):
 
     time: float = shared_memory()
 
-    @callback(order=-2)
+    @callback(order=-4)
     def preprocess(self):
         LevelConfig.dynamic_stages = True
         self.time = beat_to_time(self.beat)

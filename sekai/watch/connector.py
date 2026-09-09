@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from math import inf
 from typing import assert_never
 
 from sonolus.script.archetype import EntityRef, WatchArchetype, callback, entity_data, entity_memory, imported
@@ -35,7 +36,15 @@ from sekai.lib.note import draw_connector_hitbox_overlay, draw_slide_note_head, 
 from sekai.lib.options import Options
 from sekai.lib.stage import VisualMask, masked_note_extents_by_limits
 from sekai.lib.streams import Streams
-from sekai.lib.timescale import group_hide_notes, update_timescale_group
+from sekai.lib.timescale import TrajectoryCache, group_hide_notes, register_group_window
+from sekai.lib.timescale_consumer import (
+    TrajectoryDiagnostics,
+    note_visual_progress_value,
+    prepare_note_trajectories,
+    register_note_group_window,
+    segment_visual_spawn_time,
+)
+from sekai.lib.timescale_math import AccurateScalar
 from sekai.watch import note
 
 
@@ -55,33 +64,55 @@ class WatchConnector(WatchArchetype):
     end_time: float = entity_data()
     visual_active_interval: Interval = entity_data()
 
+    head_trajectory_first: TrajectoryCache = entity_memory()
+    head_trajectory_second: TrajectoryCache = entity_memory()
+    tail_trajectory_first: TrajectoryCache = entity_memory()
+    tail_trajectory_second: TrajectoryCache = entity_memory()
+    trajectory_diagnostics: TrajectoryDiagnostics = entity_memory()
+
     @callback(order=1)
     def preprocess(self):
+        self.start_time = inf
         if DISABLE_NOTES:
             return
         head = self.head
         tail = self.tail
+        if inf in (head.start_time, tail.start_time):
+            return
+        if inf in (self.segment_head.start_time, self.segment_tail.start_time):
+            return
+        if self.active_head_ref.index > 0 and self.active_head.start_time == inf:
+            return
+        if self.active_tail_ref.index > 0 and self.active_tail.start_time == inf:
+            return
         self.kind = self.segment_head.segment_kind
         self.ease_type = head.connector_ease
         self.visual_active_interval.start = min(head.target_time, tail.target_time)
         self.visual_active_interval.end = max(head.target_time, tail.target_time)
-        self.start_time = min(
+        start_time = min(
             self.visual_active_interval.start,
             head.start_time,
             tail.start_time,
+            segment_visual_spawn_time(head, tail, self.visual_active_interval.end),
         )
         self.end_time = self.visual_active_interval.end
         if self.segment_head.segment_through_judge_line:
             self.end_time += CONNECTOR_THROUGH_JUDGE_LINE_DESPAWN_DELAY
 
-        head.extend_stage_windows(self.start_time - 1.0, self.end_time + 1.0)
-        tail.extend_stage_windows(self.start_time - 1.0, self.end_time + 1.0)
+        head.extend_stage_windows(start_time - 1.0, self.end_time + 1.0)
+        tail.extend_stage_windows(start_time - 1.0, self.end_time + 1.0)
+
+        self.schedule_sfx()
+
+        register_note_group_window(head, start_time, self.end_time)
+        register_note_group_window(tail, start_time, self.end_time)
+        register_group_window(self.segment_head.timescale_group, start_time, self.end_time)
 
         if self.head_ref.index == self.active_head_ref.index:
             # This is the first connector, so spawn the WatchSlideManager.
             WatchSlideManager.spawn(active_head_ref=self.active_head_ref, active_tail_ref=self.active_tail_ref)
 
-        self.schedule_sfx()
+        self.start_time = start_time
 
     def spawn_time(self) -> float:
         if DISABLE_NOTES:
@@ -93,9 +124,8 @@ class WatchConnector(WatchArchetype):
 
     @callback(order=-1)
     def update_sequential(self):
-        update_timescale_group(self.head.timescale_group)
-        update_timescale_group(self.tail.timescale_group)
-        update_timescale_group(self.segment_head.timescale_group)
+        prepare_note_trajectories(self.head, self.head_trajectory_first, self.head_trajectory_second, time())
+        prepare_note_trajectories(self.tail, self.tail_trajectory_first, self.tail_trajectory_second, time())
 
         if self.active_head_ref.index > 0 and time() in self.visual_active_interval:
             # Callback order decides which connector wins when visual intervals overlap.
@@ -134,9 +164,10 @@ class WatchConnector(WatchArchetype):
             head_mask = +VisualMask
             head_mask @= head.visual_mask
             tail_mask = tail.visual_mask
+            head_visual_progress = +AccurateScalar
             if time() >= head.target_time and not segment_head.segment_through_judge_line:
                 head_frac = safe_unlerp_clamped(head.target_time, tail.target_time, time())
-                head_visual_progress = 1.0 - lerp(head.visual_y_offset, tail.visual_y_offset, head_frac)
+                head_visual_progress @= AccurateScalar.of(1.0 - lerp(head.visual_y_offset, tail.visual_y_offset, head_frac))
                 head_target_time = time()
                 head_note_alpha = lerp(head.visual_note_alpha, tail.visual_note_alpha, head_frac)
                 if self.ease_type == EaseType.NONE:
@@ -165,7 +196,9 @@ class WatchConnector(WatchArchetype):
             else:
                 head_lane = head.visual_lane
                 head_size = head.size
-                head_visual_progress = head.visual_progress
+                head_visual_progress @= note_visual_progress_value(
+                    head, self.head_trajectory_first, self.head_trajectory_second, time(), self.trajectory_diagnostics
+                )
                 head_target_time = head.target_time
                 head_ease_frac = head.head_ease_frac
                 head_note_alpha = head.visual_note_alpha
@@ -181,7 +214,9 @@ class WatchConnector(WatchArchetype):
                 head_ease_frac=head_ease_frac,
                 tail_lane=tail.visual_lane,
                 tail_size=tail.size,
-                tail_visual_progress=tail.visual_progress,
+                tail_visual_progress=note_visual_progress_value(
+                    tail, self.tail_trajectory_first, self.tail_trajectory_second, time(), self.trajectory_diagnostics
+                ),
                 tail_target_time=tail.target_time,
                 tail_ease_frac=tail.tail_ease_frac,
                 segment_head_target_time=segment_head.target_time,

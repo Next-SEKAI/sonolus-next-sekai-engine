@@ -7,6 +7,7 @@ from sekai.lib.ui import ui_config
 from sekai.play.mode import play_mode
 from sekai.preview.mode import preview_mode
 from sekai.test_level import load_levels
+from sekai.timescale_test_level import level as timescale_test_level
 from sekai.tutorial.mode import tutorial_mode
 from sekai.watch.mode import watch_mode
 
@@ -25,7 +26,7 @@ engine = Engine(
 
 project = Project(
     engine=engine,
-    levels=load_levels(),
+    levels=[*load_levels(), timescale_test_level],
     converters={
         "chcy-pjsekai-extended": convert_pjsekai_extended_level_data,
     },

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from math import inf
 from typing import cast
 
 from sonolus.script.archetype import (
@@ -7,6 +8,7 @@ from sonolus.script.archetype import (
     StandardImport,
     WatchArchetype,
     entity_data,
+    entity_memory,
     imported,
     shared_memory,
 )
@@ -36,7 +38,6 @@ from sekai.lib.layout import (
     compute_hitbox_at_time,
     compute_stage_transform,
     identity_stage_transform,
-    progress_to,
 )
 from sekai.lib.note import (
     NoteEffectKind,
@@ -51,7 +52,6 @@ from sekai.lib.note import (
     get_note_bucket,
     get_note_effect_kind,
     get_note_window,
-    get_visual_spawn_time,
     hitbox_draw_alpha,
     hitbox_draw_start,
     is_head,
@@ -77,12 +77,20 @@ from sekai.lib.stage import (
     resolve_judge_line_style,
 )
 from sekai.lib.timescale import (
-    CompositeTime,
-    group_force_note_speed,
+    TargetPosition,
+    TrajectoryCache,
     group_hide_notes,
-    group_scaled_time,
-    group_time_to_scaled_time,
-    update_timescale_group,
+    locate_target,
+)
+from sekai.lib.timescale_consumer import (
+    TrajectoryDiagnostics,
+    certify_note_native_progress,
+    note_draw_progress,
+    note_progress_value,
+    note_visual_progress,
+    note_visual_spawn_time,
+    prepare_note_trajectories,
+    register_note_group_window,
 )
 from sekai.play.note import derive_note_archetypes
 from sekai.watch.dynamic_stage import WatchDynamicStage
@@ -115,8 +123,13 @@ class WatchBaseNote(WatchArchetype):
     target_time: float = entity_data()
     visual_start_time: float = entity_data()
     start_time: float = entity_data()
-    target_scaled_time: CompositeTime = entity_data()
+    target_position: TargetPosition = entity_data()
     target_y_offset: float = entity_data()
+
+    native_progress_certified: bool = entity_memory()
+    trajectory_first: TrajectoryCache = entity_memory()
+    trajectory_second: TrajectoryCache = entity_memory()
+    trajectory_diagnostics: TrajectoryDiagnostics = entity_memory()
 
     active_connector_info: ActiveConnectorInfo = shared_memory()
 
@@ -132,11 +145,11 @@ class WatchBaseNote(WatchArchetype):
     def init_data(self):
         if self.data_init_done:
             return
+        self.start_time = inf
+        self.visual_start_time = inf
 
         self.kind = map_note_kind(cast(NoteKind, self.key))
         self.effect_kind = get_note_effect_kind(self.kind, self.effect_kind)
-
-        self.data_init_done = True
 
         if Options.mirror:
             self.lane *= -1
@@ -144,10 +157,7 @@ class WatchBaseNote(WatchArchetype):
 
         self.target_time = beat_to_time(self.beat)
 
-        if not self.is_attached:
-            self.target_scaled_time = group_time_to_scaled_time(self.timescale_group, self.target_time)
-            self.visual_start_time = get_visual_spawn_time(self.timescale_group, self.target_scaled_time)
-            self.start_time = self.visual_start_time
+        self.target_position = locate_target(self.timescale_group, self.target_time)
 
         if self.stage_ref.index > 0:
             stage_props = get_stage_props(self.stage_ref.get(), self.target_time)
@@ -158,7 +168,12 @@ class WatchBaseNote(WatchArchetype):
         if self.next_ref.index > 0:
             self.next_ref.get().prev_ref = self.ref()
 
+        self.data_init_done = True
+
     def preprocess(self):
+        self.start_time = inf
+        self.visual_start_time = inf
+        self.result.target_time = inf
         if DISABLE_NOTES:
             self.result.target_time = 1e8
             return
@@ -187,13 +202,15 @@ class WatchBaseNote(WatchArchetype):
             )
             self.lane = lane
             self.size = size
-            self.visual_start_time = min(attach_head.visual_start_time, attach_tail.visual_start_time)
-            self.start_time = self.visual_start_time
             self.target_y_offset = lerp(
                 attach_head._basic_y_offset_at(self.target_time, left_limit=True),
                 attach_tail._basic_y_offset_at(self.target_time, left_limit=True),
                 get_attach_frac(attach_head.target_time, attach_tail.target_time, self.target_time),
             )
+
+        self.native_progress_certified = certify_note_native_progress(self)
+        self.visual_start_time = note_visual_spawn_time(self, max(self.target_time, self.despawn_time()))
+        start_time = self.visual_start_time
 
         if self.is_scored:
             hitbox_lane, hitbox_size = self.visual_extents_at(self.target_time, left_limit=True)
@@ -223,7 +240,10 @@ class WatchBaseNote(WatchArchetype):
 
         self.result.target_time = self.target_time
 
-        self.extend_stage_windows(self.start_time - 1.0, max(self.target_time, self.despawn_time()) + 1.0)
+        self.extend_stage_windows(start_time - 1.0, max(self.target_time, self.despawn_time()) + 1.0)
+        if self.kind != NoteKind.ANCHOR:
+            register_note_group_window(self, start_time, self.despawn_time())
+        self.start_time = start_time
 
     def _basic_extend_stage_window(self, start_time: float, end_time: float):
         if self.stage_ref.index > 0:
@@ -301,7 +321,7 @@ class WatchBaseNote(WatchArchetype):
             return self.target_time
 
     def update_sequential(self):
-        update_timescale_group(self.timescale_group)
+        prepare_note_trajectories(self, self.trajectory_first, self.trajectory_second, time())
 
     def update_parallel(self):
         self.draw_hitbox()
@@ -321,7 +341,9 @@ class WatchBaseNote(WatchArchetype):
                 self.kind,
                 render_lane,
                 render_size,
-                self.visual_progress,
+                note_draw_progress(
+                    self, self.trajectory_first, self.trajectory_second, time(), self.trajectory_diagnostics
+                ),
                 self.direction,
                 self.target_time,
                 transform=self.visual_stage_transform().to_screen_transform(),
@@ -332,7 +354,9 @@ class WatchBaseNote(WatchArchetype):
                 self.kind,
                 render_lane,
                 render_size,
-                self.visual_progress,
+                note_draw_progress(
+                    self, self.trajectory_first, self.trajectory_second, time(), self.trajectory_diagnostics
+                ),
                 self.direction,
                 self.target_time,
                 transform=IDENTITY_STAGE_SCREEN_TRANSFORM,
@@ -672,41 +696,15 @@ class WatchBaseNote(WatchArchetype):
 
     @property
     def progress(self) -> float:
-        if self.is_attached:
-            attach_head = self.attach_head_ref.get()
-            attach_tail = self.attach_tail_ref.get()
-            head_progress = (
-                progress_to(
-                    attach_head.target_scaled_time,
-                    group_scaled_time(attach_head.timescale_group),
-                    group_force_note_speed(attach_head.timescale_group),
-                )
-                if time() < attach_head.target_time
-                else 1.0
-            )
-            tail_progress = progress_to(
-                attach_tail.target_scaled_time,
-                group_scaled_time(attach_tail.timescale_group),
-                group_force_note_speed(attach_tail.timescale_group),
-            )
-            head_frac = (
-                0.0
-                if time() < attach_head.target_time
-                else get_attach_frac(attach_head.target_time, attach_tail.target_time, time())
-            )
-            tail_frac = 1.0
-            frac = get_attach_frac(attach_head.target_time, attach_tail.target_time, self.target_time)
-            return lerp(head_progress, tail_progress, get_attach_frac(head_frac, tail_frac, frac))
-        else:
-            return progress_to(
-                self.target_scaled_time,
-                group_scaled_time(self.timescale_group),
-                group_force_note_speed(self.timescale_group),
-            )
+        return note_progress_value(
+            self, self.trajectory_first, self.trajectory_second, time(), self.trajectory_diagnostics
+        ).to_float()
 
     @property
     def visual_progress(self) -> float:
-        return self.progress - self.visual_y_offset
+        return note_visual_progress(
+            self, self.trajectory_first, self.trajectory_second, time(), self.trajectory_diagnostics
+        )
 
     @property
     def head_ease_frac(self) -> float:

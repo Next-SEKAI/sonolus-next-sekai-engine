@@ -41,12 +41,94 @@ from sekai.lib.particle import ActiveParticles
 from sekai.lib.skin import ActiveConnectorSpriteSet, ActiveSkin
 from sekai.lib.stage import VisualMask
 from sekai.lib.timescale import iter_timescale_changes_in_group_from_time
+from sekai.lib.timescale_math import AccurateScalar
 
 CONNECTOR_TRAIL_SPAWN_PERIOD = 0.1
 CONNECTOR_SLOT_SPAWN_PERIOD = 0.2
 CONNECTOR_THROUGH_JUDGE_LINE_DESPAWN_DELAY = 5.0
 CONNECTOR_LENIENCY = 1
 CONNECTOR_ZERO_SIZE_FALLBACK = 1e-3
+
+
+def _progress_scalar(value: float | AccurateScalar) -> AccurateScalar:
+    if isinstance(value, AccurateScalar):
+        return value
+    return AccurateScalar.of(value)
+
+
+def _progress_fraction(head: AccurateScalar, difference: AccurateScalar, position: float) -> float:
+    fraction = AccurateScalar.of(position).sub(head).div(difference)
+    if fraction.compare(AccurateScalar.of(0.0)) <= 0:
+        return 0.0
+    if fraction.compare(AccurateScalar.of(1.0)) >= 0:
+        return 1.0
+    return fraction.to_float()
+
+
+def progress_segment_is_outside(
+    head: float | AccurateScalar,
+    tail: float | AccurateScalar,
+    lower: float,
+    upper: float,
+) -> bool:
+    """Reject only a segment whose complete endpoint enclosure is outside."""
+    if not isinstance(head, AccurateScalar) and not isinstance(tail, AccurateScalar):
+        return (head < lower and tail < lower) or (head > upper and tail > upper)
+    start = _progress_scalar(head)
+    end = _progress_scalar(tail)
+    return (start.definitely_less(AccurateScalar.of(lower)) and end.definitely_less(AccurateScalar.of(lower))) or (
+        start.definitely_greater(AccurateScalar.of(upper)) and end.definitely_greater(AccurateScalar.of(upper))
+    )
+
+
+def clip_progress_segment(
+    head: float | AccurateScalar,
+    tail: float | AccurateScalar,
+    lower: float,
+    upper: float,
+) -> tuple[float, float, float, float]:
+    """Clip progress while preserving fractions in the original segment.
+
+    Keep the clipped progress coordinates independently from the fractions: for
+    enormous opposite endpoints both fractions can round to the same number,
+    although the segment still spans the entire visible progress interval.
+    """
+    if not isinstance(head, AccurateScalar) and not isinstance(tail, AccurateScalar):
+        start = clamp(head, lower, upper)
+        end = clamp(tail, lower, upper)
+        return start, end, safe_unlerp_clamped(head, tail, start, 0.0), safe_unlerp_clamped(head, tail, end, 1.0)
+    head_value = _progress_scalar(head)
+    tail_value = _progress_scalar(tail)
+    low = AccurateScalar.of(lower)
+    high = AccurateScalar.of(upper)
+    start = lower
+    end = lower
+    if head_value.compare(high) >= 0:
+        start = upper
+    elif head_value.compare(low) > 0:
+        start = head_value.to_float()
+    if tail_value.compare(high) >= 0:
+        end = upper
+    elif tail_value.compare(low) > 0:
+        end = tail_value.to_float()
+    start_frac = 0.0
+    end_frac = 1.0
+    head_clipped = head_value.compare(low) < 0 or head_value.compare(high) > 0
+    tail_clipped = tail_value.compare(low) < 0 or tail_value.compare(high) > 0
+    if head_clipped or tail_clipped:
+        # Render fractions from endpoint centers. Their source intervals may
+        # overlap for a nonzero segment, so retain only arithmetic error in the
+        # divisor. This does not certify lane sensitivity to endpoint uncertainty.
+        head_center = AccurateScalar(head_value.hi, head_value.lo, head_value.exponent, 0.0)
+        tail_center = AccurateScalar(tail_value.hi, tail_value.lo, tail_value.exponent, 0.0)
+        difference = tail_center.sub(head_center)
+        epsilon = AccurateScalar.of(1e-6)
+        if difference.compare(epsilon) >= 0 or difference.compare(epsilon.neg()) <= 0:
+            if head_clipped:
+                start_frac = _progress_fraction(head_center, difference, start)
+            if tail_clipped:
+                end_frac = _progress_fraction(head_center, difference, end)
+    return start, end, start_frac, end_frac
 
 
 def get_connector_interp_frac(
@@ -425,12 +507,12 @@ def draw_connector(
     ease_type: EaseType,
     head_lane: float,
     head_size: float,
-    head_visual_progress: float,
+    head_visual_progress: float | AccurateScalar,
     head_target_time: float,
     head_ease_frac: float,
     tail_lane: float,
     tail_size: float,
-    tail_visual_progress: float,
+    tail_visual_progress: float | AccurateScalar,
     tail_target_time: float,
     tail_ease_frac: float,
     segment_head_target_time: float,
@@ -450,16 +532,11 @@ def draw_connector(
 ):
     match presentation:
         case SegmentPresentation.DEFAULT:
-            if (
-                (
-                    head_visual_progress < DynamicLayout.progress_start
-                    and tail_visual_progress < DynamicLayout.progress_start
-                )
-                or (
-                    head_visual_progress > DynamicLayout.progress_cutoff
-                    and tail_visual_progress > DynamicLayout.progress_cutoff
-                )
-                or head_visual_progress == tail_visual_progress
+            if progress_segment_is_outside(
+                head_visual_progress,
+                tail_visual_progress,
+                DynamicLayout.progress_start,
+                DynamicLayout.progress_cutoff,
             ):
                 return
         case SegmentPresentation.FULL_SCREEN:
@@ -736,13 +813,13 @@ def draw_connector_default(
     z_active: ZIndexes,
     head_lane: float,
     head_size: float,
-    head_visual_progress: float,
+    head_visual_progress: float | AccurateScalar,
     head_target_time: float,
     head_ease_frac: float,
     head_alpha: float,
     tail_lane: float,
     tail_size: float,
-    tail_visual_progress: float,
+    tail_visual_progress: float | AccurateScalar,
     tail_target_time: float,
     tail_ease_frac: float,
     tail_alpha: float,
@@ -751,10 +828,11 @@ def draw_connector_default(
     head_mask: VisualMask | None = None,
     tail_mask: VisualMask | None = None,
 ):
-    start_visual_progress = clamp(head_visual_progress, DynamicLayout.progress_start, DynamicLayout.progress_cutoff)
-    end_visual_progress = clamp(tail_visual_progress, DynamicLayout.progress_start, DynamicLayout.progress_cutoff)
-    start_frac = safe_unlerp_clamped(head_visual_progress, tail_visual_progress, start_visual_progress, 0.0)
-    end_frac = safe_unlerp_clamped(head_visual_progress, tail_visual_progress, end_visual_progress, 1.0)
+    start_visual_progress, end_visual_progress, start_frac, end_frac = clip_progress_segment(
+        head_visual_progress, tail_visual_progress, DynamicLayout.progress_start, DynamicLayout.progress_cutoff
+    )
+    if start_visual_progress == end_visual_progress:
+        return
     start_ease_frac = lerp(head_ease_frac, tail_ease_frac, start_frac)
     end_ease_frac = lerp(head_ease_frac, tail_ease_frac, end_frac)
     head_eased = ease(ease_type, head_ease_frac)

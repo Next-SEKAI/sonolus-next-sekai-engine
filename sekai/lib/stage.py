@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from enum import IntEnum
 from math import ceil, floor
-from typing import Protocol, assert_never, cast
+from typing import Protocol, Self, assert_never, cast
 
 from sonolus.script import runtime
 from sonolus.script.archetype import EntityRef, get_archetype_by_name
 from sonolus.script.array import Dim
 from sonolus.script.containers import VarArray
-from sonolus.script.interval import clamp, lerp
+from sonolus.script.interval import Interval, clamp, lerp
 from sonolus.script.quad import Quad, QuadLike, Rect
 from sonolus.script.record import Record
 from sonolus.script.sprite import Sprite
@@ -325,7 +325,7 @@ class StageMaskChangeLike(Protocol):
     prev_ref: EntityRef
 
     @classmethod
-    def at(cls, index: int) -> StageMaskChangeLike: ...
+    def at(cls, index: int) -> Self: ...
 
     @property
     def index(self) -> int: ...
@@ -342,7 +342,7 @@ class StagePivotChangeLike(Protocol):
     prev_ref: EntityRef
 
     @classmethod
-    def at(cls, index: int) -> StagePivotChangeLike: ...
+    def at(cls, index: int) -> Self: ...
 
     @property
     def index(self) -> int: ...
@@ -364,7 +364,7 @@ class StageStyleChangeLike(Protocol):
     prev_ref: EntityRef
 
     @classmethod
-    def at(cls, index: int) -> StageStyleChangeLike: ...
+    def at(cls, index: int) -> Self: ...
 
     @property
     def index(self) -> int: ...
@@ -382,7 +382,7 @@ class StageTransformChangeLike(Protocol):
     prev_ref: EntityRef
 
     @classmethod
-    def at(cls, index: int) -> StageTransformChangeLike: ...
+    def at(cls, index: int) -> Self: ...
 
     @property
     def index(self) -> int: ...
@@ -414,6 +414,27 @@ def _stage_style_change_archetype() -> type[StageStyleChangeLike]:
 
 def _stage_transform_change_archetype() -> type[StageTransformChangeLike]:
     return cast(type[StageTransformChangeLike], get_archetype_by_name(archetype_names.STAGE_TRANSFORM_CHANGE))
+
+
+def stage_y_offset_bounds(stage: DynamicStageLike) -> Interval:
+    """Enclose the rendered offset over the chart after stage preprocessing.
+
+    Pivot easing is monotone, so every intermediate offset lies in the hull of
+    its converted endpoints. Scan immutable values, including beat-derived
+    offsets, instead of using a note's offset at its hit time.
+    """
+    ref = +stage.first_pivot_change_ref
+    result = Interval(0.0, 0.0)
+    if ref.index > 0:
+        first = get_event_as(ref, _stage_pivot_change_archetype())
+        result.start = first.y_offset
+        result.end = first.y_offset
+    while ref.index > 0:
+        pivot = get_event_as(ref, _stage_pivot_change_archetype())
+        result.start = min(result.start, pivot.y_offset)
+        result.end = max(result.end, pivot.y_offset)
+        ref.index = pivot.next_ref.index
+    return result
 
 
 def center_anchor_weight(anchor: StageTransformAnchor) -> float:

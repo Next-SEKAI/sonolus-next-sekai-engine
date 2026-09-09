@@ -52,7 +52,7 @@ class WatchCameraChange(WatchArchetype, BaseEvent):
 
     time: float = entity_data()
 
-    @callback(order=-2)
+    @callback(order=-4)
     def preprocess(self):
         LevelConfig.dynamic_stages = True
         self.time = beat_to_time(self.beat)
@@ -80,7 +80,7 @@ class WatchStageTransformChange(WatchArchetype, BaseEvent):
 
     time: float = entity_data()
 
-    @callback(order=-2)
+    @callback(order=-4)
     def preprocess(self):
         LevelConfig.dynamic_stages = True
         LevelConfig.has_stage_transforms = True
@@ -156,7 +156,7 @@ class WatchStageMaskChange(WatchArchetype, BaseEvent):
 
     time: float = entity_data()
 
-    @callback(order=-2)
+    @callback(order=-4)
     def preprocess(self):
         LevelConfig.dynamic_stages = True
         self.time = beat_to_time(self.beat)
@@ -180,7 +180,7 @@ class WatchStagePivotChange(WatchArchetype, BaseEvent):
     y_offset: float = entity_data()
     time: float = entity_data()
 
-    @callback(order=-2)
+    @callback(order=-4)
     def preprocess(self):
         LevelConfig.dynamic_stages = True
         self.time = beat_to_time(self.beat)
@@ -208,7 +208,7 @@ class WatchStageStyleChange(WatchArchetype, BaseEvent):
 
     time: float = shared_memory()
 
-    @callback(order=-2)
+    @callback(order=-4)
     def preprocess(self):
         LevelConfig.dynamic_stages = True
         self.time = beat_to_time(self.beat)

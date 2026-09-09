@@ -144,28 +144,37 @@ The standard bpm change archetype.
 
 ## #TIMESCALE_GROUP
 
-Represents a timescale group and is referenced by notes and timescale changes.
+Represents a timeline referenced by notes and timescale changes. The engine derives its behavior from each marker's outgoing style; there is no separate group mode.
 
 ### Fields
 
-* **first (ref[#TIMESCALE_CHANGE])**: [Temporary] a reference to the first change
-* **forceNoteSpeed (float)**: If greater than 0 (valid range 1–12), overrides the effective note speed for notes attached to this group, and bypasses the stage-cover FIXED_ONLY scroll-speed compensation. A value of 0 means follow the user's #NOTE_SPEED option.
+* **first (ref?[#TIMESCALE_CHANGE])**: First marker in the authoritative linked order. A raw group with no first marker is identity, as is group reference zero. The Python builder continues to require at least one change.
+* **forceNoteSpeed (float)**: If greater than 0 (valid range 1-12), overrides the effective note speed for this group and bypasses stage-cover FIXED_ONLY compensation. Zero follows the user's #NOTE_SPEED option.
+
+If every marker uses TIMESCALE, signed speeds, stops, reversals and skips are supported. If **any** marker uses SCROLL, every speed must be positive and every skip must be zero. This includes final markers and zero-duration transitions. There is no style-switch count limit.
 
 ## #TIMESCALE_CHANGE
 
-A timescale change event.
+An authored line-speed marker. Easing and style belong to the transition **from this marker to the next** and use elapsed time after beat-to-time conversion.
 
 ### Fields
 
-* **#BEAT (float)**
-* **#TIMESCALE (float)**
-* **#TIMESCALE_SKIP (float)**
-* **#TIMESCALE_GROUP (ref[#TIMESCALE_GROUP])**
-* **#TIMESCALE_EASE (TimescaleEaseType)**:
-  * NONE = 0
-  * LINEAR = 1
-* **next (ref[#TIMESCALE_CHANGE])**: [Temporary] a reference to the next change
-* **hideNotes**: Whether to hide notes while this change is active.
+* **#BEAT (float)**: Finite authored beat.
+* **#TIMESCALE (float)**: Finite authored line speed. Its existing meaning is preserved for all-timescale groups.
+* **#TIMESCALE_SKIP (float)**: Finite legacy integral jump in beats, applied on arrival at this marker as `skip * 60 / BPM_at_marker`. Nonzero skips require an all-timescale group.
+* **#TIMESCALE_GROUP (ref[#TIMESCALE_GROUP])**: Owning group. Legacy raw data may omit ownership; a nonzero conflicting owner is invalid.
+* **#TIMESCALE_EASE (EaseType)**: Outgoing easing; default NONE. Numeric codes: NONE/held = 0, LINEAR = 1, IN_QUAD = 2, OUT_QUAD = 3, IN_OUT_QUAD = 4, OUT_IN_QUAD = 5.
+* **transitionStyle (TransitionStyle)**: Outgoing style; TIMESCALE = 0 (default), SCROLL = 1. TIMESCALE changes integrated time while keeping scroll constant. SCROLL changes scroll while keeping the time factor constant. Factors carry across style changes; changing style alone does not move notes.
+* **next (ref?[#TIMESCALE_CHANGE])**: Next marker. Converted times must be nondecreasing; linked order breaks ties. Cycles, shared markers and invalid references are invalid.
+* **hideNotes (bool)**: Whether to hide notes while this marker is active. Hiding does not defer preprocessing spawn times.
+
+For NONE, hold the current speed until the next marker, then apply the speed change using this marker's style. A zero-duration transition applies the same instantaneous operation regardless of easing. Finish that incoming operation (and a legacy destination skip) before installing the destination's outgoing properties. At equal timestamps, process the complete linked batch in order and expose only its final state, including for notes hit at that time.
+
+Before the first marker, speed is one with NONE/TIMESCALE. After the final marker, hold its resulting state. Preprocessing includes markers before the playable `-2` second floor. Disabling timescale uses ordinary chronological progress and ignores hiding, while retaining forced note speed. Judgment/input timing is unchanged.
+
+The Python helper appends `transition_style` after `hide_notes` in `LevelTimescaleChange`; its five existing positional arguments remain valid. Old charts omitting style retain TIMESCALE. New styles/eases need a matching engine build; older engines cannot reproduce their presentation. Presentation corrections consume complete same-time batches, evaluate the actual curve at the spawn floor, handle identity groups consistently, and use one conservative visibility contract. They do not add replay fields or change judgment timing.
+
+Preview remains chronological for its selected group. Yellow speed labels identify TIMESCALE and cyan labels identify SCROLL; the smaller numeral below a speed is the outgoing easing code from the list above. Nondefault outgoing style/easing is shown even for speed one at a nonpositive beat.
 
 ## *Note
 

@@ -4,7 +4,9 @@ from math import ceil
 from typing import Literal, assert_never, cast
 
 from sonolus.script.archetype import EntityRef, HapticType, PlayArchetype, WatchArchetype, get_archetype_by_name
+from sonolus.script.array import Dim
 from sonolus.script.bucket import Bucket, Judgment
+from sonolus.script.containers import VarArray
 from sonolus.script.easing import ease_in_cubic
 from sonolus.script.effect import Effect
 from sonolus.script.interval import lerp, unlerp_clamped
@@ -61,7 +63,6 @@ from sekai.lib.layout import (
     layout_tick,
     layout_tick_effect,
     preempt_time,
-    progress_to,
     transformed_vec_at,
 )
 from sekai.lib.level_config import LevelConfig
@@ -86,12 +87,9 @@ from sekai.lib.slot_effect import (
     draw_slot_effect,
     draw_slot_glow_effect,
 )
-from sekai.lib.timescale import (
-    CompositeTime,
-    group_force_note_speed,
-    group_scaled_time_to_first_time,
-    group_scaled_time_to_first_time_2,
-)
+from sekai.lib.timescale import group_force_note_speed
+from sekai.lib.timescale_math import AccurateScalar
+from sekai.lib.timescale_visibility import VisibilitySource, get_sources_visual_spawn_time, group_index
 
 
 class NoteKind(IntEnum):
@@ -288,16 +286,16 @@ def mirror_flick_direction(direction: FlickDirection) -> FlickDirection:
 
 def get_visual_spawn_time(
     timescale_group: int | EntityRef,
-    target_scaled_time: CompositeTime | float,
+    target_time: float,
+    offset_min: float = 0.0,
+    offset_max: float = 0.0,
 ):
-    if isinstance(target_scaled_time, CompositeTime):
-        target_scaled_time = target_scaled_time.total
     force_speed = group_force_note_speed(timescale_group)
-    return min(
-        group_scaled_time_to_first_time(timescale_group, target_scaled_time - preempt_time(force_speed) * 3),
-        group_scaled_time_to_first_time_2(timescale_group, target_scaled_time + preempt_time(force_speed) * 3),
-        -2 if -3 <= progress_to(target_scaled_time, -2, force_speed) <= 6 else 1e8,
+    sources = VarArray[VisibilitySource, Dim[4]].new()
+    sources.append(
+        VisibilitySource(group_index(timescale_group), target_time, preempt_time(force_speed), offset_min, offset_max, False)
     )
+    return get_sources_visual_spawn_time(sources, target_time)
 
 
 def get_attach_frac(
@@ -337,12 +335,18 @@ def draw_note(
     kind: NoteKind,
     lane: float,
     size: float,
-    visual_progress: float,
+    visual_progress: AccurateScalar | float,
     direction: FlickDirection,
     target_time: float,
     transform: StageScreenTransform,
     note_alpha: float,
 ):
+    if isinstance(visual_progress, AccurateScalar):
+        if visual_progress.definitely_less(AccurateScalar.of(DynamicLayout.progress_start)):
+            return
+        if visual_progress.definitely_greater(AccurateScalar.of(DynamicLayout.progress_cutoff)):
+            return
+        visual_progress = visual_progress.to_float()
     if not DynamicLayout.progress_start <= visual_progress <= DynamicLayout.progress_cutoff:
         return
     if note_alpha <= 0:
