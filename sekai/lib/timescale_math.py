@@ -1,6 +1,6 @@
 """Native easing and split cumulative distances for practical chart ranges."""
 
-from math import floor, trunc
+from math import trunc
 from typing import Self
 
 from sonolus.script.record import Record
@@ -9,9 +9,9 @@ from sekai.lib.ease import EaseType
 
 
 class TimePosition(Record):
-    """Whole scaled seconds and a fractional remainder in [0, 1).
+    """A multiple of 64 scaled seconds and a signed remainder in (-64, 64).
 
-    The whole part stays exact in binary32 over the supported chart range.
+    The coarse part stays exact in binary32 even through long 10000x sections.
     Subtract split prefixes before combining them to retain local differences.
     """
 
@@ -20,14 +20,14 @@ class TimePosition(Record):
 
     @staticmethod
     def of(value: float) -> TimePosition:
-        whole = floor(value)
+        whole = trunc(value / 64) * 64
         return TimePosition(whole, value - whole)
 
     def add(self, value: float) -> Self:
-        # Preserve small negative increments instead of rounding them near one.
-        whole = trunc(value)
+        # Keep small negative remainders near zero instead of rounding near 64.
+        whole = trunc(value / 64) * 64
         remainder = self.fraction + (value - whole)
-        carry = floor(remainder)
+        carry = trunc(remainder / 64) * 64
         return type(self)(self.whole + whole + carry, remainder - carry)
 
     def difference(self, other: Self) -> float:

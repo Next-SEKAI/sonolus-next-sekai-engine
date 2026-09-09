@@ -11,7 +11,7 @@ from tests.test_timescale_math import quantized32
 class TimescaleNumericTests(unittest.TestCase):
     def test_negative_values_and_carry(self):
         value = TimePosition.of(-3.25)
-        self.assertEqual((value.whole, value.fraction), (-4, 0.75))
+        self.assertEqual((value.whole, value.fraction), (0, -3.25))
         value = value.add(3.5)
         self.assertEqual((value.whole, value.fraction), (0, 0.25))
 
@@ -37,8 +37,8 @@ class TimescaleNumericTests(unittest.TestCase):
                 value = value.add(local_step)
                 exact += Decimal.from_float(local_step)
                 self.assertAlmostEqual(value.difference(before), local_step, delta=1e-15)
-                self.assertGreaterEqual(value.fraction, 0)
-                self.assertLess(value.fraction, 1)
+                self.assertLess(abs(value.fraction), 64)
+                self.assertEqual(value.whole % 64, 0)
         actual = Decimal(value.whole) + Decimal.from_float(value.fraction)
         self.assertLess(abs(actual - exact), Decimal("1e-14"))
 

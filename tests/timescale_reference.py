@@ -16,6 +16,7 @@ from struct import pack, unpack
 ZERO = Decimal(0)
 ONE = Decimal(1)
 TWO = Decimal(2)
+SCROLL_EPSILON = Decimal.from_float(1e-4)
 type DecimalInput = Decimal | int | float | str
 
 
@@ -138,6 +139,10 @@ class RefMarker:
         object.__setattr__(self, "hide", hide)
 
 
+def scroll_speed(value):
+    return min(value, -SCROLL_EPSILON) if value < ZERO else max(value, SCROLL_EPSILON)
+
+
 def compose(left, right):
     """Chronological affine transfer composition: left happens before right."""
     r1, b1 = left
@@ -159,8 +164,6 @@ class RefTimeline:
                 raise ValueError(f"Marker {i} has an invalid easing or style")
             if previous is not None and marker.time < previous:
                 raise ValueError(f"Marker {i} goes backward in time; preserve chronological chain order")
-            if self.hybrid and (marker.speed <= 0 or marker.skip != 0):
-                raise ValueError(f"Hybrid marker {i} requires positive speed and zero skip")
             previous = marker.time
 
     def locate_time(self, time):
@@ -193,7 +196,8 @@ class RefTimeline:
             return ONE, end - start + (self.markers[0].skip if destination else ZERO)
         marker = self.markers[index]
         if index + 1 == len(self.markers):
-            return ONE, marker.speed * (end - start)
+            speed = scroll_speed(marker.speed) if marker.style == RefStyle.SCROLL else marker.speed
+            return ONE, speed * (end - start)
         next_marker = self.markers[index + 1]
         if marker.style == RefStyle.TIMESCALE:
             integral = integrate_speed(
@@ -205,9 +209,11 @@ class RefTimeline:
                 end - marker.time,
             )
             return ONE, integral + (next_marker.skip if destination else ZERO)
-        va = self._speed_in_link(index, start)
-        vb = next_marker.speed if destination else self._speed_in_link(index, end)
-        return va / vb, va * (end - start)
+        va = scroll_speed(self._speed_in_link(index, start))
+        vb = scroll_speed(next_marker.speed if destination else self._speed_in_link(index, end))
+        # A completed marker skip is measured in its outgoing local distance units.
+        jump = next_marker.skip / vb if destination else ZERO
+        return va / vb, va * (end - start + jump)
 
     def anchor_transfer(self, first, last):
         """Transfer between raw ordered marker states, retaining same-time links."""

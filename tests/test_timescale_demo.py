@@ -16,12 +16,19 @@ from sekai.lib.timescale import TransitionStyle
 
 
 class TimescaleDemoTests(unittest.TestCase):
-    def test_single_continuous_evenly_spaced_tap_stream(self):
-        self.assertEqual(len(demo.notes), 329)
-        self.assertEqual(demo.notes[0].beat, demo.NOTE_START_BEAT)
-        self.assertEqual(demo.notes[-1].beat, demo.NOTE_END_BEAT)
-        self.assertTrue(all(b.beat - a.beat == demo.NOTE_STEP_BEATS for a, b in pairwise(demo.notes)))
-        self.assertEqual({note.lane for note in demo.notes}, {0})
+    def test_matched_continuous_evenly_spaced_tap_streams(self):
+        expected_count = int((demo.NOTE_END_BEAT - demo.NOTE_START_BEAT) / demo.NOTE_STEP_BEATS) + 1
+        self.assertEqual(demo.NOTE_STEP_BEATS * 60 / demo.BPM, 0.125)
+        for stream, lane in ((demo.demo_notes, 0), (demo.reference_notes, 3)):
+            self.assertEqual(len(stream), expected_count)
+            self.assertEqual(stream[0].beat, demo.NOTE_START_BEAT)
+            self.assertEqual(stream[-1].beat, demo.NOTE_END_BEAT)
+            self.assertTrue(all(b.beat - a.beat == demo.NOTE_STEP_BEATS for a, b in pairwise(stream)))
+            self.assertEqual({note.lane for note in stream}, {lane})
+        self.assertEqual([note.beat for note in demo.demo_notes], [note.beat for note in demo.reference_notes])
+        self.assertTrue(all(note.timescale_group is None for note in demo.reference_notes))
+        self.assertEqual(len(demo.notes), 2 * expected_count)
+        self.assertEqual({note.size for note in demo.notes}, {1})
         self.assertEqual({note.kind for note in demo.notes}, {NoteKind.NORM_TAP})
         self.assertTrue(all(note.attach is None and note.segment_kind == ConnectorKind.NONE for note in demo.notes))
         self.assertFalse(any(isinstance(entity, LevelSlide) for entity in demo.entities))
@@ -65,7 +72,7 @@ class TimescaleDemoTests(unittest.TestCase):
             [TransitionStyle.TIMESCALE, TransitionStyle.SCROLL, TransitionStyle.TIMESCALE],
         )
 
-    def test_signed_stop_reversal_and_skips_are_legacy_only(self):
+    def test_pure_timescale_stop_reversal_and_skips(self):
         changes = demo.legacy_group.changes
         self.assertTrue(all(change.transition_style == TransitionStyle.TIMESCALE for change in changes))
         self.assertTrue(any(change.timescale < 0 for change in changes))
@@ -77,19 +84,36 @@ class TimescaleDemoTests(unittest.TestCase):
         self.assertTrue(any(a.timescale < 0 < b.timescale for a, b in pairwise(changes)))
         self.assertTrue(any(change.timescale_skip > 0 for change in changes))
         self.assertTrue(any(change.timescale_skip < 0 for change in changes))
-        for group in demo.groups:
-            if group is not demo.legacy_group:
-                self.assertTrue(all(change.timescale > 0 and change.timescale_skip == 0 for change in group.changes))
+
+    def test_mixed_signed_stops_skips_and_near_zero_scroll(self):
+        changes = demo.mixed_signed_group.changes
+        self.assertEqual({change.transition_style for change in changes}, set(TransitionStyle))
+        scroll = [change for change in changes if change.transition_style == TransitionStyle.SCROLL]
+        self.assertTrue(any(change.timescale == 0 for change in scroll))
+        self.assertTrue(any(0 < abs(change.timescale) < 0.0001 for change in scroll))
+        self.assertTrue(any(change.timescale < 0 for change in scroll))
+        self.assertTrue(any(change.timescale_skip > 0 for change in scroll))
+        self.assertTrue(any(change.timescale_skip < 0 for change in scroll))
+        self.assertTrue(any(a.timescale < 0 < b.timescale for a, b in pairwise(changes)))
+
+    def test_high_speed_bursts_are_brief_and_recover(self):
+        bursts = [(a, b) for a, b in pairwise(demo.burst_group.changes) if a.timescale >= 1000]
+        self.assertEqual({a.timescale for a, _ in bursts}, {1000, 10000})
+        for burst, recovery in bursts:
+            self.assertEqual(burst.timescale_ease, EaseType.NONE)
+            self.assertEqual(burst.transition_style, TransitionStyle.TIMESCALE)
+            self.assertLessEqual(recovery.beat - burst.beat, demo.NOTE_STEP_BEATS)
+            self.assertEqual(recovery.timescale, 1)
 
     def test_sections_cover_the_stream_without_gaps(self):
         self.assertEqual(demo.sections[0].start_beat, demo.NOTE_START_BEAT)
         self.assertEqual(demo.sections[-1].end_beat, demo.NOTE_END_BEAT)
         self.assertTrue(all(a.end_beat == b.start_beat for a, b in pairwise(demo.sections)))
         for section in demo.sections:
-            section_notes = [note for note in demo.notes if section.start_beat <= note.beat < section.end_beat]
+            section_notes = [note for note in demo.demo_notes if section.start_beat <= note.beat < section.end_beat]
             self.assertTrue(section_notes)
             self.assertTrue(all(note.timescale_group is section.group for note in section_notes))
-        self.assertIs(demo.notes[-1].timescale_group, demo.legacy_group)
+        self.assertIs(demo.demo_notes[-1].timescale_group, demo.sections[-1].group)
 
     def test_level_metadata_and_audio_cover_the_stream(self):
         self.assertEqual(demo.level.name, "timescale-transition-demo")

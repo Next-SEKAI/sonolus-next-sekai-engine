@@ -15,6 +15,7 @@ from sekai.lib.timescale import (
     DISTANCE_LIMIT,
     MIN_START_TIME,
     TargetPosition,
+    _scroll_speed,
     distance_to_target,
     locate_target,
     locate_time_from,
@@ -60,8 +61,10 @@ def _distance_bounds(
     va = speed_at(v0, v1, easing, start, end, a)
     vb = speed_at(v0, v1, easing, start, end, b)
     if scroll:
-        # Positive speed times a decreasing linear factor encloses reversals too.
-        q = distance / speed_at(v0, v1, easing, start, end, anchor) - (a - anchor)
+        # Bound the product of speed and a decreasing linear factor, including
+        # negative speeds and the tiny discontinuity around a scroll stop.
+        va, vb = _scroll_speed(va), _scroll_speed(vb)
+        q = distance / _scroll_speed(speed_at(v0, v1, easing, start, end, anchor)) - (a - anchor)
         r = q - (b - a)
         lower = min(va * q, va * r, vb * q, vb * r)
         upper = max(va * q, va * r, vb * q, vb * r)

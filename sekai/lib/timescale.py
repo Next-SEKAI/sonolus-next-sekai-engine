@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from enum import IntEnum
-from math import e, inf, log
+from math import inf
 from typing import Protocol, Self, cast
 
 from sonolus.script import runtime
@@ -35,7 +35,6 @@ class TimelineError(IntEnum):
     CYCLE = 3
     ORDER = 4
     VALUE = 5
-    HYBRID = 6
 
 
 class TargetPosition(Record):
@@ -44,21 +43,20 @@ class TargetPosition(Record):
 
 
 class RunSummary(Record):
-    """Logarithms of R, D(left, right), and -D(right, left).
+    """Gain R and distances D(left, right), -D(right, left) for a run block.
 
-    R is the gain in D(left, hit) = D(left, right) + R * D(right, hit).
-    Store reverse distance separately to avoid subtracting large logarithms.
+    D(left, hit) = forward + R * D(right, hit).
     """
 
-    log_ratio: float
-    log_forward: float
-    log_backward: float
+    ratio: float
+    forward: float
+    backward: float
 
     def then(self, other: Self) -> Self:
         return type(self)(
-            self.log_ratio + other.log_ratio,
-            _log_add(self.log_forward, self.log_ratio + other.log_forward),
-            _log_add(other.log_backward, -other.log_ratio + self.log_backward),
+            self.ratio * other.ratio,
+            self.forward + self.ratio * other.forward,
+            other.backward + self.backward / other.ratio,
         )
 
 
@@ -88,6 +86,7 @@ class TimescaleChangeLike(Protocol):
     event_end: float
     converted_skip: float
     position: TimePosition
+    scroll_skip: TimePosition
     ordinal: int
     prev_ref: int
     run_first: int
@@ -288,9 +287,12 @@ def initialize_timescale_group(group: TimescaleGroupLike) -> None:
         previous, previous_time, ref = ref, converted, marker.next_ref.index
     run, previous_run, run_count = 0, -1, 0
     for marker in iter_timescale_changes(group.first_ref.index):
-        if group.has_scroll and (marker.timescale <= 0 or marker.timescale_skip != 0):
-            _fail(group, TimelineError.HYBRID)
-            return
+        # Normalize each local skip by its destination speed. Within a scroll
+        # run, multiplying this prefix difference by current speed restores it.
+        marker.scroll_skip = TimePosition.of(0)
+        if marker.prev_ref > 0:
+            marker.scroll_skip = _marker(marker.prev_ref).scroll_skip
+        marker.scroll_skip = marker.scroll_skip.add(marker.converted_skip / _scroll_speed(marker.timescale))
         if marker.prev_ref == 0:
             marker.position = TimePosition.of(marker.event_start).add(marker.converted_skip)
         else:
@@ -347,11 +349,18 @@ def _run(ref: int) -> int:
     return -1 if ref == 0 else _marker(ref).run_first
 
 
-def _log_add(left: float, right: float) -> float:
-    high, low = max(left, right), min(left, right)
-    if high == -inf:
-        return -inf
-    return high + log(1 + e ** (low - high))
+def _scroll_speed(value: float) -> float:
+    """Keep scroll ratios finite; exact zero uses a tiny positive speed."""
+    return min(value, -1e-4) if value < 0 else max(value, 1e-4)
+
+
+def _scroll_width(ref: int, now: float, end_ref: int, end: float) -> float:
+    left, right = TimePosition.of(0), TimePosition.of(0)
+    if ref > 0:
+        left @= _marker(ref).scroll_skip
+    if end_ref > 0:
+        right @= _marker(end_ref).scroll_skip
+    return end - now + right.difference(left)
 
 
 def _timescale_distance(ref: int, now: float, target: TargetPosition, hit: float) -> float:
@@ -372,25 +381,23 @@ def _distance_from(
     if group.has_scroll and _run(ref) != _run(target.event_ref):
         return _mixed_run_distance(group, ref, now, target, hit, distance_limit)
     if ref > 0 and _marker(ref).transition_style == TransitionStyle.SCROLL:
-        value = event_speed(ref, now) * (hit - now)
+        value = _scroll_speed(event_speed(ref, now)) * _scroll_width(ref, now, target.event_ref, hit)
     else:
         value = _timescale_distance(ref, now, target, hit)
     return max(-distance_limit, min(distance_limit, value))
 
 
 def _piece_summary(ref: int, start: float, end_ref: int, end: float) -> RunSummary:
-    width = end - start
-    result = RunSummary(0, -inf, -inf)
+    result = RunSummary(1, 0, 0)
     if ref > 0 and _marker(ref).transition_style == TransitionStyle.SCROLL:
-        left_speed, right_speed = event_speed(ref, start), event_speed(end_ref, end)
-        result.log_ratio = log(left_speed) - log(right_speed)
-        if width > 0:
-            result.log_forward, result.log_backward = log(left_speed) + log(width), log(right_speed) + log(width)
+        left_speed = _scroll_speed(event_speed(ref, start))
+        right_speed = _scroll_speed(event_speed(end_ref, end))
+        width = _scroll_width(ref, start, end_ref, end)
+        result.ratio = left_speed / right_speed
+        result.forward, result.backward = left_speed * width, right_speed * width
     else:
         distance = _coordinate(end_ref, end).difference(_coordinate(ref, start))
-        if distance > 0:
-            result.log_forward = log(distance)
-            result.log_backward = result.log_forward
+        result.forward, result.backward = distance, distance
     return result
 
 
@@ -404,7 +411,7 @@ def _initialize_run_index(run: int, ordinal: int) -> None:
             width *= 2
             divisor //= 2
         marker.jump_end, marker.jump_width = marker.run_end, 0
-        marker.jump = RunSummary(0, -inf, -inf)
+        marker.jump = RunSummary(1, 0, 0)
         if marker.run_end > 0:
             endpoint = _marker(marker.run_end)
             marker.jump = _piece_summary(run, marker.event_start, endpoint.index, endpoint.event_start)
@@ -438,12 +445,12 @@ def _mixed_run_distance(
     if reverse:
         left_ref, left, right_ref, right = right_ref, right, left_ref, left
     target_run = _run(right_ref)
-    total = RunSummary(0, -inf, -inf)
+    total = RunSummary(1, 0, 0)
     while _run(left_ref) != target_run:
         current_run = _run(left_ref)
         boundary = group.first_ref.index if current_run < 0 else _marker(current_run).run_end
         assert boundary > 0
-        part = RunSummary(0, -inf, -inf)
+        part = RunSummary(1, 0, 0)
         indexed = False
         if left_ref == current_run and left == _marker(left_ref).event_start:
             marker = _marker(left_ref)
@@ -455,9 +462,8 @@ def _mixed_run_distance(
         total @= total.then(part)
         left_ref, left = boundary, _marker(boundary).event_start
     total @= total.then(_piece_summary(left_ref, left, right_ref, right))
-    logarithm = total.log_backward if reverse else total.log_forward
-    value = distance_limit if logarithm >= log(distance_limit) else e**logarithm
-    return -value if reverse else value
+    value = -total.backward if reverse else total.forward
+    return max(-distance_limit, min(distance_limit, value))
 
 
 def distance_between(group: int | EntityRef, now: float, hit: float, distance_limit: float = DISTANCE_LIMIT) -> float:
@@ -514,6 +520,8 @@ def prepare_group(group: int | EntityRef, now: float) -> None:
         future = _marker(entity.current_run).run_end
     elif future > 0:
         entity.event_end = _marker(future).event_start
+    if entity.style == TransitionStyle.SCROLL:
+        entity.current_speed = _scroll_speed(entity.current_speed)
     entity.current_constant = entity.ease == EaseType.NONE or entity.v0 == entity.v1
     entity.future_gain, entity.past_gain, entity.future_offset, entity.past_offset = 1, 1, 0, 0
     for side in range(2):
@@ -522,8 +530,8 @@ def prepare_group(group: int | EntityRef, now: float) -> None:
             endpoint = _marker(anchor)
             gain, offset = 1.0, endpoint.position.difference(entity.coordinate)
             if entity.style == TransitionStyle.SCROLL:
-                gain = entity.current_speed / endpoint.timescale
-                offset = entity.current_speed * (endpoint.event_start - now)
+                gain = entity.current_speed / _scroll_speed(endpoint.timescale)
+                offset = entity.current_speed * _scroll_width(ref, now, anchor, endpoint.event_start)
             if side == 0:
                 entity.future_gain, entity.future_offset = gain, offset
             else:
@@ -566,7 +574,7 @@ def evaluate_trajectory(
     target_run = _run(target.event_ref)
     if target_run == entity.current_run:
         if entity.style == TransitionStyle.SCROLL:
-            return entity.current_speed * (hit - now)
+            return entity.current_speed * _scroll_width(entity.current_event, now, target.event_ref, hit)
         if target.event_ref == entity.current_event:
             if entity.current_constant:
                 return entity.current_speed * (hit - now)

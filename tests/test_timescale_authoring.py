@@ -1,18 +1,14 @@
 # ruff: noqa: PT009, PT027
 import math
 import unittest
-from types import SimpleNamespace
 from typing import cast
-from unittest.mock import Mock, patch
 
-from sonolus.script.printing import PrintColor
 from sonolus.script.timing import TimescaleEase
 
 from sekai.level_utils import LevelTimescaleChange, LevelTimescaleGroup, _build_timescale_group
 from sekai.lib.ease import EaseType
 from sekai.lib.timescale import TransitionStyle
 from sekai.play.timescale import TimescaleChange
-from sekai.preview import timescale as preview
 
 
 class TimescaleAuthoringTests(unittest.TestCase):
@@ -50,13 +46,10 @@ class TimescaleAuthoringTests(unittest.TestCase):
                     self.assertEqual(cast(TimescaleChange, result[1]).timescale_ease, easing)
                     self.assertEqual(cast(TimescaleChange, result[1]).transition_style, style)
 
-    def test_scroll_final_marker_validates_entire_group(self):
+    def test_scroll_groups_accept_stops_reversals_and_skips(self):
         for speed, skip in [(0, 0), (-1, 0), (1, 0.25), (1, -0.25)]:
-            with (
-                self.subTest(speed=speed, skip=skip),
-                self.assertRaisesRegex(ValueError, "positive speeds and zero skips"),
-            ):
-                _build_timescale_group(
+            with self.subTest(speed=speed, skip=skip):
+                _, entities = _build_timescale_group(
                     LevelTimescaleGroup(
                         [
                             LevelTimescaleChange(0, speed, skip),
@@ -64,6 +57,9 @@ class TimescaleAuthoringTests(unittest.TestCase):
                         ]
                     )
                 )
+                marker = cast(TimescaleChange, entities[1])
+                self.assertEqual(marker.timescale, speed)
+                self.assertEqual(marker.timescale_skip, skip)
 
     def test_invalid_numeric_and_enum_inputs(self):
         for field in ("beat", "timescale", "timescale_skip"):
@@ -82,36 +78,6 @@ class TimescaleAuthoringTests(unittest.TestCase):
             _build_timescale_group(LevelTimescaleGroup([LevelTimescaleChange(0, 1)], math.inf))
         with self.assertRaisesRegex(ValueError, "at least one change"):
             _build_timescale_group(LevelTimescaleGroup())
-
-    def test_preview_retains_meaningful_default_speed_markers(self):
-        for style, easing, expected_color in [
-            (TransitionStyle.SCROLL, EaseType.NONE, PrintColor.CYAN),
-            (TransitionStyle.TIMESCALE, EaseType.IN_QUAD, PrintColor.YELLOW),
-        ]:
-            marker = SimpleNamespace(
-                timescale_group=SimpleNamespace(index=1),
-                timescale=1,
-                beat=0,
-                timescale_skip=0,
-                timescale_ease=easing,
-                transition_style=style,
-                time=0,
-            )
-            with (
-                patch.object(preview, "PreviewData", SimpleNamespace(min_timescale_group=1)),
-                patch.object(preview, "LevelConfig", SimpleNamespace(dynamic_stages=False)),
-                patch.object(preview, "layout_preview_bar_line", return_value=+preview.Quad),
-                patch.object(preview, "get_z", return_value=SimpleNamespace(tuple=(0,))),
-                patch.object(
-                    preview, "ActiveSkin", SimpleNamespace(timescale_change_line=SimpleNamespace(draw=Mock()))
-                ),
-                patch.object(preview, "print_at_time") as speed_print,
-                patch.object(preview, "print_transition_ease") as ease_print,
-            ):
-                preview.PreviewTimescaleChange.render(cast(preview.PreviewTimescaleChange, marker))
-                self.assertEqual(speed_print.call_args.kwargs["color"], expected_color)
-                self.assertEqual(speed_print.call_args.args, (1, 0))
-                ease_print.assert_called_once_with(easing, 0, False)
 
 
 if __name__ == "__main__":

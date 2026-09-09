@@ -103,8 +103,8 @@ class TimescaleRuntimeTests(unittest.TestCase):
         self.assertEqual(ts.TargetPosition._size_(), 3)
         self.assertEqual(ts.TrajectoryCache._size_(), 2)
         for cls, data, shared in [
-            (TimescaleChange, 24, 0),
-            (WatchTimescaleChange, 24, 0),
+            (TimescaleChange, 26, 0),
+            (WatchTimescaleChange, 26, 0),
             (TimescaleGroup, 10, 24),
             (WatchTimescaleGroup, 10, 24),
         ]:

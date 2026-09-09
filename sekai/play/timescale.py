@@ -31,6 +31,7 @@ class TimescaleChange(PlayArchetype):
     event_end: float = entity_data()
     converted_skip: float = entity_data()
     position: TimePosition = entity_data()
+    scroll_skip: TimePosition = entity_data()
     ordinal: int = entity_data()
     prev_ref: int = entity_data()
     run_first: int = entity_data()

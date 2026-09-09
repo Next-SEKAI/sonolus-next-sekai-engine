@@ -6,6 +6,7 @@ from decimal import Decimal, localcontext
 from fractions import Fraction
 
 from tests.timescale_reference import (
+    SCROLL_EPSILON,
     RefEase,
     RefMarker,
     RefStyle,
@@ -111,8 +112,6 @@ class TimescaleReferenceTests(unittest.TestCase):
 
     def test_validation_covers_final_markers_and_chronological_order(self):
         invalid = (
-            [RefMarker(0, 0), RefMarker(1, 1, style=RefStyle.SCROLL)],
-            [RefMarker(0, 1, skip=1), RefMarker(1, 1, style=RefStyle.SCROLL)],
             [RefMarker(1, 1), RefMarker(0, 1)],
             [RefMarker(0, "NaN")],
             [RefMarker(0, 1, ease=6)],
@@ -121,6 +120,22 @@ class TimescaleReferenceTests(unittest.TestCase):
         for markers in invalid:
             with self.subTest(markers=markers), self.assertRaises(ValueError):
                 RefTimeline(markers)
+
+    def test_scroll_skips_use_destination_local_units(self):
+        timeline = RefTimeline([RefMarker(0, 2, style=RefStyle.SCROLL), RefMarker(1, 4, style=RefStyle.SCROLL, skip=3)])
+        self.assertEqual(timeline.distance(0, 2), Decimal("5.5"))
+        self.assertEqual(timeline.distance(2, 0), -11)
+        tied = RefTimeline([RefMarker(0, -2, style=RefStyle.SCROLL), RefMarker(0, 4, skip=3)])
+        self.assertEqual(tied.anchor_transfer(0, 1), (Decimal("-0.5"), Decimal("-1.5")))
+
+    def test_scroll_zero_floor_and_signed_crossing_leave_timescale_stops_exact(self):
+        stopped = RefTimeline([RefMarker(0, 0, style=RefStyle.SCROLL)])
+        self.assertEqual(stopped.distance(0, 1), SCROLL_EPSILON)
+        self.assertEqual(stopped.distance(1, 0), SCROLL_EPSILON.copy_negate())
+        self.assertEqual(RefTimeline([RefMarker(0, 0)]).distance(0, 1), 0)
+        crossing = RefTimeline([RefMarker(0, -1, ease=RefEase.LINEAR, style=RefStyle.SCROLL), RefMarker(1, 1)])
+        self.assert_decimal_close(crossing.distance(Decimal("0.5"), 1), SCROLL_EPSILON / 2, tolerance="1e-27")
+        self.assertEqual(crossing.distance(Decimal("0.25"), 1), Decimal("-0.375"))
 
     def test_quantized_input_is_separate_from_authored_decimal(self):
         self.assertNotEqual(quantized32("7.8"), Decimal("7.8"))

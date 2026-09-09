@@ -519,21 +519,15 @@ def _build_timescale_group(
         raise ValueError("LevelTimescaleGroup must have at least one change")
     if not math.isfinite(level_group.force_note_speed):
         raise ValueError("Timescale group force_note_speed must be finite")
-    hybrid = False
     for index, change in enumerate(level_group.changes):
         for name in ("beat", "timescale", "timescale_skip"):
             if not math.isfinite(getattr(change, name)):
                 raise ValueError(f"Timescale change {index}: {name} must be finite")
         try:
             EaseType(change.timescale_ease)
-            style = TransitionStyle(change.transition_style)
+            TransitionStyle(change.transition_style)
         except (ValueError, TypeError) as exc:
             raise ValueError(f"Timescale change {index}: unknown easing or transition style") from exc
-        hybrid |= style == TransitionStyle.SCROLL
-    if hybrid:
-        for index, change in enumerate(level_group.changes):
-            if change.timescale <= 0 or change.timescale_skip != 0:
-                raise ValueError(f"Timescale change {index}: groups containing SCROLL require positive speeds and zero skips")
     group = TimescaleGroup(force_note_speed=level_group.force_note_speed)
     change_entities: list[TimescaleChange] = []
     for level_change in sorted(level_group.changes, key=lambda c: c.beat):

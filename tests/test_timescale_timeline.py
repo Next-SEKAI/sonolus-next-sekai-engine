@@ -106,14 +106,38 @@ class TimescaleTimelineTests(unittest.TestCase):
 
     def test_unused_groups_still_validate_bad_data(self):
         for records in [[RefMarker(0, 0, style=1)], [RefMarker(0, 1, skip=1), RefMarker(1, 1, style=1)]]:
-            with TimelineFixture(records, validate_oracle=False) as fixture:
+            with TimelineFixture(records) as fixture:
                 self.assertFalse(fixture.group.used)
-                self.assertFalse(fixture.group.valid)
-                self.assertEqual(fixture.group.error_code, ts.TimelineError.HYBRID)
+                self.assertTrue(fixture.group.valid)
+                self.assertEqual(fixture.group.error_code, ts.TimelineError.NONE)
         fixture = TimelineFixture([RefMarker(0, 1), RefMarker(1, 2)])
         fixture.markers[2].next_ref.index = 1
         with fixture:
             self.assertEqual(fixture.group.error_code, ts.TimelineError.CYCLE)
+
+    def test_mixed_signed_skips_stops_and_zero_crossing(self):
+        records = [
+            RefMarker(0, -1, style=1, ease=1),
+            RefMarker(1, 1, style=1, skip=-2),
+            RefMarker(2, 0, skip=1),
+            RefMarker(3, 0, style=1),
+            RefMarker(4, -2, skip=-1),
+            RefMarker(4, 2, style=1, skip=2),
+            RefMarker(5, 1),
+        ]
+        times = [-1, 0, 0.499999, 0.5, 0.500001, 1, 2, 2.5, 3, 3.5, 4, 4.5, 5, 6]
+        with TimelineFixture(records) as fixture:
+            for hit in times:
+                target = ts.locate_target(100000, hit)
+                cache = ts.TrajectoryCache(0, 0)
+                for now in times:
+                    expected = float(fixture.oracle.distance(now, hit))
+                    self.assertAlmostEqual(ts.distance_between(100000, now, hit), expected, delta=1e-8)
+                    ts.prepare_group(100000, now)
+                    ts.prepare_trajectory(100000, hit, target, cache, now)
+                    self.assertAlmostEqual(
+                        ts.evaluate_trajectory(100000, hit, target, cache, now), expected, delta=1e-8
+                    )
 
     def test_empty_identity(self):
         with TimelineFixture([]):
