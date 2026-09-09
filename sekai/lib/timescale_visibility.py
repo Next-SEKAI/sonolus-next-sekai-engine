@@ -1,4 +1,4 @@
-"""Approximate early spawning from monotone speed bounds on continuous pieces."""
+"""Estimate an early spawn time by bounding motion between markers."""
 
 from math import inf
 
@@ -60,8 +60,8 @@ def _distance_bounds(
             end, easing = event.event_end, event.timescale_ease
     va = speed_at(v0, v1, easing, start, end, a)
     vb = speed_at(v0, v1, easing, start, end, b)
-    # Keep the scale before signed integration or scroll-width cancellation.
-    # The final distance can be almost zero while its operands are millions.
+    # Track operand sizes before integration or scroll-width cancellation.
+    # A distance near zero can result from subtracting values in the millions.
     peak_speed = abs(v0) if easing == EaseType.NONE else max(abs(v0), abs(v1))
     magnitude = max(abs(distance), peak_speed * max(end - start, abs(anchor - start), abs(b - anchor)))
     if scroll:
@@ -80,9 +80,9 @@ def _distance_bounds(
         upper = value + max(0.0, -min(va, vb) * (b - a))
     if not -inf < lower <= upper < inf:
         return result
-    # Cancellation across long signed events can exceed local relative rounding.
+    # Allow for cancellation between large values in long signed-speed events.
     slack = 0.01 + source.preempt * 1e-4 + max(magnitude, abs(lower), abs(upper)) * 1e-6
-    # A capped query still supplies one side of the distance bound.
+    # A distance capped at +/-DISTANCE_LIMIT gives only a one-sided bound.
     result @= Interval(
         -inf if distance <= -DISTANCE_LIMIT else lower - slack, inf if distance >= DISTANCE_LIMIT else upper + slack
     )
@@ -139,11 +139,12 @@ def first_visible(
                 middle = left + (right - left) * 0.5
                 if right - left <= SPAWN_STEP or middle <= left or middle >= right:
                     return max(earliest, left - SPAWN_PADDING)
-                # Retry the remaining suffix after excluding a prefix; no stack.
+                # Search the earlier half first. The loop retries the suffix
+                # when that half is invisible, without storing a search stack.
                 right = middle
         if anchor == latest:
             break
-        # Re-query completed right states, never interpolate through a jump.
+        # Apply all markers at this boundary before searching the next interval.
         anchor = piece_end
     return inf
 

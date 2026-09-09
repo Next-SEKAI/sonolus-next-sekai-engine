@@ -1,4 +1,4 @@
-"""Note progress and visibility with caches owned by the drawing entity."""
+"""Compute note progress and visibility using each drawing entity's own caches."""
 
 from typing import Any
 
@@ -19,10 +19,11 @@ from sekai.lib.timescale_visibility import VisibilitySource, get_sources_visual_
 
 
 def register_note_group_window(note: Any, start: float, end: float) -> None:
-    """Keep the hide group and attached trajectory sources active for the owner."""
+    """Keep the note's group and its attachment groups active for the caller."""
     register_group_window(note.timescale_group, start, end)
     if note.is_attached:
-        # Anchors need their consumer's lifetime even when they never spawn.
+        # An anchor's group must stay active while another entity draws it,
+        # even if the anchor never spawns.
         register_group_window(note.attach_head_ref.get().timescale_group, start, end)
         register_group_window(note.attach_tail_ref.get().timescale_group, start, end)
 
@@ -44,7 +45,7 @@ def _basic_progress(note: Any, cache: TrajectoryCache, now: float) -> float:
 
 
 def note_progress(note: Any, first: TrajectoryCache, second: TrajectoryCache, now: float) -> float:
-    """Read endpoint metadata using only the drawing entity's private caches."""
+    """Compute note progress from endpoint data and the caller's trajectory caches."""
     if not note.is_attached:
         return _basic_progress(note, first, now)
     head = note.attach_head_ref.get()
@@ -96,8 +97,8 @@ def _append_visibility_source(
 def append_note_visibility_sources(note: Any, sources: VarArray[VisibilitySource, Dim[4]]) -> None:
     offsets = note_offset_bounds(note)
     if note.is_attached:
-        # Progress and offset fractions differ after the head hit; both sources
-        # therefore need the complete offset envelope of the attached note.
+        # Progress and offset use different interpolation fractions after the
+        # head's hit time. Both sources need the attached note's full offset range.
         _append_visibility_source(note.attach_head_ref.get(), sources, offsets, True)
         _append_visibility_source(note.attach_tail_ref.get(), sources, offsets, False)
     else:

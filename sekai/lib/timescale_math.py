@@ -1,4 +1,4 @@
-"""Native easing and split cumulative distances for practical chart ranges."""
+"""Integrate easing curves and store cumulative distances in two parts."""
 
 from math import trunc
 from typing import Self
@@ -11,9 +11,9 @@ from sekai.lib.ease import EaseType
 class TimePosition(Record):
     """Whole scaled seconds and a signed remainder in (-1, 1).
 
-    The whole part stays exact in binary32 across practical chart distances.
-    Subtract split prefixes before combining them to retain local differences.
-    Narrower persistent storage can round the remainder to either endpoint.
+    Binary32 stores the whole part exactly up to magnitude 2**24. Subtract
+    matching parts before combining them to preserve small differences.
+    Binary32 storage can round a binary64 remainder to either endpoint.
     """
 
     whole: float
@@ -63,7 +63,7 @@ def _complement(ease: int) -> int:
 
 
 def speed_at(v0: float, v1: float, ease: int, start: float, end: float, t: float) -> float:
-    """Local speed; a held transition changes only at the next marker."""
+    """Return the transition speed; NONE holds v0 until the next marker."""
     if ease == EaseType.NONE or t <= start:
         return v0
     if t >= end:
@@ -74,8 +74,8 @@ def speed_at(v0: float, v1: float, ease: int, start: float, end: float, t: float
 
 
 def _piece(v0: float, v1: float, ease: int, span: float, left: float, right: float, width: float) -> float:
-    # Anchor falling curves at the smaller endpoint as well. Simpson's rule is
-    # exact for each quadratic piece, without subtracting two large integrals.
+    # Evaluate falling curves from the smaller endpoint to reduce cancellation.
+    # Simpson's rule is exact for each quadratic piece.
     if v1 < v0:
         v0, v1 = v1, v0
         ease = _complement(ease)
@@ -88,7 +88,7 @@ def _piece(v0: float, v1: float, ease: int, span: float, left: float, right: flo
 
 
 def integrate_times(v0: float, v1: float, ease: int, start: float, end: float, left: float, right: float) -> float:
-    """Integrate inside one authored event, splitting quadratic halves once."""
+    """Integrate within one event, splitting at the easing midpoint if needed."""
     if start == end or left == right:
         return 0.0
     orientation = 1.0

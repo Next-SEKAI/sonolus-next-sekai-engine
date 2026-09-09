@@ -1,4 +1,4 @@
-"""Five stationary stages comparing the same five-second speed pattern."""
+"""Compare linear and in-out transitions in nine stationary single columns."""
 
 from typing import cast
 
@@ -24,17 +24,17 @@ from sekai.play.sim_line import SimLine
 
 DURATION = 5.0
 NOTE_STEP = 0.125
-STAGE_CENTERS = (-4.8, -2.4, 0.0, 2.4, 4.8)
-STAGE_HALF_WIDTH = 0.9
+STAGE_CENTERS = (-5.2, -3.9, -2.6, -1.3, 0.0, 1.3, 2.6, 3.9, 5.2)
+STAGE_HALF_WIDTH = 0.5
 
 
-def comparison_group(increase: TransitionStyle, decrease: TransitionStyle) -> LevelTimescaleGroup:
+def comparison_group(increase: TransitionStyle, decrease: TransitionStyle, ease: EaseType) -> LevelTimescaleGroup:
     return LevelTimescaleGroup(
         changes=[
             LevelTimescaleChange(0, 0.2, transition_style=increase),
-            LevelTimescaleChange(1, 0.2, timescale_ease=EaseType.LINEAR, transition_style=increase),
+            LevelTimescaleChange(1, 0.2, timescale_ease=ease, transition_style=increase),
             LevelTimescaleChange(2, 1, transition_style=increase),
-            LevelTimescaleChange(3, 1, timescale_ease=EaseType.LINEAR, transition_style=decrease),
+            LevelTimescaleChange(3, 1, timescale_ease=ease, transition_style=decrease),
             LevelTimescaleChange(4, 0.2, transition_style=decrease),
             LevelTimescaleChange(5, 0.2, transition_style=decrease),
         ]
@@ -42,13 +42,14 @@ def comparison_group(increase: TransitionStyle, decrease: TransitionStyle) -> Le
 
 
 groups = [
-    comparison_group(increase, decrease)
+    comparison_group(increase, decrease, ease)
     for increase, decrease in (
         (TransitionStyle.TIMESCALE, TransitionStyle.TIMESCALE),
         (TransitionStyle.SCROLL, TransitionStyle.SCROLL),
         (TransitionStyle.TIMESCALE, TransitionStyle.SCROLL),
         (TransitionStyle.SCROLL, TransitionStyle.TIMESCALE),
     )
+    for ease in (EaseType.LINEAR, EaseType.IN_OUT_QUAD)
 ]
 stages = [
     LevelStage(
@@ -59,7 +60,7 @@ stages = [
             LevelStagePivotChange(
                 beat=0,
                 lane=center,
-                division_size=2,
+                division_size=1,
                 division_parity=DivisionParity.ODD,
                 abs_y_offset=0,
                 y_beat_offset=0,
@@ -85,7 +86,7 @@ streams = [
         LevelNote(
             beat=i * NOTE_STEP,
             lane=0,
-            size=0.7,
+            size=0.45,
             kind=NoteKind.NORM_TAP,
             stage=stage,
             timescale_group=group,
@@ -95,8 +96,8 @@ streams = [
     for stage, group in zip(stages, [None, *groups], strict=True)
 ]
 level = build_level(
-    name="timescale-five-stage-comparison",
-    title="Five-Stage Timescale Comparison",
+    name="timescale-transition-comparison",
+    title="Timescale Transition Comparison",
     bgm=_build_silent_wav(DURATION),
     entities=[LevelBpmChange(0, 60), *stages, *groups, *(note for stream in streams for note in stream)],
 )
@@ -104,7 +105,9 @@ level = build_level(
 level_data = cast(LevelData, level.data)
 level_data.entities = [entity for entity in level_data.entities if not isinstance(entity, SimLine)]
 level.description = {
-    "en": "Left to right: normal; timescale; scroll; timescale up / scroll down; scroll up / timescale down. "
+    "en": "Nine columns, left to right: normal reference; timescale pair; scroll pair; "
+    "timescale up / scroll down pair; scroll up / timescale down pair. "
+    "Each pair uses linear easing, then quadratic in-out easing. "
     "Five seconds: hold 0.2, ramp to 1, hold 1, ramp to 0.2, hold 0.2 (one second each). "
     "Matched taps every 0.125s. Silent audio; use autoplay to compare."
 }

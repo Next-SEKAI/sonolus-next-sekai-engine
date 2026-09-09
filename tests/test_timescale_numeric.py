@@ -1,4 +1,4 @@
-"""Whole/fraction prefix storage and local cancellation."""
+"""Check split position storage and differences between nearby positions."""
 # ruff: noqa: PT009
 
 import unittest

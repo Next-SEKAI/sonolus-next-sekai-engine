@@ -93,7 +93,8 @@ class TimescaleGroup(PlayArchetype):
     def update_sequential(self):
         assert self.used
         prepare_group(self.index, time())
-        # Consumers prepare before their final parallel cleanup, including jumps.
+        # Notes and connectors need this state for their final update_parallel,
+        # even when a time jump skips past the group's end.
         if time() > self.needed_end:
             self.despawn = True
 

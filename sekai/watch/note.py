@@ -121,7 +121,8 @@ class WatchBaseNote(WatchArchetype):
     target_time: float = entity_data()
     visual_start_time: float = entity_data()
     start_time: float = entity_data()
-    # Replay imports fill entity data; these coordinates are immutable after preprocessing.
+    # Replay imports overwrite entity data, so keep coordinates in shared memory.
+    # Only preprocessing writes these coordinates.
     target_position: TargetPosition = shared_memory()
     target_y_offset: float = entity_data()
 

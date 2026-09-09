@@ -1,9 +1,8 @@
-"""Independent Decimal oracle for ordered binary timescale/scroll timelines.
+"""Compute reference distances for mixed timescale and scroll timelines.
 
-Inputs are converted seconds and integral skips, before any optional float32
-quantization. Float inputs preserve their exact binary value; strings preserve
-authored decimal values. Queries compose the original chronological links
-directly, independently of the engine implementation.
+Inputs use seconds and converted skip distances. Float inputs preserve their
+exact binary values; strings preserve decimal values. Queries compose the
+original marker transitions in order, without the engine's run index or caches.
 """
 
 from bisect import bisect_right
@@ -35,7 +34,7 @@ class RefStyle(IntEnum):
 
 
 def decimal(value):
-    """Preserve exact binary float inputs; never silently round through str."""
+    """Convert to Decimal while preserving the exact value of float inputs."""
     return value if isinstance(value, Decimal) else Decimal(value)
 
 
@@ -45,7 +44,7 @@ def quantized32(value):
 
 
 def ease_pair(ease, u):
-    """Return E and its separately evaluated nonnegative complement on [0,1]."""
+    """Return the easing value and its complement for u in [0, 1]."""
     u = decimal(u)
     complement = ONE - u
     if ease == RefEase.NONE:
@@ -70,7 +69,7 @@ def ease_pair(ease, u):
 
 
 def speed_value(v0, v1, ease, u):
-    """Local curve speed; NONE excludes the separate destination step."""
+    """Return the transition speed before applying the destination marker."""
     v0, v1, u = decimal(v0), decimal(v1), decimal(u)
     if ease == RefEase.NONE or u == ZERO:
         return v0
@@ -83,10 +82,10 @@ def speed_value(v0, v1, ease, u):
 
 
 def integrate_speed(v0, v1, ease, duration, left: DecimalInput = 0, right: DecimalInput | None = None):
-    """Exact quadratic-piece identity, using event-local offsets and short widths.
+    """Integrate each quadratic piece using offsets from the event start.
 
-    Decimal rounding remains; there is no quadrature approximation or subtraction
-    of large primitive values. Reversing offsets returns the oriented integral.
+    Simpson's rule is exact for these polynomials, apart from Decimal rounding.
+    Reversing the endpoints negates the integral.
     """
     v0, v1, duration, left = map(decimal, (v0, v1, duration, left))
     right = duration if right is None else decimal(right)
@@ -144,7 +143,7 @@ def scroll_speed(value):
 
 
 def compose(left, right):
-    """Chronological affine transfer composition: left happens before right."""
+    """Compose affine transfers with left before right in chart time."""
     r1, b1 = left
     r2, b2 = right
     return r1 * r2, b1 + r1 * b2
@@ -167,7 +166,7 @@ class RefTimeline:
             previous = marker.time
 
     def locate_time(self, time):
-        """Last original marker at or before time; -1 denotes the prelude."""
+        """Return the last marker at or before time, or -1 before the first."""
         return bisect_right(self.times, decimal(time)) - 1
 
     def _speed_in_link(self, index, time):
@@ -216,7 +215,7 @@ class RefTimeline:
         return va / vb, va * (end - start + jump)
 
     def anchor_transfer(self, first, last):
-        """Transfer between raw ordered marker states, retaining same-time links."""
+        """Compose transfers between marker indices, including tied markers."""
         if not 0 <= first <= last < len(self.markers):
             raise ValueError("Expected ordered marker indices 0 <= first <= last < marker count")
         with localcontext() as context:
@@ -230,7 +229,7 @@ class RefTimeline:
             return result
 
     def transfer(self, start, end):
-        """Chronological transfer between completed public timestamp states."""
+        """Compose transfers after applying all markers at each endpoint time."""
         start, end = decimal(start), decimal(end)
         if end < start:
             raise ValueError("transfer requires start <= end; use distance for oriented queries")

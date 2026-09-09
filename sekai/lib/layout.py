@@ -364,8 +364,8 @@ def init_layout():
         candidate = inverse_approach_untilted(target_travel)
         Layout.approach_start = clamp(candidate, 0, 0.99)
 
-    # Options and cover compensation are fixed for the level. Runtime trajectory
-    # consumers read this value instead of repeating the fractional power.
+    # Options and cover compensation stay fixed, so cache the fractional power
+    # instead of recomputing it for each note on every frame.
     Layout.default_preempt = preempt_time()
 
     bg = background()
@@ -758,13 +758,14 @@ def inverse_approach_at_tilt(approach_value: float, tilt: float) -> float:
 
 
 def _compute_conservative_progress_bounds() -> Interval:
-    """Enclose drawing guards once, after camera markers and layout are initialized.
+    """Compute progress bounds that include every drawing cutoff.
 
-    Transforms are applied after progress clipping. A fixed tilt therefore uses
-    its actual guard, regardless of rotation, zoom, elevation or stage motion.
-    For varying tilt, convex approach curves bound the far side by the flat
-    inverse. Without cover the earliest guard occurs at the vanishing-extension
-    tilt floor; with cover the spawn depth is at or before the covered depth.
+    Call after initializing the camera markers and layout. Drawing code clips
+    progress before applying transforms, so rotation, zoom, elevation, and stage
+    motion do not change the cutoffs for a fixed tilt. For varying tilt, convex
+    approach curves let the flat inverse bound the far side. Without cover, the
+    minimum vanishing-point tilt gives the earliest cutoff. With cover, the
+    spawn depth is at or before the covered depth.
     """
     fixed_tilt = 1.0
     changing_tilt = False
@@ -791,17 +792,17 @@ def _compute_conservative_progress_bounds() -> Interval:
         start_depth = Layout.cover_depth if stage_cover_amount() else Layout.cover_depth - vanish_ext
         lower = inverse_approach_at_tilt(start_depth, fixed_tilt)
         upper = inverse_approach_at_tilt(Layout.cutoff_depth, fixed_tilt)
-    # Keep the existing generous early-spawn margin for transformed/elevated
-    # geometry, arrows and attachment phase changes. The derived guards and
-    # per-stage offset envelope may require still more room. This is intentional
-    # presentation leniency, independent of numerical/search uncertainty.
+    # Preserve the early-spawn margin for transformed geometry, arrows, and
+    # attachment phase changes. Drawing cutoffs and stage offsets can widen it.
+    # This margin allows extra drawing time; it does not account for rounding
+    # or search error.
     lower = min(lower, -3.0)
     upper = max(upper, 6.0)
     return Interval(lower - 1e-3 * (1 + abs(lower)), upper + 1e-3 * (1 + abs(upper)))
 
 
 def conservative_progress_bounds() -> Interval:
-    """Return the immutable chart-wide visual-progress envelope for preprocessing."""
+    """Return the level's cached visual progress bounds for spawn calculations."""
     return Interval(Layout.spawn_progress_start, Layout.spawn_progress_cutoff)
 
 
@@ -823,7 +824,7 @@ def preempt_time(force_speed: float = 0) -> float:
 
 
 def distance_to_progress(distance: float, force_speed: float = 0) -> float:
-    """Convert an already local visual distance without forming absolute clocks."""
+    """Convert visual distance to progress without adding it to a timestamp."""
     return 1.0 - distance / preempt_time(force_speed)
 
 

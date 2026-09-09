@@ -1,9 +1,9 @@
 # ruff: noqa: PT009
-"""Practical 30-minute charts against the independent chronological oracle.
+"""Compare 30-minute charts with reference distances.
 
-Marker values and query clocks are binary32 inputs. This exercises production
-Python proxies, whose arithmetic is binary64, not a Sonolus client benchmark.
-Compiled arithmetic coverage belongs to the small compiled-kernel tests.
+Marker values and query times use binary32 inputs. These tests run production
+functions in Python with binary64 arithmetic. Separate compiled tests check
+instruction rounding; neither suite measures client performance.
 """
 
 import unittest

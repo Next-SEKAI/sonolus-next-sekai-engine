@@ -1,5 +1,5 @@
 # ruff: noqa: PT009
-"""Compiled spawning must retain visible islands after signed cancellation."""
+"""Check early spawning when signed distances nearly cancel."""
 
 import unittest
 from contextlib import ExitStack
@@ -44,8 +44,8 @@ class SpawnRoundingTests(unittest.TestCase):
             with self.subTest(precision=precision, storage=storage):
                 self.assertLessEqual(self.spawn_time(records, 300, precision, storage), first_visible)
 
-        # D=1 occurs shortly after this chart enters the flat drawing guard.
-        # Verify its whole body is on-screen, not just inside a drawing guard.
+        # At D=1, the note has entered the flat stage's drawing range.
+        # Verify that the entire note body fits on the screen.
         with ExitStack() as stack:
             stack.enter_context(
                 patch.object(layout, "Layout", SimpleNamespace(field_h=2, field_w=32 / 9, approach_start=0))
@@ -83,8 +83,8 @@ class SpawnRoundingTests(unittest.TestCase):
                 self.assertLess(abs(point.y), 1)
 
     def test_narrow_island_survives_completed_same_time_skip(self):
-        # A positive skip raises the tangent to within 0.001 of the upper
-        # distance guard, leaving a very narrow independently known island.
+        # The skip places the distance minimum 0.001 below the visibility
+        # ceiling, producing a narrow interval with a known entry time.
         ceiling = 0.35 * 4.004
         records = [
             RefMarker(0, 10000, ease=1),

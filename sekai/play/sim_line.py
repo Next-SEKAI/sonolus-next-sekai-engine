@@ -45,7 +45,7 @@ class SimLine(PlayArchetype):
         self.left.extend_stage_windows(start_time - 1.0, end_time)
         self.right.extend_stage_windows(start_time - 1.0, end_time)
 
-        # An already expired line still prepares once before its parallel cleanup.
+        # Keep the groups active for the frame that despawns an expired line.
         group_end = max(start_time, self.left.target_time)
         register_note_group_window(self.left, start_time, group_end)
         register_note_group_window(self.right, start_time, group_end)

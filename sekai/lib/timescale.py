@@ -1,4 +1,9 @@
-"""Local distances and fixed caches at the boundaries of linked style runs."""
+"""Compute note distances with caches at transition-style boundaries.
+
+A run contains consecutive markers with the same transition style. Preprocessing
+indexes transfers between runs. Runtime consumers cache a target's distance from
+the current run boundary and reuse it until the current run changes.
+"""
 
 from __future__ import annotations
 
@@ -43,9 +48,11 @@ class TargetPosition(Record):
 
 
 class RunSummary(Record):
-    """Gain R and distances D(left, right), -D(right, left) for a run block.
+    """Affine transfer across one or more runs.
 
-    D(left, hit) = forward + R * D(right, hit).
+    With D(t, hit) denoting note distance, the fields satisfy:
+    D(left, hit) = forward + ratio * D(right, hit).
+    backward = -D(right, left).
     """
 
     ratio: float
@@ -61,11 +68,12 @@ class RunSummary(Record):
 
 
 class TrajectoryCache(Record):
-    """D(run_end, hit) for future runs, D(run_start, hit) for past runs.
+    """Store a target's distance from the current run boundary.
 
-    Rebuilt only when the current run changes; the value never rolls forward.
-    Each owning consumer keeps this cache for one immutable target.
-    A zero run_ref is uninitialized, while -1 denotes the prelude.
+    Use the run end for targets in later runs and the run start for earlier
+    targets. Each consumer owns a cache for one fixed target and rebuilds it
+    only when the current run changes. A run_ref of 0 means uninitialized;
+    -1 denotes the interval before the first marker.
     """
 
     run_ref: int
@@ -222,7 +230,7 @@ def _coordinate(ref: int, now: float) -> TimePosition:
     result = TimePosition.of(now)
     if ref > 0:
         marker = _marker(ref)
-        # Anchor at the nearer endpoint to keep near-hit partial integrals local.
+        # Integrate from the nearer endpoint to reduce rounding near a note hit.
         if marker.next_ref.index > 0 and now - marker.event_start > marker.event_end - now:
             following = _marker(marker.next_ref.index)
             result @= following.position.add(-following.converted_skip).add(-_integral(ref, now, marker.event_end))
@@ -338,7 +346,7 @@ def locate_target(group: int | EntityRef, hit_time: float) -> TargetPosition:
 
 
 def locate_time_from(group: int | EntityRef, now: float, ref: int) -> int:
-    """Advance a caller-owned locator without moving the group's shared cursor."""
+    """Locate a time from the caller's marker without moving the shared cursor."""
     index = _group_index(group)
     if index <= 0 or Options.disable_timescale:
         return 0
@@ -350,7 +358,7 @@ def _run(ref: int) -> int:
 
 
 def _scroll_speed(value: float) -> float:
-    """Keep scroll ratios finite; exact zero uses a tiny positive speed."""
+    """Clamp scroll speed magnitude to 0.0001; treat zero as positive."""
     return min(value, -1e-4) if value < 0 else max(value, 1e-4)
 
 
@@ -435,7 +443,7 @@ def _mixed_run_distance(
     hit: float,
     distance_limit: float,
 ) -> float:
-    """Cover the chronological interval with precomputed forward run blocks."""
+    """Compose indexed run transfers from the earlier time to the later time."""
     reverse = now > hit or (
         now == hit
         and (0 if ref == 0 else _marker(ref).ordinal)
@@ -483,7 +491,7 @@ def distance_to_target(
     hit: float,
     distance_limit: float = DISTANCE_LIMIT,
 ) -> float:
-    """Evaluate from an already located current state and immutable target."""
+    """Return the distance using previously located current and target markers."""
     index = _group_index(group)
     if index <= 0 or Options.disable_timescale:
         return max(-distance_limit, min(distance_limit, hit - now))

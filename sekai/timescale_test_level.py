@@ -64,8 +64,7 @@ def change(
 
 
 def easing_group(start_beat: float, style: TransitionStyle) -> LevelTimescaleGroup:
-    # Alternate 1->2 and 2->1, giving each easing a full four-second example.
-    # The initial hold and final tail use the same style as the entire group.
+    # Alternate 1->2 and 2->1 to demonstrate each easing for four seconds.
     changes = [change(0, 1, style=style)]
     changes.extend(
         change(start_beat + i * EASE_SECTION_BEATS, 1 if i % 2 == 0 else 2, ease, style)
@@ -78,9 +77,8 @@ def easing_group(start_beat: float, style: TransitionStyle) -> LevelTimescaleGro
 timescale_group = easing_group(4, TransitionStyle.TIMESCALE)
 scroll_group = easing_group(52, TransitionStyle.SCROLL)
 
-# Every positive transition carries its factors across the style boundary.
-# At beat 124, preserve these three markers in authored order: the incoming
-# scroll step, a zero-duration timescale step, then a zero-duration scroll step.
+# Keep the three markers at beat 124 in order: each instantaneous change
+# affects later note distances.
 hybrid_group = LevelTimescaleGroup(
     changes=[
         change(0, 1),
@@ -98,8 +96,8 @@ hybrid_group = LevelTimescaleGroup(
     ]
 )
 
-# A pure timescale comparison for signed speeds and skips. The stop
-# from beats 136..140 lasts two seconds. Skips are in the legacy beat units.
+# Compare signed speeds and skips using timescale transitions only.
+# The stop from beats 136 to 140 lasts two seconds. Skips use beat units.
 legacy_group = LevelTimescaleGroup(
     changes=[
         change(0, 1),

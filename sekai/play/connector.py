@@ -202,6 +202,9 @@ class Connector(PlayArchetype):
                 self.active_connector_info.connector_kind = ConnectorKind.NONE
 
     def update_parallel(self):
+        # Sequential cleanup skips trajectory preparation on the final frame.
+        if self.despawn:
+            return
         self.draw_hitbox()
         if time() < self.visual_active_interval.end or self.segment_head.segment_through_judge_line:
             head = self.head

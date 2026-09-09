@@ -1,12 +1,12 @@
-"""Small numeric probe runner for optimized Sonolus instructions.
+"""Run optimized Sonolus instructions with controlled numeric precision.
 
-The installed compiler supplies instruction semantics. This adapter adds explicit
-rounding, bounded execution, and a restricted operation set; it is not a client
-emulator. Binary32 rounds each emitted arithmetic operation and every store.
-ROM is binary32 in both modes, as it is in packaged engines. These assumptions
-must not be mistaken for a measurement of a Sonolus client's precision.
-The optional entity-storage setting also probes binary64 arithmetic/temporaries
-with binary32 persistent entity fields.
+The installed interpreter supplies instruction semantics. This adapter limits
+execution and rounds arithmetic and storage to the selected precision. ROM uses
+binary32, as in packaged engines. Entity fields can use binary32 storage while
+arithmetic and temporary values use binary64.
+
+These tests model rounding behavior; they do not measure client precision or
+performance.
 """
 
 import math
@@ -99,9 +99,8 @@ class NumericVM(Interpreter):
         return self.round_value(super().run(node))
 
     def _run(self, node: EngineNode) -> float:
-        # Native interpolation contains multiple arithmetic steps. Round each
-        # step using the installed interpreter's evaluation order, explicitly
-        # modeling unfused arithmetic rather than a client-specific FMA.
+        # Round each interpolation step in the interpreter's evaluation order.
+        # This models separate operations without fused multiply-add.
         if isinstance(node, FunctionNode):
             rounding = self.round_value
             if node.func in {Op.Lerp, Op.LerpClamped}:
@@ -127,8 +126,8 @@ class NumericVM(Interpreter):
         return super()._run(node)
 
     def reduce_args(self, args, operator):
-        # Add/Multiply/etc can have more than two operands after optimization.
-        # Preserve emitted order and round every primitive accumulation.
+        # Optimization can combine several Add or Multiply operands. Preserve
+        # their emitted order and round each intermediate result.
         values = iter(args)
         first = next(values, None)
         if first is None:

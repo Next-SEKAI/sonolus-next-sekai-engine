@@ -417,11 +417,11 @@ def _stage_transform_change_archetype() -> type[StageTransformChangeLike]:
 
 
 def stage_y_offset_bounds(stage: DynamicStageLike) -> Interval:
-    """Enclose the rendered offset over the chart after stage preprocessing.
+    """Bound the stage's rendered offset after stage preprocessing.
 
-    Pivot easing is monotone, so every intermediate offset lies in the hull of
-    its converted endpoints. Scan immutable values, including beat-derived
-    offsets, instead of using a note's offset at its hit time.
+    Monotone pivot easing stays between its converted endpoints. Scan all
+    offsets, including those derived from beats, because the offset at a note's
+    hit time need not bound its earlier motion.
     """
     ref = +stage.first_pivot_change_ref
     result = Interval(0.0, 0.0)

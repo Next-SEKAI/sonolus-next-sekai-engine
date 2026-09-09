@@ -1,5 +1,5 @@
 # ruff: noqa: PT009
-"""Small regression cases for approximate chronological early spawning."""
+"""Check conservative spawn times across speed changes and skips."""
 
 import unittest
 from math import inf

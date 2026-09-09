@@ -1,5 +1,5 @@
 # ruff: noqa: PT009, PT027
-"""Execute production kernels in explicit arithmetic/storage modes."""
+"""Check compiled timescale calculations with controlled arithmetic and storage."""
 
 import unittest
 from decimal import Decimal, localcontext
@@ -104,7 +104,7 @@ class SpawnAccuracyProbe(PlayArchetype):
 
 
 def timeline_memory(records):
-    """Only imports: the probe performs compiled preprocessing too."""
+    """Load imported marker fields so the probe also tests preprocessing."""
     size = len(records) + 2
     memory = {
         int(PlayBlock.EntityDataArray): [0.0] * (size * 32),
