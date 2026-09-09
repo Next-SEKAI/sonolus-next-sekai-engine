@@ -92,11 +92,7 @@ from sekai.lib.timescale import (
     locate_target,
 )
 from sekai.lib.timescale_consumer import (
-    TrajectoryDiagnostics,
-    certify_note_native_progress,
-    note_draw_progress,
-    note_progress_value,
-    note_visual_progress,
+    note_progress,
     note_visual_spawn_time,
     prepare_note_trajectories,
     register_note_group_window,
@@ -139,10 +135,8 @@ class BaseNote(PlayArchetype):
     target_position: TargetPosition = entity_data()
     target_y_offset: float = entity_data()
 
-    native_progress_certified: bool = entity_memory()
     trajectory_first: TrajectoryCache = entity_memory()
     trajectory_second: TrajectoryCache = entity_memory()
-    trajectory_diagnostics: TrajectoryDiagnostics = entity_memory()
     attach_eased_frac: float = entity_data()
 
     input_interval: Interval = shared_memory()
@@ -248,7 +242,6 @@ class BaseNote(PlayArchetype):
                 get_attach_frac(attach_head.target_time, attach_tail.target_time, self.target_time),
             )
 
-        self.native_progress_certified = certify_note_native_progress(self)
         self.visual_start_time = note_visual_spawn_time(self, max(self.target_time, self.input_interval.end))
         start_time = min(self.visual_start_time, self.input_interval.start)
 
@@ -404,9 +397,7 @@ class BaseNote(PlayArchetype):
                 self.kind,
                 render_lane,
                 render_size,
-                note_draw_progress(
-                    self, self.trajectory_first, self.trajectory_second, time(), self.trajectory_diagnostics
-                ),
+                self.visual_progress,
                 self.direction,
                 self.target_time,
                 transform=self.visual_stage_transform().to_screen_transform(),
@@ -417,9 +408,7 @@ class BaseNote(PlayArchetype):
                 self.kind,
                 render_lane,
                 render_size,
-                note_draw_progress(
-                    self, self.trajectory_first, self.trajectory_second, time(), self.trajectory_diagnostics
-                ),
+                self.visual_progress,
                 self.direction,
                 self.target_time,
                 transform=IDENTITY_STAGE_SCREEN_TRANSFORM,
@@ -810,15 +799,11 @@ class BaseNote(PlayArchetype):
 
     @property
     def progress(self) -> float:
-        return note_progress_value(
-            self, self.trajectory_first, self.trajectory_second, time(), self.trajectory_diagnostics
-        ).to_float()
+        return note_progress(self, self.trajectory_first, self.trajectory_second, time())
 
     @property
     def visual_progress(self) -> float:
-        return note_visual_progress(
-            self, self.trajectory_first, self.trajectory_second, time(), self.trajectory_diagnostics
-        )
+        return self.progress - self.visual_y_offset
 
     def _basic_input_geometry(self, context: InputGeometryContext) -> InputGeometry:
         result = +InputGeometry

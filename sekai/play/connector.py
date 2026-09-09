@@ -43,13 +43,11 @@ from sekai.lib.stage import VisualMask, masked_note_extents_by_limits
 from sekai.lib.streams import Streams
 from sekai.lib.timescale import TrajectoryCache, group_hide_notes, register_group_window
 from sekai.lib.timescale_consumer import (
-    TrajectoryDiagnostics,
-    note_visual_progress_value,
+    note_visual_progress,
     prepare_note_trajectories,
     register_note_group_window,
     segment_visual_spawn_time,
 )
-from sekai.lib.timescale_math import AccurateScalar
 from sekai.play import input_manager, note
 
 START_LENIENCY_BEATS = 0.5
@@ -75,7 +73,6 @@ class Connector(PlayArchetype):
     head_trajectory_second: TrajectoryCache = entity_memory()
     tail_trajectory_first: TrajectoryCache = entity_memory()
     tail_trajectory_second: TrajectoryCache = entity_memory()
-    trajectory_diagnostics: TrajectoryDiagnostics = entity_memory()
     input_active_interval: Interval = entity_data()
 
     last_visual_state: ConnectorVisualState = entity_memory()
@@ -243,10 +240,9 @@ class Connector(PlayArchetype):
             head_mask = +VisualMask
             head_mask @= head.visual_mask
             tail_mask = tail.visual_mask
-            head_visual_progress = +AccurateScalar
             if time() >= head.target_time and not segment_head.segment_through_judge_line:
                 head_frac = safe_unlerp_clamped(head.target_time, tail.target_time, time())
-                head_visual_progress @= AccurateScalar.of(1.0 - lerp(head.visual_y_offset, tail.visual_y_offset, head_frac))
+                head_visual_progress = 1.0 - lerp(head.visual_y_offset, tail.visual_y_offset, head_frac)
                 head_target_time = time()
                 head_note_alpha = lerp(head.visual_note_alpha, tail.visual_note_alpha, head_frac)
                 if self.ease_type == EaseType.NONE:
@@ -275,8 +271,8 @@ class Connector(PlayArchetype):
             else:
                 head_lane = head.visual_lane
                 head_size = head.size
-                head_visual_progress @= note_visual_progress_value(
-                    head, self.head_trajectory_first, self.head_trajectory_second, time(), self.trajectory_diagnostics
+                head_visual_progress = note_visual_progress(
+                    head, self.head_trajectory_first, self.head_trajectory_second, time()
                 )
                 head_target_time = head.target_time
                 head_ease_frac = head.head_ease_frac
@@ -293,8 +289,8 @@ class Connector(PlayArchetype):
                 head_ease_frac=head_ease_frac,
                 tail_lane=tail.visual_lane,
                 tail_size=tail.size,
-                tail_visual_progress=note_visual_progress_value(
-                    tail, self.tail_trajectory_first, self.tail_trajectory_second, time(), self.trajectory_diagnostics
+                tail_visual_progress=note_visual_progress(
+                    tail, self.tail_trajectory_first, self.tail_trajectory_second, time()
                 ),
                 tail_target_time=tail.target_time,
                 tail_ease_frac=tail.tail_ease_frac,

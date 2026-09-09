@@ -8,8 +8,7 @@ from sekai.lib import archetype_names
 from sekai.lib.sim_line import draw_sim_line
 from sekai.lib.timescale import TrajectoryCache, group_hide_notes
 from sekai.lib.timescale_consumer import (
-    TrajectoryDiagnostics,
-    note_visual_progress_value,
+    note_visual_progress,
     prepare_note_trajectories,
     register_note_group_window,
     segment_visual_spawn_time,
@@ -27,7 +26,6 @@ class SimLine(PlayArchetype):
     left_trajectory_second: TrajectoryCache = entity_memory()
     right_trajectory_first: TrajectoryCache = entity_memory()
     right_trajectory_second: TrajectoryCache = entity_memory()
-    trajectory_diagnostics: TrajectoryDiagnostics = entity_memory()
 
     spawn_time: float = entity_data()
 
@@ -79,13 +77,13 @@ class SimLine(PlayArchetype):
             return
         draw_sim_line(
             left_lane=left_lane,
-            left_visual_progress=note_visual_progress_value(
-                self.left, self.left_trajectory_first, self.left_trajectory_second, time(), self.trajectory_diagnostics
+            left_visual_progress=note_visual_progress(
+                self.left, self.left_trajectory_first, self.left_trajectory_second, time()
             ),
             left_target_time=self.left.target_time,
             right_lane=right_lane,
-            right_visual_progress=note_visual_progress_value(
-                self.right, self.right_trajectory_first, self.right_trajectory_second, time(), self.trajectory_diagnostics
+            right_visual_progress=note_visual_progress(
+                self.right, self.right_trajectory_first, self.right_trajectory_second, time()
             ),
             right_target_time=self.right.target_time,
             left_transform=self.left.visual_stage_transform().to_screen_transform(),

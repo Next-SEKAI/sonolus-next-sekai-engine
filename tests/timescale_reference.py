@@ -2,9 +2,8 @@
 
 Inputs are converted seconds and integral skips, before any optional float32
 quantization. Float inputs preserve their exact binary value; strings preserve
-authored decimal values. This module imports no engine code and builds no tree,
-run index, accumulated clock or cached factor history. Queries compose only the
-original chronological links they cross, at a caller-selected Decimal precision.
+authored decimal values. Queries compose the original chronological links
+directly, independently of the engine implementation.
 """
 
 from bisect import bisect_right
@@ -67,10 +66,6 @@ def ease_pair(ease, u):
             return TWO * u * complement, Decimal("0.5") + TWO * (Decimal("0.5") - u) ** 2
         return Decimal("0.5") + TWO * (u - Decimal("0.5")) ** 2, TWO * u * complement
     raise ValueError(f"Invalid easing value: {ease}")
-
-
-def ease_value(ease, u):
-    return ease_pair(ease, u)[0]
 
 
 def speed_value(v0, v1, ease, u):
@@ -254,49 +249,6 @@ class RefTimeline:
                 return self.transfer(time, hit_time)[1]
             ratio, integral = self.transfer(hit_time, time)
             return -integral / ratio
-
-
-def reciprocal_markers(cycles=5000, *, high="7.8", step="0.05", quantize=False):
-    """Four links per cycle; net R=1 and B=step*(3+1/high)."""
-    high, step = decimal(high), decimal(step)
-    high = quantized32(high) if quantize else high
-    speeds = (ONE, high, ONE, high)
-    styles = (RefStyle.SCROLL, RefStyle.TIMESCALE, RefStyle.TIMESCALE, RefStyle.SCROLL)
-    result = [RefMarker(i * step, speeds[i % 4], RefEase.LINEAR, styles[i % 4]) for i in range(4 * cycles)]
-    result.append(RefMarker(4 * cycles * step, ONE))
-    return result
-
-
-def endpoint_log_markers(cycles=5000, *, step="0.05"):
-    """Non-dyadic ratios with exact a*c=b*d; defeats rounded endpoint logs."""
-    speeds = tuple(map(Decimal, ("1.125", "1.375", "4.8125", "3.9375")))
-    step = decimal(step)
-    result = [
-        RefMarker(i * step, speeds[i % 4], RefEase.LINEAR, RefStyle.SCROLL if i % 2 == 0 else RefStyle.TIMESCALE)
-        for i in range(4 * cycles)
-    ]
-    result.append(RefMarker(4 * cycles * step, speeds[0]))
-    return result
-
-
-def huge_exponent_markers(cycles=10000, *, shrinking=False, step="0.05"):
-    """Two links/cycle with net R=2 or 1/2; 10k cycles exceed raw float range."""
-    step = decimal(step)
-    first_style = RefStyle.SCROLL if shrinking else RefStyle.TIMESCALE
-    second_style = RefStyle.TIMESCALE if shrinking else RefStyle.SCROLL
-    result = [
-        RefMarker(i * step, ONE if i % 2 == 0 else TWO, RefEase.LINEAR, first_style if i % 2 == 0 else second_style)
-        for i in range(2 * cycles)
-    ]
-    result.append(RefMarker(2 * cycles * step, ONE))
-    return result
-
-
-def non_dyadic_markers(transitions=20000, *, step="0.05"):
-    """Deterministic practical positive corpus covering all six easings/styles."""
-    speeds = tuple(map(Decimal, ("0.05", "0.07", "0.3", "1.125", "7.8", "8", "0.2", "3.9375")))
-    step = decimal(step)
-    return [RefMarker(i * step, speeds[i % len(speeds)], i % 6, i % 2) for i in range(transitions + 1)]
 
 
 def visibility_island_markers():

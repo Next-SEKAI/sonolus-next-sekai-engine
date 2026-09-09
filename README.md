@@ -17,6 +17,9 @@ Requires Python 3.14 or newer.
 4. [Ensure your venv is activated](https://docs.astral.sh/uv/pip/environments/#using-a-virtual-environment).
 5. Run `sonolus-py dev`.
 
+See [Timescale and scroll transitions](docs/timescale.md) for the Python authoring
+fields, implementation notes, and the transition demo level.
+
 ## Custom Resources
 
 ### Skin Sprites

@@ -46,19 +46,37 @@ class TimescaleNotePreprocessTests(unittest.TestCase):
 
     def test_connector_window_covers_endpoint_and_distinct_segment_hide_groups(self):
         for module, cls in (
-            (play_connector, play_connector.Connector), (watch_connector, watch_connector.WatchConnector)
+            (play_connector, play_connector.Connector),
+            (watch_connector, watch_connector.WatchConnector),
         ):
             with self.subTest(mode=module.__name__), ExitStack() as stack:
-                head = SimpleNamespace(start_time=-2, target_time=1, connector_ease=EaseType.NONE,
-                                       timescale_group=1, is_attached=False, extend_stage_windows=Mock())
-                tail = SimpleNamespace(start_time=-1, target_time=3,
-                                       timescale_group=2, is_attached=False, extend_stage_windows=Mock())
-                segment = SimpleNamespace(start_time=-1, timescale_group=3,
-                                          segment_kind=ConnectorKind.GUIDE_NEUTRAL, segment_through_judge_line=False)
+                head = SimpleNamespace(
+                    start_time=-2,
+                    target_time=1,
+                    connector_ease=EaseType.NONE,
+                    timescale_group=1,
+                    is_attached=False,
+                    extend_stage_windows=Mock(),
+                )
+                tail = SimpleNamespace(
+                    start_time=-1, target_time=3, timescale_group=2, is_attached=False, extend_stage_windows=Mock()
+                )
+                segment = SimpleNamespace(
+                    start_time=-1,
+                    timescale_group=3,
+                    segment_kind=ConnectorKind.GUIDE_NEUTRAL,
+                    segment_through_judge_line=False,
+                )
                 source = SimpleNamespace(
-                    head=head, tail=tail, segment_head=segment, segment_tail=segment,
-                    active_head_ref=SimpleNamespace(index=0), active_tail_ref=SimpleNamespace(index=0),
-                    head_ref=SimpleNamespace(index=1), visual_active_interval=Interval(0, 0), schedule_sfx=Mock(),
+                    head=head,
+                    tail=tail,
+                    segment_head=segment,
+                    segment_tail=segment,
+                    active_head_ref=SimpleNamespace(index=0),
+                    active_tail_ref=SimpleNamespace(index=0),
+                    head_ref=SimpleNamespace(index=1),
+                    visual_active_interval=Interval(0, 0),
+                    schedule_sfx=Mock(),
                 )
                 stack.enter_context(patch.object(module, "Options", SimpleNamespace(auto_sfx=False)))
                 stack.enter_context(patch.object(module, "segment_visual_spawn_time", return_value=-3))
@@ -74,8 +92,12 @@ class TimescaleNotePreprocessTests(unittest.TestCase):
         for module, note_class in ((play_note, play_note.BaseNote), (watch_note, watch_note.WatchBaseNote)):
             with self.subTest(mode=module.__name__), ExitStack() as stack:
                 source = SimpleNamespace(
-                    data_init_done=False, key=0, effect_kind=0, beat=1,
-                    timescale_group=1, result=SimpleNamespace(),
+                    data_init_done=False,
+                    key=0,
+                    effect_kind=0,
+                    beat=1,
+                    timescale_group=1,
+                    result=SimpleNamespace(),
                 )
                 source.init_data = lambda note_class=note_class, source=source: note_class.init_data(cast(Any, source))
                 stack.enter_context(patch.object(module, "DISABLE_NOTES", False))
@@ -84,13 +106,19 @@ class TimescaleNotePreprocessTests(unittest.TestCase):
                 stack.enter_context(patch.object(module, "get_note_effect_kind", return_value=0))
                 stack.enter_context(patch.object(module, "beat_to_time", return_value=1.0))
                 if module is play_note:
-                    stack.enter_context(patch.object(module, "get_note_window", return_value=SimpleNamespace(bad=Interval(-.1, .1))))
+                    stack.enter_context(
+                        patch.object(module, "get_note_window", return_value=SimpleNamespace(bad=Interval(-0.1, 0.1)))
+                    )
                     stack.enter_context(patch.object(module, "input_offset", return_value=0.0))
                 stack.enter_context(patch.object(timescale, "Options", SimpleNamespace(disable_timescale=False)))
                 stack.enter_context(patch.object(timescale.runtime, "is_preprocessing", return_value=True))
-                stack.enter_context(patch.object(timescale, "timescale_group_archetype", return_value=SimpleNamespace(
-                    at=lambda index: SimpleNamespace(valid=False)
-                )))
+                stack.enter_context(
+                    patch.object(
+                        timescale,
+                        "timescale_group_archetype",
+                        return_value=SimpleNamespace(at=lambda index: SimpleNamespace(valid=False)),
+                    )
+                )
 
                 with self.assertRaisesRegex(RuntimeError, "Invalid timescale group"):
                     note_class.preprocess(cast(Any, source))
@@ -134,8 +162,6 @@ class TimescaleNotePreprocessTests(unittest.TestCase):
                     despawn_time=lambda: 2.2,
                     extend_stage_windows=Mock(),
                 )
-
-                stack.enter_context(patch.object(module, "certify_note_native_progress", return_value=False))
 
                 def spawn(note, latest):
                     self.assertEqual(note.lane, 2.0)

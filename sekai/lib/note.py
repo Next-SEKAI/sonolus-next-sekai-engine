@@ -88,7 +88,6 @@ from sekai.lib.slot_effect import (
     draw_slot_glow_effect,
 )
 from sekai.lib.timescale import group_force_note_speed
-from sekai.lib.timescale_math import AccurateScalar
 from sekai.lib.timescale_visibility import VisibilitySource, get_sources_visual_spawn_time, group_index
 
 
@@ -335,18 +334,12 @@ def draw_note(
     kind: NoteKind,
     lane: float,
     size: float,
-    visual_progress: AccurateScalar | float,
+    visual_progress: float,
     direction: FlickDirection,
     target_time: float,
     transform: StageScreenTransform,
     note_alpha: float,
 ):
-    if isinstance(visual_progress, AccurateScalar):
-        if visual_progress.definitely_less(AccurateScalar.of(DynamicLayout.progress_start)):
-            return
-        if visual_progress.definitely_greater(AccurateScalar.of(DynamicLayout.progress_cutoff)):
-            return
-        visual_progress = visual_progress.to_float()
     if not DynamicLayout.progress_start <= visual_progress <= DynamicLayout.progress_cutoff:
         return
     if note_alpha <= 0:

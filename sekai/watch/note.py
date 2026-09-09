@@ -83,11 +83,7 @@ from sekai.lib.timescale import (
     locate_target,
 )
 from sekai.lib.timescale_consumer import (
-    TrajectoryDiagnostics,
-    certify_note_native_progress,
-    note_draw_progress,
-    note_progress_value,
-    note_visual_progress,
+    note_progress,
     note_visual_spawn_time,
     prepare_note_trajectories,
     register_note_group_window,
@@ -123,13 +119,12 @@ class WatchBaseNote(WatchArchetype):
     target_time: float = entity_data()
     visual_start_time: float = entity_data()
     start_time: float = entity_data()
-    target_position: TargetPosition = entity_data()
+    # Replay imports fill entity data; these coordinates are immutable after preprocessing.
+    target_position: TargetPosition = shared_memory()
     target_y_offset: float = entity_data()
 
-    native_progress_certified: bool = entity_memory()
     trajectory_first: TrajectoryCache = entity_memory()
     trajectory_second: TrajectoryCache = entity_memory()
-    trajectory_diagnostics: TrajectoryDiagnostics = entity_memory()
 
     active_connector_info: ActiveConnectorInfo = shared_memory()
 
@@ -208,7 +203,6 @@ class WatchBaseNote(WatchArchetype):
                 get_attach_frac(attach_head.target_time, attach_tail.target_time, self.target_time),
             )
 
-        self.native_progress_certified = certify_note_native_progress(self)
         self.visual_start_time = note_visual_spawn_time(self, max(self.target_time, self.despawn_time()))
         start_time = self.visual_start_time
 
@@ -341,9 +335,7 @@ class WatchBaseNote(WatchArchetype):
                 self.kind,
                 render_lane,
                 render_size,
-                note_draw_progress(
-                    self, self.trajectory_first, self.trajectory_second, time(), self.trajectory_diagnostics
-                ),
+                self.visual_progress,
                 self.direction,
                 self.target_time,
                 transform=self.visual_stage_transform().to_screen_transform(),
@@ -354,9 +346,7 @@ class WatchBaseNote(WatchArchetype):
                 self.kind,
                 render_lane,
                 render_size,
-                note_draw_progress(
-                    self, self.trajectory_first, self.trajectory_second, time(), self.trajectory_diagnostics
-                ),
+                self.visual_progress,
                 self.direction,
                 self.target_time,
                 transform=IDENTITY_STAGE_SCREEN_TRANSFORM,
@@ -696,15 +686,11 @@ class WatchBaseNote(WatchArchetype):
 
     @property
     def progress(self) -> float:
-        return note_progress_value(
-            self, self.trajectory_first, self.trajectory_second, time(), self.trajectory_diagnostics
-        ).to_float()
+        return note_progress(self, self.trajectory_first, self.trajectory_second, time())
 
     @property
     def visual_progress(self) -> float:
-        return note_visual_progress(
-            self, self.trajectory_first, self.trajectory_second, time(), self.trajectory_diagnostics
-        )
+        return self.progress - self.visual_y_offset
 
     @property
     def head_ease_frac(self) -> float:
