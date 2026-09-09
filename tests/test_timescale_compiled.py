@@ -409,6 +409,65 @@ class CompiledTimescaleTests(unittest.TestCase):
                         # At the shortest practical 0.1-second preempt, 1e-5 seconds is 1e-4 progress.
                         self.assertAlmostEqual(result["distance"][0], expected, delta=1e-5)
 
+    def test_redundant_markers_preserve_compiled_trajectory(self):
+        records = [
+            RefMarker(0, 4, ease=4),
+            RefMarker(2, -0.5, skip=0.25, ease=3, style=1),
+            RefMarker(4, 2, skip=-0.25, ease=5, style=1),
+            RefMarker(6, 1),
+        ]
+        # A coincident copy with no skip preserves the curve and boundary jump.
+        redundant = [
+            marker
+            for record in records
+            for marker in (record, RefMarker(record.time, record.speed, ease=record.ease, style=record.style))
+        ]
+        for precision, storage in PRECISIONS:
+            # The second frame seeks across run boundaries in either direction,
+            # or lands exactly at a boundary carrying a nonzero skip.
+            for now, step, hit in [(0.5, 5, 3), (6.5, -6, 5), (1, 1, 2.0009765625)]:
+                with self.subTest(precision=precision, storage=storage, now=now, step=step, hit=hit):
+                    distances = []
+                    for timeline in (records, redundant):
+                        result, _ = self.timeline.run(
+                            precision=precision,
+                            entity_storage_precision=storage,
+                            memory=timeline_memory(timeline),
+                            group_ref=1,
+                            now=now,
+                            hit=hit,
+                            step=step,
+                            count=2,
+                        )
+                        distances.append(result["distance"][0])
+                    self.assertEqual(*distances)
+
+    def test_uniform_signed_speed_preserves_distance_across_styles(self):
+        # With one nonzero speed throughout, scroll and timescale transfers
+        # have the same distance, including signed skips and reverse seeks.
+        for speed in (-4, 10000):
+            records = [RefMarker(i * 2, speed, skip=0.25 if i % 2 else -0.25) for i in range(5)]
+            mixed = [
+                RefMarker(record.time, record.speed, skip=record.skip, style=i % 2) for i, record in enumerate(records)
+            ]
+            for precision, storage in PRECISIONS:
+                for now, step, hit in [(0.5, 6, 3), (8.5, -8, 7)]:
+                    with self.subTest(speed=speed, precision=precision, storage=storage, now=now):
+                        distances = []
+                        for timeline in (records, mixed):
+                            result, _ = self.timeline.run(
+                                precision=precision,
+                                entity_storage_precision=storage,
+                                memory=timeline_memory(timeline),
+                                group_ref=1,
+                                now=now,
+                                hit=hit,
+                                step=step,
+                                count=2,
+                            )
+                            distances.append(result["distance"][0])
+                        self.assertAlmostEqual(*distances, delta=max(1e-6, abs(distances[0]) * 2e-7))
+
     def test_late_near_hit_and_frame_work(self):
         for easing in range(6):
             records = [RefMarker(0, 0.05, ease=easing), RefMarker(1800, 8)]

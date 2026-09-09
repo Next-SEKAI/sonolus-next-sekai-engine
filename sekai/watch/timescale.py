@@ -32,6 +32,7 @@ class WatchTimescaleChange(WatchArchetype):
     converted_skip: float = entity_data()
     position: TimePosition = entity_data()
     scroll_skip: TimePosition = entity_data()
+    scroll_skip_base: float = entity_data()
     ordinal: int = entity_data()
     prev_ref: int = entity_data()
     run_first: int = entity_data()

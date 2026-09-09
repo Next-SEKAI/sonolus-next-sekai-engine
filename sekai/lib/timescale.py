@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator
 from enum import IntEnum
-from math import inf
+from math import inf, trunc
 from typing import Protocol, Self, cast
 
 from sonolus.script import runtime
@@ -26,6 +26,8 @@ from sekai.lib.timescale_math import TimePosition, integrate_times, speed_at
 
 MIN_START_TIME = -2.0
 DISTANCE_LIMIT = 1e20
+# Multiples of 64 stay exact in binary32 up to magnitude 2**30.
+SCROLL_SKIP_BLOCK = 64
 
 
 class TransitionStyle(IntEnum):
@@ -95,6 +97,7 @@ class TimescaleChangeLike(Protocol):
     converted_skip: float
     position: TimePosition
     scroll_skip: TimePosition
+    scroll_skip_base: float
     ordinal: int
     prev_ref: int
     run_first: int
@@ -298,9 +301,18 @@ def initialize_timescale_group(group: TimescaleGroupLike) -> None:
         # Normalize each local skip by its destination speed. Within a scroll
         # run, multiplying this prefix difference by current speed restores it.
         marker.scroll_skip = TimePosition.of(0)
+        marker.scroll_skip_base = 0
         if marker.prev_ref > 0:
             marker.scroll_skip = _marker(marker.prev_ref).scroll_skip
-        marker.scroll_skip = marker.scroll_skip.add(marker.converted_skip / _scroll_speed(marker.timescale))
+            marker.scroll_skip_base = _marker(marker.prev_ref).scroll_skip_base
+        # Stops amplify normalized skips; keep their large integer history
+        # separate from unit fractions needed by later high-speed skips.
+        skip = marker.converted_skip / _scroll_speed(marker.timescale)
+        whole = trunc(skip / SCROLL_SKIP_BLOCK) * SCROLL_SKIP_BLOCK
+        prefix = marker.scroll_skip.add(skip - whole)
+        carry = trunc(prefix.whole / SCROLL_SKIP_BLOCK) * SCROLL_SKIP_BLOCK
+        marker.scroll_skip_base += whole + carry
+        marker.scroll_skip = TimePosition(prefix.whole - carry, prefix.fraction)
         if marker.prev_ref == 0:
             marker.position = TimePosition.of(marker.event_start).add(marker.converted_skip)
         else:
@@ -364,11 +376,16 @@ def _scroll_speed(value: float) -> float:
 
 def _scroll_width(ref: int, now: float, end_ref: int, end: float) -> float:
     left, right = TimePosition.of(0), TimePosition.of(0)
+    left_base, right_base = 0.0, 0.0
     if ref > 0:
         left @= _marker(ref).scroll_skip
+        left_base = _marker(ref).scroll_skip_base
     if end_ref > 0:
         right @= _marker(end_ref).scroll_skip
-    return end - now + right.difference(left)
+        right_base = _marker(end_ref).scroll_skip_base
+    # Cancel all integer components before adding the small fractional distance.
+    difference = ((right_base - left_base) + (right.whole - left.whole)) + (right.fraction - left.fraction)
+    return end - now + difference
 
 
 def _timescale_distance(ref: int, now: float, target: TargetPosition, hit: float) -> float:

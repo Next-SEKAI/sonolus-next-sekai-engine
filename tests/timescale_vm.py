@@ -7,6 +7,10 @@ arithmetic and temporary values use binary64.
 
 These tests model rounding behavior; they do not measure client precision or
 performance.
+
+Preallocate arrays when a probe relies on zero-initialized storage. The
+interpreter fills new storage gaps with sentinels and limits indices to 65535.
+This adapter does not model memory aliases or callback scheduling.
 """
 
 import math
