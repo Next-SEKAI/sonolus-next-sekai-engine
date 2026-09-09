@@ -25,11 +25,12 @@ class WatchInitialization(WatchArchetype):
     initial_life: int = imported(name="initialLife", default=1000)
     first_camera_ref: EntityRef[WatchCameraChange] = imported(name="firstCamera")
 
-    @callback(order=-1)
+    @callback(order=-3)
     def preprocess(self):
         if is_replay():
             self.revision = self.replay_revision
         init_level_config(self.revision)
+        init_event_list(self.first_camera_ref)
         init_layout()
         init_ui()
         init_skin()
@@ -38,7 +39,6 @@ class WatchInitialization(WatchArchetype):
         init_score(WATCH_NOTE_ARCHETYPES)
         init_life(WATCH_NOTE_ARCHETYPES, self.initial_life)
 
-        init_event_list(self.first_camera_ref)
         WatchStaticStage.spawn()
 
         schedule_empty_input_effects()

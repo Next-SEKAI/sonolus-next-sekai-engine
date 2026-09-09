@@ -18,6 +18,7 @@ from sekai.lib.layout import FlickDirection, StageTransformAnchor, ZoomVerticalA
 from sekai.lib.level_config import EngineRevision
 from sekai.lib.note import NoteKind
 from sekai.lib.stage import DivisionParity, JudgeLineColor, JudgeLineStyle, StageBorderStyle
+from sekai.lib.timescale import TransitionStyle
 from sekai.play.bpm_change import BpmChange
 from sekai.play.connector import Connector
 from sekai.play.dynamic_stage import (
@@ -97,8 +98,9 @@ class LevelTimescaleChange:
     beat: float
     timescale: float
     timescale_skip: float = 0.0
-    timescale_ease: TimescaleEase = TimescaleEase.NONE
+    timescale_ease: EaseType | TimescaleEase = EaseType.NONE
     hide_notes: bool = False
+    transition_style: TransitionStyle = TransitionStyle.TIMESCALE
 
 
 @dataclass
@@ -515,6 +517,17 @@ def _build_timescale_group(
 ) -> tuple[TimescaleGroup, list[PlayArchetype]]:
     if not level_group.changes:
         raise ValueError("LevelTimescaleGroup must have at least one change")
+    if not math.isfinite(level_group.force_note_speed):
+        raise ValueError("Timescale group force_note_speed must be finite")
+    for index, change in enumerate(level_group.changes):
+        for name in ("beat", "timescale", "timescale_skip"):
+            if not math.isfinite(getattr(change, name)):
+                raise ValueError(f"Timescale change {index}: {name} must be finite")
+        try:
+            EaseType(change.timescale_ease)
+            TransitionStyle(change.transition_style)
+        except (ValueError, TypeError) as exc:
+            raise ValueError(f"Timescale change {index}: unknown easing or transition style") from exc
     group = TimescaleGroup(force_note_speed=level_group.force_note_speed)
     change_entities: list[TimescaleChange] = []
     for level_change in sorted(level_group.changes, key=lambda c: c.beat):
@@ -523,8 +536,9 @@ def _build_timescale_group(
             timescale=level_change.timescale,
             timescale_skip=level_change.timescale_skip,
             timescale_group=group.ref(),
-            timescale_ease=level_change.timescale_ease,
+            timescale_ease=EaseType(level_change.timescale_ease),
             hide_notes=level_change.hide_notes,
+            transition_style=level_change.transition_style,
         )
         if change_entities:
             change_entities[-1].next_ref = change.ref()

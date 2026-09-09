@@ -161,9 +161,16 @@ A timescale change event.
 * **#TIMESCALE (float)**
 * **#TIMESCALE_SKIP (float)**
 * **#TIMESCALE_GROUP (ref[#TIMESCALE_GROUP])**
-* **#TIMESCALE_EASE (TimescaleEaseType)**:
+* **#TIMESCALE_EASE (EaseType)**: Easing for the transition to the next change.
   * NONE = 0
   * LINEAR = 1
+  * IN_QUAD = 2
+  * OUT_QUAD = 3
+  * IN_OUT_QUAD = 4
+  * OUT_IN_QUAD = 5
+* **transitionStyle (TransitionStyle)**: Style of the transition to the next change. Defaults to TIMESCALE.
+  * TIMESCALE = 0
+  * SCROLL = 1
 * **next (ref[#TIMESCALE_CHANGE])**: [Temporary] a reference to the next change
 * **hideNotes**: Whether to hide notes while this change is active.
 

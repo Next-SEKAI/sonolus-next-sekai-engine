@@ -2,13 +2,11 @@ from __future__ import annotations
 
 from enum import IntEnum
 from math import atan, ceil, cos, floor, log, pi, sin
-from typing import Protocol, assert_never, cast
+from typing import Protocol, Self, assert_never, cast
 
 from sonolus.script.archetype import EntityRef, get_archetype_by_name
-from sonolus.script.debug import static_error
 from sonolus.script.globals import level_data, level_memory
-from sonolus.script.interval import clamp, lerp, remap, unlerp
-from sonolus.script.num import Num
+from sonolus.script.interval import Interval, clamp, lerp, remap, unlerp
 from sonolus.script.quad import Quad, QuadLike, Rect
 from sonolus.script.record import Record
 from sonolus.script.runtime import aspect_ratio, background, is_play, is_watch, screen, set_background, time
@@ -20,7 +18,6 @@ from sekai.lib.baseevent import get_event_as, query_event_list
 from sekai.lib.ease import EaseType, ease
 from sekai.lib.level_config import LevelConfig
 from sekai.lib.options import Options, StageCoverNoteSpeedCompensation
-from sekai.lib.timescale import CompositeTime
 
 LANE_T = 47 / 850
 LANE_B = 1176 / 850
@@ -80,8 +77,11 @@ class Layout:
     field_w: float
     field_h: float
     approach_start: float
+    default_preempt: float
     cover_depth: float
     cutoff_depth: float
+    spawn_progress_start: float
+    spawn_progress_cutoff: float
     flick_speed_threshold: float
     initial_background: Quad
 
@@ -364,6 +364,9 @@ def init_layout():
         candidate = inverse_approach_untilted(target_travel)
         Layout.approach_start = clamp(candidate, 0, 0.99)
 
+    # Preempt time is fixed for the level; compute it once.
+    Layout.default_preempt = preempt_time()
+
     bg = background()
     if is_play() or is_watch():
         background_zoom = background_camera_zoom(bg)
@@ -372,6 +375,10 @@ def init_layout():
     Layout.initial_background = bg.scale_centered(Vec2(background_zoom, background_zoom))
 
     refresh_layout()
+
+    visibility = _compute_conservative_progress_bounds()
+    Layout.spawn_progress_start = visibility.start
+    Layout.spawn_progress_cutoff = visibility.end
 
     Layout.flick_speed_threshold = 2 * DynamicLayout.w_scale
 
@@ -391,7 +398,7 @@ class CameraChangeLike(Protocol):
     prev_ref: EntityRef
 
     @classmethod
-    def at(cls, index: int) -> CameraChangeLike: ...
+    def at(cls, index: int) -> Self: ...
 
     @property
     def index(self) -> int: ...
@@ -401,7 +408,7 @@ class InitializationLike(Protocol):
     first_camera_ref: EntityRef
 
     @classmethod
-    def at(cls, index: int) -> InitializationLike: ...
+    def at(cls, index: int) -> Self: ...
 
 
 def _camera_change_archetype() -> type[CameraChangeLike]:
@@ -730,7 +737,10 @@ def inverse_approach_untilted(approach_value: float) -> float:
 
 
 def inverse_approach_tilt(approach_value: float) -> float:
-    tilt = current_stage_tilt()
+    return inverse_approach_at_tilt(approach_value, current_stage_tilt())
+
+
+def inverse_approach_at_tilt(approach_value: float, tilt: float) -> float:
     if tilt >= 1.0:
         return inverse_approach_untilted(approach_value)
     spawn_depth = approach_curve_base(Layout.approach_start)
@@ -746,19 +756,55 @@ def inverse_approach_tilt(approach_value: float) -> float:
     return inverse_approach_slice(approach_value, tilt, spawn_depth)
 
 
+def _compute_conservative_progress_bounds() -> Interval:
+    """Bound spawn progress for tilt, stage cover, and drawing cutoffs.
+
+    Stage y offsets are handled separately by the spawn search.
+    """
+    fixed_tilt = 1.0
+    changing_tilt = False
+    if is_play() or is_watch():
+        ref = +_initialization_archetype().at(0).first_camera_ref
+        if ref.index > 0:
+            fixed_tilt = get_event_as(ref, _camera_change_archetype()).stage_tilt
+        while ref.index > 0:
+            camera = get_event_as(ref, _camera_change_archetype())
+            if camera.stage_tilt != fixed_tilt:
+                changing_tilt = True
+            ref.index = camera.next_ref.index
+    if changing_tilt:
+        spawn_depth = approach_curve_base(Layout.approach_start)
+        if stage_cover_amount():
+            # The cover hides notes before the approach starts.
+            lower = 0.0
+        else:
+            # Use the smallest allowed vanishing-point tilt to include earlier visibility.
+            vanish_ext = (1 - STAGE_TILT_VANISH_MIN) * STAGE_WIDTH_MID / STAGE_TILT_VANISH_MIN
+            lower = inverse_approach_slice(APPROACH_SCALE - vanish_ext, STAGE_TILT_VANISH_MIN, APPROACH_SCALE)
+        # The untilted bound covers the end cutoff for all tilt values.
+        upper = max(1.0, (Layout.cutoff_depth - spawn_depth) / (1 - spawn_depth))
+    else:
+        vanish_tilt = max(fixed_tilt, STAGE_TILT_VANISH_MIN)
+        vanish_ext = (1 - vanish_tilt) * STAGE_WIDTH_MID / vanish_tilt
+        start_depth = Layout.cover_depth if stage_cover_amount() else Layout.cover_depth - vanish_ext
+        lower = inverse_approach_at_tilt(start_depth, fixed_tilt)
+        upper = inverse_approach_at_tilt(Layout.cutoff_depth, fixed_tilt)
+    # Spawn early enough for note geometry, arrows, and attachments.
+    lower = min(lower, -3.0)
+    upper = max(upper, 6.0)
+    return Interval(lower - 1e-3 * (1 + abs(lower)), upper + 1e-3 * (1 + abs(upper)))
+
+
+def conservative_progress_bounds() -> Interval:
+    return Interval(Layout.spawn_progress_start, Layout.spawn_progress_cutoff)
+
+
 def progress_to(
-    to_time: float | CompositeTime,
-    now: float | CompositeTime,
+    to_time: float,
+    now: float,
     force_speed: float = 0,
 ) -> float:
-    p = preempt_time(force_speed)
-    match (to_time, now):
-        case (CompositeTime(), CompositeTime()):
-            return ((now.base - to_time.base) + now.delta - to_time.delta + p) / p
-        case (Num(), Num()):
-            return unlerp(to_time - p, to_time, now)
-        case _:
-            static_error("Unexpected types for progress_to")
+    return distance_to_progress(to_time - now, force_speed)
 
 
 def preempt_time(force_speed: float = 0) -> float:
@@ -768,6 +814,10 @@ def preempt_time(force_speed: float = 0) -> float:
     if Options.stage_cover_scroll_speed_compensation == StageCoverNoteSpeedCompensation.FIXED_ONLY:
         return raw * (1 - Layout.approach_start)
     return raw
+
+
+def distance_to_progress(distance: float, force_speed: float = 0) -> float:
+    return 1.0 - distance / preempt_time(force_speed)
 
 
 def get_alpha(target_time: float, now: float | None = None) -> float:

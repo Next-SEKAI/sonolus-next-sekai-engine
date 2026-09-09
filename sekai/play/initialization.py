@@ -25,9 +25,10 @@ class Initialization(PlayArchetype):
 
     replay_revision: EngineRevision = exported(name="replayRevision")
 
-    @callback(order=-1)
+    @callback(order=-3)
     def preprocess(self):
         init_level_config(self.revision)
+        init_event_list(self.first_camera_ref)
         init_layout()
         init_skin()
         init_particles()
@@ -36,7 +37,6 @@ class Initialization(PlayArchetype):
         init_score(NOTE_ARCHETYPES)
         init_life(NOTE_ARCHETYPES, self.initial_life)
         init_play_common()
-        init_event_list(self.first_camera_ref)
 
     def initialize(self):
         StaticStage.spawn()
