@@ -9,10 +9,11 @@ from sekai.lib.ease import EaseType
 
 
 class TimePosition(Record):
-    """A multiple of 64 scaled seconds and a signed remainder in (-64, 64).
+    """Whole scaled seconds and a signed remainder in (-1, 1).
 
-    The coarse part stays exact in binary32 even through long 10000x sections.
+    The whole part stays exact in binary32 across practical chart distances.
     Subtract split prefixes before combining them to retain local differences.
+    Narrower persistent storage can round the remainder to either endpoint.
     """
 
     whole: float
@@ -20,14 +21,14 @@ class TimePosition(Record):
 
     @staticmethod
     def of(value: float) -> TimePosition:
-        whole = trunc(value / 64) * 64
+        whole = trunc(value)
         return TimePosition(whole, value - whole)
 
     def add(self, value: float) -> Self:
-        # Keep small negative remainders near zero instead of rounding near 64.
-        whole = trunc(value / 64) * 64
+        # Keep small negative remainders near zero instead of rounding near one.
+        whole = trunc(value)
         remainder = self.fraction + (value - whole)
-        carry = trunc(remainder / 64) * 64
+        carry = trunc(remainder)
         return type(self)(self.whole + whole + carry, remainder - carry)
 
     def difference(self, other: Self) -> float:

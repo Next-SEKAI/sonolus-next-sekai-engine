@@ -35,7 +35,7 @@ class WatchSimLine(WatchArchetype):
         self.start_time = inf
         if DISABLE_NOTES:
             return
-        if inf in (self.left.start_time, self.right.start_time):
+        if not self.left.preprocess_done or not self.right.preprocess_done:
             return
         start_time = min(
             self.left.start_time,

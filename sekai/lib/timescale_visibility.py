@@ -60,11 +60,17 @@ def _distance_bounds(
             end, easing = event.event_end, event.timescale_ease
     va = speed_at(v0, v1, easing, start, end, a)
     vb = speed_at(v0, v1, easing, start, end, b)
+    # Keep the scale before signed integration or scroll-width cancellation.
+    # The final distance can be almost zero while its operands are millions.
+    peak_speed = abs(v0) if easing == EaseType.NONE else max(abs(v0), abs(v1))
+    magnitude = max(abs(distance), peak_speed * max(end - start, abs(anchor - start), abs(b - anchor)))
     if scroll:
         # Bound the product of speed and a decreasing linear factor, including
         # negative speeds and the tiny discontinuity around a scroll stop.
         va, vb = _scroll_speed(va), _scroll_speed(vb)
-        q = distance / _scroll_speed(speed_at(v0, v1, easing, start, end, anchor)) - (a - anchor)
+        width = distance / _scroll_speed(speed_at(v0, v1, easing, start, end, anchor))
+        magnitude = max(magnitude, (abs(width) + abs(b - anchor)) * max(peak_speed, 1e-4))
+        q = width - (a - anchor)
         r = q - (b - a)
         lower = min(va * q, va * r, vb * q, vb * r)
         upper = max(va * q, va * r, vb * q, vb * r)
@@ -75,7 +81,7 @@ def _distance_bounds(
     if not -inf < lower <= upper < inf:
         return result
     # Cancellation across long signed events can exceed local relative rounding.
-    slack = 0.01 + source.preempt * 1e-4 + max(abs(lower), abs(upper)) * 1e-6
+    slack = 0.01 + source.preempt * 1e-4 + max(magnitude, abs(lower), abs(upper)) * 1e-6
     # A capped query still supplies one side of the distance bound.
     result @= Interval(
         -inf if distance <= -DISTANCE_LIMIT else lower - slack, inf if distance >= DISTANCE_LIMIT else upper + slack

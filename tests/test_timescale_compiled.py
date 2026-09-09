@@ -226,11 +226,32 @@ class CompiledTimescaleTests(unittest.TestCase):
                         mode=mode,
                     )
                     whole, fraction = result["position"]
-                    self.assertEqual(whole % 64, 0)
-                    self.assertLess(abs(fraction), 64)
+                    self.assertEqual(whole % 1, 0)
+                    # Binary32 persistence can round a binary64 remainder to an endpoint.
+                    self.assertLessEqual(abs(fraction), 1)
                     self.assertAlmostEqual(result["local_difference"][0], binary32(0.001), delta=4e-6)
                     if mode:
                         self.assertAlmostEqual(result["history_difference"][0], 0, delta=2e-7)
+
+    def test_split_remainder_storage_near_signed_unit_boundaries(self):
+        for precision, storage in PRECISIONS:
+            for sign in (-1, 1):
+                initial, increment = sign * binary32(1 - 2**-24), sign * binary32(4e-8)
+                with self.subTest(precision=precision, storage=storage, sign=sign):
+                    result, _ = self.position.run(
+                        precision=precision,
+                        entity_storage_precision=storage,
+                        initial=initial,
+                        increment=increment,
+                        delta=binary32(0.001),
+                        count=1,
+                        mode=0,
+                    )
+                    whole, fraction = result["position"]
+                    self.assertLessEqual(abs(fraction), 1)
+                    self.assertAlmostEqual(whole + fraction, initial + increment, delta=6e-8)
+                    self.assertAlmostEqual(result["history_difference"][0], increment, delta=6e-8)
+                    self.assertAlmostEqual(result["local_difference"][0], binary32(0.001), delta=6e-8)
 
     def test_all_native_eases_against_decimal(self):
         with localcontext() as context:
@@ -355,7 +376,13 @@ class CompiledTimescaleTests(unittest.TestCase):
         ]
         cases.extend(
             (
-                [RefMarker(0, 10000), RefMarker(1700, 1), RefMarker(1798, 1, style=style), RefMarker(1798.5, 1)]
+                [
+                    RefMarker(0, 1),
+                    RefMarker(1200, 10000),
+                    RefMarker(1500, 1),
+                    RefMarker(1798, 1, style=style),
+                    RefMarker(1798.5, 1),
+                ]
                 + [RefMarker(1799 + i / 4, 1) for i in range(5)],
                 [(1798.875, 1799.125), (1799.875, 1800.125), (1799.999, 1800.001)],
             )

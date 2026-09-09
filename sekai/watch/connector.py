@@ -74,13 +74,14 @@ class WatchConnector(WatchArchetype):
             return
         head = self.head
         tail = self.tail
-        if inf in (head.start_time, tail.start_time):
+        # Valid invisible anchors can still form a visible connector.
+        if not head.preprocess_done or not tail.preprocess_done:
             return
-        if inf in (self.segment_head.start_time, self.segment_tail.start_time):
+        if not self.segment_head.preprocess_done or not self.segment_tail.preprocess_done:
             return
-        if self.active_head_ref.index > 0 and self.active_head.start_time == inf:
+        if self.active_head_ref.index > 0 and not self.active_head.preprocess_done:
             return
-        if self.active_tail_ref.index > 0 and self.active_tail.start_time == inf:
+        if self.active_tail_ref.index > 0 and not self.active_tail.preprocess_done:
             return
         self.kind = self.segment_head.segment_kind
         self.ease_type = head.connector_ease

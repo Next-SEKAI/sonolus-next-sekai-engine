@@ -115,6 +115,8 @@ class WatchBaseNote(WatchArchetype):
 
     kind: NoteKind = entity_data()
     data_init_done: bool = entity_data()
+    # Another note may call init_data before this note finishes preprocessing.
+    preprocess_done: bool = entity_data()
     rel_lane: float = entity_data()
     target_time: float = entity_data()
     visual_start_time: float = entity_data()
@@ -166,6 +168,7 @@ class WatchBaseNote(WatchArchetype):
         self.data_init_done = True
 
     def preprocess(self):
+        self.preprocess_done = False
         self.start_time = inf
         self.visual_start_time = inf
         self.result.target_time = inf
@@ -238,6 +241,7 @@ class WatchBaseNote(WatchArchetype):
         if self.kind != NoteKind.ANCHOR:
             register_note_group_window(self, start_time, self.despawn_time())
         self.start_time = start_time
+        self.preprocess_done = True
 
     def _basic_extend_stage_window(self, start_time: float, end_time: float):
         if self.stage_ref.index > 0:

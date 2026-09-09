@@ -51,6 +51,7 @@ class TimescaleNotePreprocessTests(unittest.TestCase):
         ):
             with self.subTest(mode=module.__name__), ExitStack() as stack:
                 head = SimpleNamespace(
+                    preprocess_done=True,
                     start_time=-2,
                     target_time=1,
                     connector_ease=EaseType.NONE,
@@ -59,9 +60,15 @@ class TimescaleNotePreprocessTests(unittest.TestCase):
                     extend_stage_windows=Mock(),
                 )
                 tail = SimpleNamespace(
-                    start_time=-1, target_time=3, timescale_group=2, is_attached=False, extend_stage_windows=Mock()
+                    preprocess_done=True,
+                    start_time=-1,
+                    target_time=3,
+                    timescale_group=2,
+                    is_attached=False,
+                    extend_stage_windows=Mock(),
                 )
                 segment = SimpleNamespace(
+                    preprocess_done=True,
                     start_time=-1,
                     timescale_group=3,
                     segment_kind=ConnectorKind.GUIDE_NEUTRAL,
@@ -93,6 +100,7 @@ class TimescaleNotePreprocessTests(unittest.TestCase):
             with self.subTest(mode=module.__name__), ExitStack() as stack:
                 source = SimpleNamespace(
                     data_init_done=False,
+                    preprocess_done=False,
                     key=0,
                     effect_kind=0,
                     beat=1,
