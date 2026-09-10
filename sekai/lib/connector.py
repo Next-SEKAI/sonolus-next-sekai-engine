@@ -26,6 +26,7 @@ from sekai.lib.layout import (
     approach,
     blend_stage_transform,
     get_alpha,
+    inverse_approach_tilt,
     iter_slot_lanes,
     layout_circular_effect,
     layout_linear_effect,
@@ -726,6 +727,44 @@ def connector_is_off_screen(
     return max(start_y, end_y) < screen().b or min(start_y, end_y) > screen().t
 
 
+def clip_connector_progress_to_screen(
+    start: float,
+    end: float,
+    head_transform: StageTransform | None,
+    tail_transform: StageTransform | None,
+) -> tuple[float, float]:
+    """Trim the vertical span when screen y depends only on connector progress."""
+    can_clip = DynamicLayout.rotate == 0 and head_transform == tail_transform
+    y_offset = DynamicLayout.t
+    y_scale = DynamicLayout.h_scale
+    if head_transform is not None:
+        if head_transform.sr != 0 or head_transform.projection.elevation != 0:
+            can_clip = False
+        y_offset += head_transform.ty
+    if can_clip and abs(y_scale) >= 1e-8:
+        start_travel = approach(start)
+        end_travel = approach(end)
+        # Leave a small margin for the numerical inverse at low stage tilt.
+        screen_start = (screen().b - 1e-4 - y_offset) / y_scale
+        screen_end = (screen().t + 1e-4 - y_offset) / y_scale
+        travel_min = min(screen_start, screen_end)
+        travel_max = max(screen_start, screen_end)
+        if max(start_travel, end_travel) <= travel_min or min(start_travel, end_travel) >= travel_max:
+            end = start
+        else:
+            # Only invert travel values within the connector's span. Values outside
+            # the approach curve's domain, such as above the vanishing point, have no inverse.
+            clipped_start = clamp(start_travel, travel_min, travel_max)
+            clipped_end = clamp(end_travel, travel_min, travel_max)
+            progress_min = min(start, end)
+            progress_max = max(start, end)
+            if clipped_start != start_travel:
+                start = clamp(inverse_approach_tilt(clipped_start), progress_min, progress_max)
+            if clipped_end != end_travel:
+                end = clamp(inverse_approach_tilt(clipped_end), progress_min, progress_max)
+    return start, end
+
+
 def draw_connector_default(
     kind: ConnectorKind,
     visual_state: ConnectorVisualState,
@@ -753,6 +792,11 @@ def draw_connector_default(
 ):
     start_visual_progress = clamp(head_visual_progress, DynamicLayout.progress_start, DynamicLayout.progress_cutoff)
     end_visual_progress = clamp(tail_visual_progress, DynamicLayout.progress_start, DynamicLayout.progress_cutoff)
+    start_visual_progress, end_visual_progress = clip_connector_progress_to_screen(
+        start_visual_progress, end_visual_progress, head_transform, tail_transform
+    )
+    if start_visual_progress == end_visual_progress:
+        return
     start_frac = safe_unlerp_clamped(head_visual_progress, tail_visual_progress, start_visual_progress, 0.0)
     end_frac = safe_unlerp_clamped(head_visual_progress, tail_visual_progress, end_visual_progress, 1.0)
     start_ease_frac = lerp(head_ease_frac, tail_ease_frac, start_frac)
