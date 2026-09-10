@@ -417,9 +417,10 @@ def _stage_transform_change_archetype() -> type[StageTransformChangeLike]:
 
 
 def stage_y_offset_bounds(stage: DynamicStageLike) -> Interval:
-    """Return the stage's full y offset range, including offsets converted from beats.
+    """Scan the stage's pivot offsets and return their full y offset range.
 
-    Pivot easing stays between the offsets at its endpoints.
+    Call after converting beat offsets into pivot.y_offset values. Pivot easing
+    stays between its endpoint offsets, so their extrema bound the full range.
     """
     ref = +stage.first_pivot_change_ref
     result = Interval(0.0, 0.0)

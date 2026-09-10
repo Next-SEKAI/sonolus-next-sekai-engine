@@ -153,6 +153,45 @@ def first_visible(
 
 def get_sources_visual_spawn_time(sources: VarArray[VisibilitySource, Dim[4]], latest: float) -> float:
     bounds = conservative_progress_bounds()
+    if len(sources) > 1:
+        first = sources[0]
+        if first.group > 0 and not Options.disable_timescale:
+            group = timescale_group_archetype().at(first.group)
+            proxy = VisibilitySource(
+                first.group, first.hit_time, first.preempt, first.offset_min, first.offset_max, False
+            )
+            reusable = group.monotone_targets and first.preempt > 0
+            for source in sources:
+                floor = source.preempt * (1 - bounds.end - source.offset_max)
+                ceiling = source.preempt * (1 - bounds.start - source.offset_min)
+                reusable = (
+                    reusable
+                    and source.group == proxy.group
+                    and source.preempt == proxy.preempt
+                    and floor <= 0 <= ceiling
+                )
+                proxy.hit_time = min(proxy.hit_time, source.hit_time)
+                proxy.offset_min = min(proxy.offset_min, source.offset_min)
+                proxy.offset_max = max(proxy.offset_max, source.offset_max)
+            if reusable and proxy.hit_time >= MIN_START_TIME:
+                # Before the earliest hit, clamps are inactive and each source's
+                # distance is at least the proxy's. While the proxy's distance
+                # exceeds its ceiling, every source exceeds its own ceiling.
+                # All distance windows include zero, so the proxy can be visible
+                # by that hit. Its spawn is a lower bound for the segment search.
+                proxies = VarArray[VisibilitySource, Dim[4]].new()
+                proxies.append(proxy)
+                earliest = _search_with_spawn_cursor(proxies, bounds, latest)
+                # Only the proxy search updates the cursor. The segment's later
+                # result need not be a safe starting point for future queries.
+                return first_visible(sources, bounds.start, bounds.end, earliest, latest)
+    return _search_with_spawn_cursor(sources, bounds, latest)
+
+
+def _search_with_spawn_cursor(
+    sources: VarArray[VisibilitySource, Dim[4]], bounds: Interval, latest: float
+) -> float:
+    """Search sources, reusing and updating the group cursor for eligible single sources."""
     earliest = MIN_START_TIME
     cache_group = 0
     ceiling = 0.0

@@ -5,7 +5,6 @@ from sonolus.script.containers import VarArray
 from sonolus.script.interval import Interval, lerp
 
 from sekai.lib.ease import safe_unlerp_clamped
-from sekai.lib.stage import stage_y_offset_bounds
 from sekai.lib.timescale import (
     TrajectoryCache,
     evaluate_trajectory,
@@ -59,7 +58,7 @@ def note_visual_progress(note: Any, first: TrajectoryCache, second: TrajectoryCa
 def basic_note_offset_bounds(note: Any) -> Interval:
     result = Interval(0, 0)
     if note.stage_ref.index > 0:
-        result @= stage_y_offset_bounds(note.stage_ref.get())
+        result @= note.stage_ref.get().y_offset_bounds
     return result
 
 

@@ -11,7 +11,7 @@ from sonolus.script.archetype import (
     imported,
     shared_memory,
 )
-from sonolus.script.interval import clamp
+from sonolus.script.interval import Interval, clamp
 from sonolus.script.runtime import time
 from sonolus.script.timing import beat_to_bpm, beat_to_time
 
@@ -41,6 +41,7 @@ from sekai.lib.stage import (
     get_stage_props,
     get_start_time,
     play_lane_hit_effects,
+    stage_y_offset_bounds,
 )
 from sekai.play import input_manager
 from sekai.play.common import PlayLevelMemory
@@ -129,6 +130,7 @@ class DynamicStage(PlayArchetype):
     end_time: float = entity_data()
     draw_start_time: float = entity_data()
     draw_end_time: float = entity_data()
+    y_offset_bounds: Interval = entity_data()
 
     props: StageProps = shared_memory()
 
@@ -145,6 +147,7 @@ class DynamicStage(PlayArchetype):
             pivot = pivot_ref.get()
             pivot.y_offset = pivot.abs_y_offset + pivot.y_beat_offset * 60 / beat_to_bpm(pivot.beat) / preempt_time()
             pivot_ref.index = pivot.next_ref.index
+        self.y_offset_bounds = stage_y_offset_bounds(self)
         self.start_time = get_start_time(self)
         self.end_time = get_end_time(self)
         self.draw_start_time = get_draw_start_time(self)
