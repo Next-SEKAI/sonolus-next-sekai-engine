@@ -906,6 +906,7 @@ def play_note_hit_effects(
             lane,
             size,
             y_offset=lane_y_offset,
+            compensate_overshoot=particles.lane.is_available,
             extend_down=kind
             not in {
                 NoteKind.CRIT_FLICK,

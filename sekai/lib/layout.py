@@ -909,15 +909,18 @@ def layout_stage_lane_by_edges(l: float, r: float, y_offset: float = 0.0) -> Qua
     )
 
 
-def layout_particle_lane(lane: float, size: float, y_offset: float = 0.0, *, extend_down: bool = True) -> Quad:
+def layout_particle_lane(
+    lane: float, size: float, y_offset: float = 0.0, *, extend_down: bool = True, compensate_overshoot: bool = True
+) -> Quad:
     travel = approach(1 - y_offset)
     top = max(tilt_depth(DynamicLayout.lane_t, travel), DynamicLayout.safe_lane_t)
     bottom = DynamicLayout.lane_b
     if extend_down:
         bottom = lerp(bottom, DynamicLayout.stage_lane_b, 0.25 * current_stage_tilt())
     bottom = max(tilt_depth(bottom, travel), top)
-    # Account for overshoot in the animation
-    top = max(top, lerp(DynamicLayout.safe_lane_t, bottom, 0.07 / 1.07))
+    if compensate_overshoot:
+        # Account for overshoot in the animation
+        top = max(top, lerp(DynamicLayout.safe_lane_t, bottom, 0.07 / 1.07))
     return Quad(
         bl=transformed_vec_at(lane - size, bottom),
         br=transformed_vec_at(lane + size, bottom),
