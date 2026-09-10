@@ -128,6 +128,7 @@ class BaseNote(PlayArchetype):
 
     kind: NoteKind = entity_data()
     data_init_done: bool = entity_data()
+    preprocess_done: bool = entity_data()
     rel_lane: float = entity_data()
     target_time: float = entity_data()
     visual_start_time: float = entity_data()
@@ -242,8 +243,11 @@ class BaseNote(PlayArchetype):
                 get_attach_frac(attach_head.target_time, attach_tail.target_time, self.target_time),
             )
 
-        self.visual_start_time = note_visual_spawn_time(self, max(self.target_time, self.input_interval.end))
-        start_time = min(self.visual_start_time, self.input_interval.start)
+        end_time = max(self.target_time, self.input_interval.end) if self.is_scored else self.target_time
+        self.visual_start_time = note_visual_spawn_time(self, end_time)
+        start_time = (
+            min(self.visual_start_time, self.input_interval.start) if self.is_scored else self.visual_start_time
+        )
 
         if self.is_scored:
             schedule_note_auto_sfx(self.effect_kind, self.target_time)
@@ -258,10 +262,12 @@ class BaseNote(PlayArchetype):
                 left_limit=True,
             )
 
-        self.extend_stage_windows(start_time - 1.0, max(self.target_time, self.input_interval.end) + 1.0)
+        if start_time < inf:
+            self.extend_stage_windows(start_time - 1.0, end_time + 1.0)
         if self.kind != NoteKind.ANCHOR:
-            register_note_group_window(self, start_time, max(self.target_time, self.input_interval.end))
+            register_note_group_window(self, start_time, end_time)
         self.start_time = start_time
+        self.preprocess_done = True
 
     def _basic_extend_stage_window(self, start_time: float, end_time: float):
         if self.stage_ref.index > 0:
@@ -377,7 +383,7 @@ class BaseNote(PlayArchetype):
         if not self.is_scored and time() >= self.target_time:
             self.despawn = True
             return
-        if time() > self.input_interval.end:
+        if self.is_scored and time() > self.input_interval.end:
             self.handle_late_miss()
             return
         self.draw_hitbox()

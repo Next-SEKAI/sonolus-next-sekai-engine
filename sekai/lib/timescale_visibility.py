@@ -77,7 +77,9 @@ def _distance_bounds(
         upper = value + max(0.0, -min(va, vb) * (b - a))
     if not -inf < lower <= upper < inf:
         return result
-    slack = 0.01 + source.preempt * 1e-4 + max(magnitude, abs(lower), abs(upper)) * 1e-6
+    # Stopped timescale needs only numeric slack; zero scroll still moves.
+    stopped = not scroll and v0 == 0 and (easing == EaseType.NONE or v1 == 0)
+    slack = (0.0 if stopped else 0.01) + source.preempt * 1e-4 + max(magnitude, abs(lower), abs(upper)) * 1e-6
     # A capped distance may extend farther in the capped direction.
     result @= Interval(
         -inf if distance <= -DISTANCE_LIMIT else lower - slack, inf if distance >= DISTANCE_LIMIT else upper + slack
@@ -188,9 +190,7 @@ def get_sources_visual_spawn_time(sources: VarArray[VisibilitySource, Dim[4]], l
     return _search_with_spawn_cursor(sources, bounds, latest)
 
 
-def _search_with_spawn_cursor(
-    sources: VarArray[VisibilitySource, Dim[4]], bounds: Interval, latest: float
-) -> float:
+def _search_with_spawn_cursor(sources: VarArray[VisibilitySource, Dim[4]], bounds: Interval, latest: float) -> float:
     """Search sources, reusing and updating the group cursor for eligible single sources."""
     earliest = MIN_START_TIME
     cache_group = 0

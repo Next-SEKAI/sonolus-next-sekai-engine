@@ -791,8 +791,8 @@ def _compute_conservative_progress_bounds() -> Interval:
         upper = inverse_approach_at_tilt(Layout.cutoff_depth, fixed_tilt)
     # Spawn early enough for note geometry, arrows, and attachments.
     lower = min(lower, -3.0)
-    upper = max(upper, 6.0)
-    return Interval(lower - 1e-3 * (1 + abs(lower)), upper + 1e-3 * (1 + abs(upper)))
+    upper = max(upper, 3.0)
+    return Interval(lower, upper)
 
 
 def conservative_progress_bounds() -> Interval:

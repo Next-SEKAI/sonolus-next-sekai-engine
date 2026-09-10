@@ -34,13 +34,15 @@ class SimLine(PlayArchetype):
         self.spawn_time = inf
         if DISABLE_NOTES:
             return
-        if inf in (self.left.start_time, self.right.start_time):
+        if not self.left.preprocess_done or not self.right.preprocess_done:
             return
         start_time = min(
             self.left.start_time,
             self.right.start_time,
             segment_visual_spawn_time(self.left, self.right, min(self.left.target_time, self.right.target_time)),
         )
+        if start_time == inf:
+            return
         end_time = max(self.left.target_time, self.right.target_time) + 1.0
         self.left.extend_stage_windows(start_time - 1.0, end_time)
         self.right.extend_stage_windows(start_time - 1.0, end_time)

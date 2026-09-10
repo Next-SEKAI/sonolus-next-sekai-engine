@@ -37,7 +37,7 @@ from sekai.lib.connector import (
 )
 from sekai.lib.ease import EaseType, safe_unlerp_clamped
 from sekai.lib.layout import StageTransform, blend_stage_transform
-from sekai.lib.note import draw_connector_hitbox_overlay, draw_slide_note_head, get_attach_params
+from sekai.lib.note import NoteKind, draw_connector_hitbox_overlay, draw_slide_note_head, get_attach_params
 from sekai.lib.options import Options
 from sekai.lib.stage import VisualMask, masked_note_extents_by_limits
 from sekai.lib.streams import Streams
@@ -84,13 +84,13 @@ class Connector(PlayArchetype):
             return
         head = self.head
         tail = self.tail
-        if inf in (head.start_time, tail.start_time):
+        if not head.preprocess_done or not tail.preprocess_done:
             return
-        if inf in (self.segment_head.start_time, self.segment_tail.start_time):
+        if not self.segment_head.preprocess_done or not self.segment_tail.preprocess_done:
             return
-        if self.active_head_ref.index > 0 and self.active_head.start_time == inf:
+        if self.active_head_ref.index > 0 and not self.active_head.preprocess_done:
             return
-        if self.active_tail_ref.index > 0 and self.active_tail.start_time == inf:
+        if self.active_tail_ref.index > 0 and not self.active_tail.preprocess_done:
             return
         self.kind = self.segment_head.segment_kind
         self.ease_type = head.connector_ease
@@ -235,8 +235,15 @@ class Connector(PlayArchetype):
                 Streams.connector_visual_states[self.index][offset_adjusted_time()] = visual_state
             if group_hide_notes(segment_head.timescale_group):
                 return
-            if self.active_tail_ref.index > 0 and self.active_tail.is_despawned:
-                return
+            if self.active_tail_ref.index > 0:
+                active_tail = self.active_tail
+                # Unspawned fake tails never report is_despawned.
+                if active_tail.is_despawned or (
+                    not active_tail.is_scored
+                    and active_tail.kind != NoteKind.ANCHOR
+                    and time() >= active_tail.target_time
+                ):
+                    return
             head_transform = +StageTransform
             tail_transform = +StageTransform
             tail_transform @= tail.visual_stage_transform()

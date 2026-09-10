@@ -168,7 +168,6 @@ class WatchBaseNote(WatchArchetype):
         self.data_init_done = True
 
     def preprocess(self):
-        self.preprocess_done = False
         self.start_time = inf
         self.visual_start_time = inf
         self.result.target_time = inf
@@ -237,7 +236,8 @@ class WatchBaseNote(WatchArchetype):
 
         self.result.target_time = self.target_time
 
-        self.extend_stage_windows(start_time - 1.0, max(self.target_time, self.despawn_time()) + 1.0)
+        if start_time < inf:
+            self.extend_stage_windows(start_time - 1.0, max(self.target_time, self.despawn_time()) + 1.0)
         if self.kind != NoteKind.ANCHOR:
             register_note_group_window(self, start_time, self.despawn_time())
         self.start_time = start_time

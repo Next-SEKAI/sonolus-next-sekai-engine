@@ -1,7 +1,7 @@
 from math import inf
 
 from sonolus.script.archetype import EntityRef, WatchArchetype, callback, entity_data, entity_memory, imported
-from sonolus.script.runtime import is_replay, time
+from sonolus.script.runtime import time
 
 from sekai.debug import DISABLE_NOTES
 from sekai.lib import archetype_names
@@ -42,10 +42,9 @@ class WatchSimLine(WatchArchetype):
             self.right.start_time,
             segment_visual_spawn_time(self.left, self.right, min(self.left.target_time, self.right.target_time)),
         )
-        if is_replay():
-            self.end_time = min(self.left.end_time, self.right.end_time, self.left.target_time)
-        else:
-            self.end_time = min(self.left.target_time, self.right.target_time)
+        if start_time == inf:
+            return
+        self.end_time = min(self.left.despawn_time(), self.right.despawn_time(), self.left.target_time)
         self.left.extend_stage_windows(start_time - 1.0, self.end_time + 1.0)
         self.right.extend_stage_windows(start_time - 1.0, self.end_time + 1.0)
 
