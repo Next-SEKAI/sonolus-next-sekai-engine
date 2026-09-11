@@ -101,6 +101,7 @@ class WatchConnector(WatchArchetype):
         self.schedule_sfx()
 
         visibility_end = inf
+        # Hidden active sections still supply slide effects and head geometry.
         if self.active_head_ref.index <= 0:
             visibility_end = min(
                 group_visibility_end(self.segment_head.timescale_group),

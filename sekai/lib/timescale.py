@@ -98,6 +98,7 @@ class TimescaleChangeLike(Protocol):
     jump_end: int
     jump_width: int
     jump: RunSummary
+    note_visibility_start: float
 
     @classmethod
     def at(cls, index: int) -> Self: ...
@@ -298,6 +299,14 @@ def initialize_timescale_group(group: TimescaleGroupLike) -> None:
         group.note_visibility_end = inf
     elif group.note_visibility_end <= MIN_START_TIME:
         group.note_visibility_end = -inf
+    visibility_start, visibility_ref = inf, previous
+    while visibility_ref > 0:
+        marker = _marker(visibility_ref)
+        # Changes overridden at the same time do not create a visible interval.
+        if not marker.hide_notes and (marker.next_ref.index <= 0 or marker.event_end > marker.event_start):
+            visibility_start = marker.event_start
+        marker.note_visibility_start = visibility_start
+        visibility_ref = marker.prev_ref
     run, previous_run, run_count = 0, -1, 0
     for marker in iter_timescale_changes(group.first_ref.index):
         marker.scroll_skip = TimePosition.of(0)
@@ -650,16 +659,10 @@ def group_visibility_start(group: int | EntityRef, start: float) -> float:
     if start == inf or index <= 0 or Options.disable_timescale:
         return start
     entity = _require_group(index)
+    if start >= MIN_START_TIME and start >= entity.note_visibility_end:
+        return inf
     ref = locate_time(index, start)
-    while ref > 0:
-        marker = _marker(ref)
-        if not marker.hide_notes:
-            return max(start, marker.event_start)
-        if marker.next_ref.index <= 0:
-            return inf
-        # Resolve all changes at this time before checking whether notes reappear.
-        ref = _locate(entity, _marker(marker.next_ref.index).event_start, ref)
-    return start
+    return max(start, _marker(ref).note_visibility_start) if ref > 0 else start
 
 
 def group_force_note_speed(group: int | EntityRef) -> float:

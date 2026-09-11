@@ -85,7 +85,7 @@ class Connector(PlayArchetype):
 
     last_visual_state: ConnectorVisualState = entity_memory()
 
-    @callback(order=1)  # After note preprocessing is done
+    @callback(order=1)
     def preprocess(self):
         self.start_time = inf
         if DISABLE_NOTES:
@@ -142,8 +142,8 @@ class Connector(PlayArchetype):
                     assert_never(self.kind)
 
         visibility_end = inf
-        # Input offsets can make post-hide state changes visible earlier in replay.
-        # Replay can also disable timescale hiding.
+        # Active sections must keep recording replay state after their bodies disappear.
+        # Input offsets and replay options can make those later states visible.
         if self.active_head_ref.index <= 0:
             visibility_end = min(
                 group_visibility_end(self.segment_head.timescale_group),

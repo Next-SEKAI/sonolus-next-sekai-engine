@@ -42,6 +42,7 @@ class TimescaleChange(PlayArchetype):
     jump_end: int = entity_data()
     jump_width: int = entity_data()
     jump: RunSummary = entity_data()
+    note_visibility_start: float = entity_data()
 
     def spawn_order(self) -> float:
         return 1e8

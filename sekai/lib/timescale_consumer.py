@@ -120,7 +120,7 @@ def note_stage_visibility_start(note: Any, start: float) -> float:
 
 
 def note_visibility_start(note: Any, start: float) -> float:
-    """Advance a note's spawn candidate past any hiding from stage or group."""
+    """Return a conservative spawn bound from stage alpha and timescale hiding."""
     if start == inf:
         return start
     return max(group_visibility_start(note.timescale_group, start), note_stage_visibility_start(note, start))
