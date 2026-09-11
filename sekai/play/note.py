@@ -416,12 +416,15 @@ class BaseNote(PlayArchetype):
         if render_size <= 0:
             return
         prepare_note_trajectories(self, self.trajectory_first, self.trajectory_second, time())
+        visual_progress = self.visual_progress
+        if not DynamicLayout.progress_start <= visual_progress <= DynamicLayout.progress_cutoff:
+            return
         if self.has_stage_transform():
             draw_note(
                 self.kind,
                 render_lane,
                 render_size,
-                self.visual_progress,
+                visual_progress,
                 self.direction,
                 self.target_time,
                 transform=self.visual_stage_transform().to_screen_transform(),
@@ -432,7 +435,7 @@ class BaseNote(PlayArchetype):
                 self.kind,
                 render_lane,
                 render_size,
-                self.visual_progress,
+                visual_progress,
                 self.direction,
                 self.target_time,
                 transform=IDENTITY_STAGE_SCREEN_TRANSFORM,

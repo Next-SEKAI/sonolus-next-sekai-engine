@@ -34,7 +34,7 @@ from sekai.lib.connector import (
     update_linear_connector_particle,
 )
 from sekai.lib.ease import EaseType, ease
-from sekai.lib.layout import IDENTITY_STAGE_SCREEN_TRANSFORM, FlickDirection, transformed_vec_at
+from sekai.lib.layout import IDENTITY_STAGE_SCREEN_TRANSFORM, DynamicLayout, FlickDirection, transformed_vec_at
 from sekai.lib.note import (
     NoteKind,
     draw_note,
@@ -259,11 +259,14 @@ class QueuedTutorialNoteDraw(Record):
     progress: float
 
     def act(self):
+        visual_progress = self.progress + self.note.offset
+        if not DynamicLayout.progress_start <= visual_progress <= DynamicLayout.progress_cutoff:
+            return
         draw_note(
             kind=self.note.kind,
             lane=self.note.lane,
             size=self.note.size,
-            visual_progress=self.progress + self.note.offset,
+            visual_progress=visual_progress,
             direction=self.note.direction,
             target_time=time() + 1 - self.progress - self.note.offset,
             transform=IDENTITY_STAGE_SCREEN_TRANSFORM,

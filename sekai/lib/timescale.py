@@ -71,6 +71,7 @@ class TrajectoryCache(Record):
 
     run_ref: int  # 0: uninitialized; -1: before the first marker.
     boundary_distance: float
+    target_side: int  # -1: earlier run; 0: same run; 1: later run.
 
 
 class TimescaleChangeLike(Protocol):
@@ -588,12 +589,14 @@ def prepare_trajectory(
     assert prepared_time_matches(entity.last_updated, now)
     if cache.run_ref == entity.current_run:
         return
-    cache.run_ref, cache.boundary_distance = entity.current_run, 0
+    cache.run_ref, cache.boundary_distance, cache.target_side = entity.current_run, 0, 0
     target_run = _run(target.event_ref)
     if target_run != entity.current_run:
         past = target_run < 0 or (
             entity.current_run > 0 and _marker(target_run).ordinal < _marker(entity.current_run).ordinal
         )
+        # The side is constant within a run, just like the boundary distance.
+        cache.target_side = -1 if past else 1
         anchor = (
             entity.current_run
             if past
@@ -610,19 +613,16 @@ def evaluate_trajectory(
         return hit - now
     entity = _require_group(index)
     assert cache.run_ref == entity.current_run
-    target_run = _run(target.event_ref)
-    if target_run == entity.current_run:
-        if entity.style == TransitionStyle.SCROLL:
-            return entity.current_speed * _scroll_width(entity.current_event, now, target.event_ref, hit)
+    if cache.target_side == 0:
+        # Within one event, skips cancel and scroll distance is just speed * time.
         if target.event_ref == entity.current_event:
-            if entity.current_constant:
+            if entity.style == TransitionStyle.SCROLL or entity.current_constant:
                 return entity.current_speed * (hit - now)
             return integrate_times(entity.v0, entity.v1, entity.ease, entity.event_start, entity.event_end, now, hit)
+        if entity.style == TransitionStyle.SCROLL:
+            return entity.current_speed * _scroll_width(entity.current_event, now, target.event_ref, hit)
         return target.coordinate.difference(entity.coordinate)
-    past = target_run < 0 or (
-        entity.current_run > 0 and _marker(target_run).ordinal < _marker(entity.current_run).ordinal
-    )
-    if past:
+    if cache.target_side < 0:
         return entity.past_gain * cache.boundary_distance + entity.past_offset
     return entity.future_gain * cache.boundary_distance + entity.future_offset
 

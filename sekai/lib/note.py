@@ -42,7 +42,6 @@ from sekai.lib.effect import EMPTY_EFFECT, SFX_DISTANCE, Effects, first_availabl
 from sekai.lib.layer import Layer, ZIndexes, get_z, get_z_alt, layers
 from sekai.lib.layout import (
     IDENTITY_STAGE_SCREEN_TRANSFORM,
-    DynamicLayout,
     FlickDirection,
     Hitbox,
     StageScreenTransform,
@@ -292,7 +291,9 @@ def get_visual_spawn_time(
     force_speed = group_force_note_speed(timescale_group)
     sources = VarArray[VisibilitySource, Dim[4]].new()
     sources.append(
-        VisibilitySource(group_index(timescale_group), target_time, preempt_time(force_speed), offset_min, offset_max, False)
+        VisibilitySource(
+            group_index(timescale_group), target_time, preempt_time(force_speed), offset_min, offset_max, False
+        )
     )
     return get_sources_visual_spawn_time(sources, target_time)
 
@@ -340,10 +341,6 @@ def draw_note(
     transform: StageScreenTransform,
     note_alpha: float,
 ):
-    if not DynamicLayout.progress_start <= visual_progress <= DynamicLayout.progress_cutoff:
-        return
-    if note_alpha <= 0:
-        return
     travel = approach(visual_progress)
     sprite_set = get_note_sprite_set(kind, direction)
     draw_note_body(sprite_set.body, kind, lane, size, travel, target_time, transform, note_alpha)
