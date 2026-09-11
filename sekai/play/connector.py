@@ -41,8 +41,16 @@ from sekai.lib.note import NoteKind, draw_connector_hitbox_overlay, draw_slide_n
 from sekai.lib.options import Options
 from sekai.lib.stage import VisualMask, masked_note_extents_by_limits
 from sekai.lib.streams import Streams
-from sekai.lib.timescale import TrajectoryCache, group_hide_notes, register_group_window
+from sekai.lib.timescale import (
+    MIN_START_TIME,
+    TrajectoryCache,
+    group_hide_notes,
+    group_visibility_end,
+    register_group_window,
+)
 from sekai.lib.timescale_consumer import (
+    extend_note_chain_stage_windows,
+    note_stage_visibility_end,
     note_visual_progress,
     prepare_note_trajectories,
     register_note_group_window,
@@ -97,20 +105,10 @@ class Connector(PlayArchetype):
         self.visual_active_interval.start = min(head.target_time, tail.target_time)
         self.visual_active_interval.end = max(head.target_time, tail.target_time)
         self.input_active_interval = self.visual_active_interval + input_offset()
-        start_time = min(
-            self.visual_active_interval.start,
-            self.input_active_interval.start,
-            head.start_time,
-            tail.start_time,
-            segment_visual_spawn_time(head, tail, self.visual_active_interval.end),
-        )
         self.end_time = max(self.visual_active_interval.end, self.input_active_interval.end)
         if self.segment_head.segment_through_judge_line:
             self.end_time += CONNECTOR_THROUGH_JUDGE_LINE_DESPAWN_DELAY
         self.last_visual_state = ConnectorVisualState.WAITING
-
-        head.extend_stage_windows(start_time - 1.0, self.end_time + 1.0)
-        tail.extend_stage_windows(start_time - 1.0, self.end_time + 1.0)
 
         if Options.auto_sfx and self.head_ref.index == self.segment_head_ref.index:
             match self.kind:
@@ -143,6 +141,33 @@ class Connector(PlayArchetype):
                 case _:
                     assert_never(self.kind)
 
+        visibility_end = inf
+        # Active connectors must keep recording replay states after hiding.
+        if self.active_head_ref.index <= 0:
+            visibility_end = min(
+                group_visibility_end(self.segment_head.timescale_group),
+                max(note_stage_visibility_end(head), note_stage_visibility_end(tail)),
+            )
+        self.end_time = min(self.end_time, visibility_end)
+        if visibility_end <= MIN_START_TIME:
+            return
+        start_time = min(
+            self.visual_active_interval.start,
+            self.input_active_interval.start,
+            head.start_time,
+            tail.start_time,
+            segment_visual_spawn_time(head, tail, min(self.visual_active_interval.end, visibility_end)),
+        )
+        if start_time >= visibility_end:
+            return
+
+        head.extend_stage_windows(start_time - 1.0, self.end_time + 1.0)
+        tail.extend_stage_windows(start_time - 1.0, self.end_time + 1.0)
+        if self.head_ref.index == self.active_head_ref.index:
+            extend_note_chain_stage_windows(
+                self.active_head, self.active_head.target_time, self.active_tail.target_time
+            )
+
         register_note_group_window(head, start_time, self.end_time)
         register_note_group_window(tail, start_time, self.end_time)
         register_group_window(self.segment_head.timescale_group, start_time, self.end_time)
@@ -150,7 +175,6 @@ class Connector(PlayArchetype):
 
     def initialize(self):
         if self.head_ref.index == self.active_head_ref.index:
-            # This is the first connector, so it's in charge of spawning the SlideManager.
             SlideManager.spawn(active_head_ref=self.active_head_ref, active_tail_ref=self.active_tail_ref)
         Streams.connector_visual_states[self.index][-2] = ConnectorVisualState.WAITING
 
@@ -237,8 +261,8 @@ class Connector(PlayArchetype):
                 return
             if self.active_tail_ref.index > 0:
                 active_tail = self.active_tail
-                # Unspawned fake tails never report is_despawned.
-                if active_tail.is_despawned or (
+                # A hidden fake tail can despawn while its connector is still visible.
+                if (active_tail.is_scored and active_tail.is_despawned) or (
                     not active_tail.is_scored
                     and active_tail.kind != NoteKind.ANCHOR
                     and time() >= active_tail.target_time
@@ -420,8 +444,10 @@ class SlideManager(PlayArchetype):
     next_trail_spawn_time: float = entity_memory()
     next_slot_spawn_time: float = entity_memory()
     last_effect_kind: ConnectorKind = entity_memory()
+    cleanup_time: float = entity_memory()
 
     def initialize(self):
+        self.cleanup_time = self.active_tail.target_time
         self.segment_head_ref @= self.active_head_ref
         self.segment_cursor_time = -1e8
         self.next_trail_spawn_time = -1e8
@@ -431,7 +457,7 @@ class SlideManager(PlayArchetype):
 
     def update_parallel(self):
         connector_effect_kind_stream = Streams.connector_effect_kinds[self.active_head.index]
-        if time() >= self.active_tail.target_time or self.active_tail.is_despawned:
+        if time() >= self.cleanup_time or (self.active_tail.is_scored and self.active_tail.is_despawned):
             destroy_looped_particle(self.circular_particle)
             destroy_looped_particle(self.linear_particle)
             destroy_looped_sfx(self.sfx)

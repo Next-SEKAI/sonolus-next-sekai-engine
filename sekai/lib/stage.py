@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from math import ceil, floor
+from math import ceil, floor, inf
 from typing import Protocol, Self, assert_never, cast
 
 from sonolus.script import runtime
@@ -433,6 +433,33 @@ def stage_y_offset_bounds(stage: DynamicStageLike) -> Interval:
         result.start = min(result.start, pivot.y_offset)
         result.end = max(result.end, pivot.y_offset)
         ref.index = pivot.next_ref.index
+    return result
+
+
+def stage_note_visibility_end(stage: DynamicStageLike) -> float:
+    """Return a safe cutoff after which stage note alpha stays at or below zero.
+
+    The first style also applies before its event time. Events at the same time
+    can still set the ending alpha of the previous fade.
+    """
+    ref = +stage.first_style_change_ref
+    if ref.index <= 0:
+        return inf
+    first = get_event_as(ref, _stage_style_change_archetype())
+    result = first.time if first.note_alpha > 0 else -inf
+    while ref.index > 0:
+        style = get_event_as(ref, _stage_style_change_archetype())
+        if style.next_ref.index <= 0:
+            if style.note_alpha > 0:
+                result = inf
+            break
+        following = get_event_as(style.next_ref, _stage_style_change_archetype())
+        if following.time > style.time and (
+            style.note_alpha > 0 or (style.ease != EaseType.NONE and following.note_alpha > 0)
+        ):
+            # Use the next event's time to avoid solving when the fade reaches zero.
+            result = following.time
+        ref.index = style.next_ref.index
     return result
 
 

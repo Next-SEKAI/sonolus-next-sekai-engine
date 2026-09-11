@@ -6,8 +6,9 @@ from sonolus.script.runtime import time
 from sekai.debug import DISABLE_NOTES
 from sekai.lib import archetype_names
 from sekai.lib.sim_line import draw_sim_line
-from sekai.lib.timescale import TrajectoryCache, group_hide_notes
+from sekai.lib.timescale import MIN_START_TIME, TrajectoryCache, group_hide_notes
 from sekai.lib.timescale_consumer import (
+    note_visibility_end,
     note_visual_progress,
     prepare_note_trajectories,
     register_note_group_window,
@@ -28,6 +29,7 @@ class SimLine(PlayArchetype):
     right_trajectory_second: TrajectoryCache = entity_memory()
 
     spawn_time: float = entity_data()
+    visibility_end_time: float = entity_data()
 
     @callback(order=1)
     def preprocess(self):
@@ -36,19 +38,25 @@ class SimLine(PlayArchetype):
             return
         if not self.left.preprocess_done or not self.right.preprocess_done:
             return
+        # Hiding either endpoint hides the line.
+        self.visibility_end_time = min(note_visibility_end(self.left), note_visibility_end(self.right))
+        if self.visibility_end_time <= MIN_START_TIME:
+            return
         start_time = min(
             self.left.start_time,
             self.right.start_time,
-            segment_visual_spawn_time(self.left, self.right, min(self.left.target_time, self.right.target_time)),
+            segment_visual_spawn_time(
+                self.left, self.right, min(self.left.target_time, self.right.target_time, self.visibility_end_time)
+            ),
         )
-        if start_time == inf:
+        if start_time == inf or start_time >= self.visibility_end_time:
             return
-        end_time = max(self.left.target_time, self.right.target_time) + 1.0
+        end_time = min(max(self.left.target_time, self.right.target_time), self.visibility_end_time) + 1.0
         self.left.extend_stage_windows(start_time - 1.0, end_time)
         self.right.extend_stage_windows(start_time - 1.0, end_time)
 
-        # Keep the groups active for the frame that despawns an expired line.
-        group_end = max(start_time, self.left.target_time)
+        # Keep timescale groups active through the line's final update.
+        group_end = max(start_time, min(self.left.target_time, self.visibility_end_time))
         register_note_group_window(self.left, start_time, group_end)
         register_note_group_window(self.right, start_time, group_end)
         self.spawn_time = start_time
@@ -68,7 +76,12 @@ class SimLine(PlayArchetype):
         prepare_note_trajectories(self.right, self.right_trajectory_first, self.right_trajectory_second, time())
 
     def update_parallel(self):
-        if self.left.is_despawned or self.right.is_despawned or time() > self.left.target_time:
+        if (
+            self.left.is_despawned
+            or self.right.is_despawned
+            or time() > self.left.target_time
+            or time() >= self.visibility_end_time
+        ):
             self.despawn = True
             return
         if group_hide_notes(self.left.timescale_group) or group_hide_notes(self.right.timescale_group):

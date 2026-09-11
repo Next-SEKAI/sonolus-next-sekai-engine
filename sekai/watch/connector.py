@@ -36,8 +36,16 @@ from sekai.lib.note import draw_connector_hitbox_overlay, draw_slide_note_head, 
 from sekai.lib.options import Options
 from sekai.lib.stage import VisualMask, masked_note_extents_by_limits
 from sekai.lib.streams import Streams
-from sekai.lib.timescale import TrajectoryCache, group_hide_notes, register_group_window
+from sekai.lib.timescale import (
+    MIN_START_TIME,
+    TrajectoryCache,
+    group_hide_notes,
+    group_visibility_end,
+    register_group_window,
+)
 from sekai.lib.timescale_consumer import (
+    extend_note_chain_stage_windows,
+    note_stage_visibility_end,
     note_visual_progress,
     prepare_note_trajectories,
     register_note_group_window,
@@ -87,27 +95,40 @@ class WatchConnector(WatchArchetype):
         self.ease_type = head.connector_ease
         self.visual_active_interval.start = min(head.target_time, tail.target_time)
         self.visual_active_interval.end = max(head.target_time, tail.target_time)
+        self.end_time = self.visual_active_interval.end
+        if self.segment_head.segment_through_judge_line:
+            self.end_time += CONNECTOR_THROUGH_JUDGE_LINE_DESPAWN_DELAY
+        self.schedule_sfx()
+
+        visibility_end = inf
+        if self.active_head_ref.index <= 0:
+            visibility_end = min(
+                group_visibility_end(self.segment_head.timescale_group),
+                max(note_stage_visibility_end(head), note_stage_visibility_end(tail)),
+            )
+        self.end_time = min(self.end_time, visibility_end)
+        if visibility_end <= MIN_START_TIME:
+            return
         start_time = min(
             self.visual_active_interval.start,
             head.start_time,
             tail.start_time,
-            segment_visual_spawn_time(head, tail, self.visual_active_interval.end),
+            segment_visual_spawn_time(head, tail, min(self.visual_active_interval.end, visibility_end)),
         )
-        self.end_time = self.visual_active_interval.end
-        if self.segment_head.segment_through_judge_line:
-            self.end_time += CONNECTOR_THROUGH_JUDGE_LINE_DESPAWN_DELAY
+        if start_time >= visibility_end:
+            return
 
         head.extend_stage_windows(start_time - 1.0, self.end_time + 1.0)
         tail.extend_stage_windows(start_time - 1.0, self.end_time + 1.0)
-
-        self.schedule_sfx()
 
         register_note_group_window(head, start_time, self.end_time)
         register_note_group_window(tail, start_time, self.end_time)
         register_group_window(self.segment_head.timescale_group, start_time, self.end_time)
 
         if self.head_ref.index == self.active_head_ref.index:
-            # This is the first connector, so spawn the WatchSlideManager.
+            active_tail = self.active_tail
+            manager_end = active_tail.despawn_time() if active_tail.is_scored else active_tail.target_time
+            extend_note_chain_stage_windows(self.active_head, self.active_head.target_time, manager_end)
             WatchSlideManager.spawn(active_head_ref=self.active_head_ref, active_tail_ref=self.active_tail_ref)
 
         self.start_time = start_time
@@ -154,8 +175,12 @@ class WatchConnector(WatchArchetype):
                 visual_state = ConnectorVisualState.WAITING
             if group_hide_notes(segment_head.timescale_group):
                 return
-            if self.active_tail_ref.index > 0 and time() >= self.active_tail.despawn_time():
-                return
+            if self.active_tail_ref.index > 0:
+                active_tail = self.active_tail
+                # A hidden fake tail can despawn while its connector is still visible.
+                active_tail_end = active_tail.despawn_time() if active_tail.is_scored else active_tail.target_time
+                if time() >= active_tail_end:
+                    return
             head_transform = +StageTransform
             tail_transform = +StageTransform
             tail_transform @= tail.visual_stage_transform()
@@ -415,7 +440,8 @@ class WatchSlideManager(WatchArchetype):
         return self.active_head.target_time
 
     def despawn_time(self) -> float:
-        return self.active_tail.despawn_time()
+        active_tail = self.active_tail
+        return active_tail.despawn_time() if active_tail.is_scored else active_tail.target_time
 
     def update_parallel(self):
         skipping = is_skip()

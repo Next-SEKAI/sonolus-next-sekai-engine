@@ -93,6 +93,7 @@ from sekai.lib.timescale import (
 )
 from sekai.lib.timescale_consumer import (
     note_progress,
+    note_visibility_end,
     note_visual_spawn_time,
     prepare_note_trajectories,
     register_note_group_window,
@@ -132,6 +133,7 @@ class BaseNote(PlayArchetype):
     rel_lane: float = entity_data()
     target_time: float = entity_data()
     visual_start_time: float = entity_data()
+    visual_end_time: float = entity_memory()
     start_time: float = entity_data()
     target_position: TargetPosition = entity_data()
     target_y_offset: float = entity_data()
@@ -210,6 +212,7 @@ class BaseNote(PlayArchetype):
         if DISABLE_NOTES:
             return
         self.init_data()
+        self.visual_end_time = self.target_time
 
         self.result.bucket = get_note_bucket(self.kind)
 
@@ -244,7 +247,12 @@ class BaseNote(PlayArchetype):
             )
 
         end_time = max(self.target_time, self.input_interval.end) if self.is_scored else self.target_time
+        if not self.is_scored:
+            self.visual_end_time = min(self.target_time, note_visibility_end(self))
+            end_time = self.visual_end_time
         self.visual_start_time = note_visual_spawn_time(self, end_time)
+        if not self.is_scored and self.visual_start_time >= self.visual_end_time:
+            self.visual_start_time = inf
         start_time = (
             min(self.visual_start_time, self.input_interval.start) if self.is_scored else self.visual_start_time
         )
@@ -380,7 +388,7 @@ class BaseNote(PlayArchetype):
     def update_parallel(self):
         if self.despawn:
             return
-        if not self.is_scored and time() >= self.target_time:
+        if not self.is_scored and time() >= self.visual_end_time:
             self.despawn = True
             return
         if self.is_scored and time() > self.input_interval.end:

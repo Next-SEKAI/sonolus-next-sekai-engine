@@ -84,6 +84,7 @@ from sekai.lib.timescale import (
 )
 from sekai.lib.timescale_consumer import (
     note_progress,
+    note_visibility_end,
     note_visual_spawn_time,
     prepare_note_trajectories,
     register_note_group_window,
@@ -120,6 +121,7 @@ class WatchBaseNote(WatchArchetype):
     rel_lane: float = entity_data()
     target_time: float = entity_data()
     visual_start_time: float = entity_data()
+    visual_end_time: float = shared_memory()
     start_time: float = entity_data()
     # Replay imports overwrite entity data, so keep coordinates in shared memory.
     target_position: TargetPosition = shared_memory()
@@ -153,6 +155,7 @@ class WatchBaseNote(WatchArchetype):
             self.direction = mirror_flick_direction(self.direction)
 
         self.target_time = beat_to_time(self.beat)
+        self.visual_end_time = self.target_time
 
         self.target_position = locate_target(self.timescale_group, self.target_time)
 
@@ -205,7 +208,13 @@ class WatchBaseNote(WatchArchetype):
                 get_attach_frac(attach_head.target_time, attach_tail.target_time, self.target_time),
             )
 
-        self.visual_start_time = note_visual_spawn_time(self, max(self.target_time, self.despawn_time()))
+        end_time = max(self.target_time, self.despawn_time())
+        if not self.is_scored:
+            self.visual_end_time = min(self.target_time, note_visibility_end(self))
+            end_time = self.visual_end_time
+        self.visual_start_time = note_visual_spawn_time(self, end_time)
+        if not self.is_scored and self.visual_start_time >= self.visual_end_time:
+            self.visual_start_time = inf
         start_time = self.visual_start_time
 
         if self.is_scored:
@@ -237,7 +246,7 @@ class WatchBaseNote(WatchArchetype):
         self.result.target_time = self.target_time
 
         if start_time < inf:
-            self.extend_stage_windows(start_time - 1.0, max(self.target_time, self.despawn_time()) + 1.0)
+            self.extend_stage_windows(start_time - 1.0, end_time + 1.0)
         if self.kind != NoteKind.ANCHOR:
             register_note_group_window(self, start_time, self.despawn_time())
         self.start_time = start_time
@@ -310,6 +319,8 @@ class WatchBaseNote(WatchArchetype):
         return self.start_time
 
     def despawn_time(self) -> float:
+        if not self.is_scored:
+            return self.visual_end_time
         if is_replay() and self.is_scored:
             if self.end_time == 0 and self.accuracy == 0 and self.judgment == Judgment.MISS:
                 # This is a note that's part of a partial replay that ended before this note was hit

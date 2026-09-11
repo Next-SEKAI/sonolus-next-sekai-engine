@@ -56,6 +56,7 @@ class WatchTimescaleGroup(WatchArchetype):
     effective_preempt: float = entity_data()
     needed_start: float = entity_data()
     needed_end: float = entity_data()
+    note_visibility_end: float = entity_data()
     lookup_ref: int = shared_memory()
     current_event: int = shared_memory()
     current_run: int = shared_memory()

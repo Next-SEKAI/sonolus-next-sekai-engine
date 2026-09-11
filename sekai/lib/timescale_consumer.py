@@ -1,3 +1,4 @@
+from math import inf
 from typing import Any
 
 from sonolus.script.array import Dim
@@ -6,9 +7,11 @@ from sonolus.script.interval import Interval, lerp
 
 from sekai.lib.ease import safe_unlerp_clamped
 from sekai.lib.timescale import (
+    MIN_START_TIME,
     TrajectoryCache,
     evaluate_trajectory,
     group_preempt_time,
+    group_visibility_end,
     prepare_trajectory,
     register_group_window,
 )
@@ -73,6 +76,52 @@ def note_offset_bounds(note: Any) -> Interval:
     return result
 
 
+def _basic_note_stage_visibility_end(note: Any) -> float:
+    return note.stage_ref.get().note_visibility_end if note.stage_ref.index > 0 else inf
+
+
+def note_stage_visibility_end(note: Any) -> float:
+    """Read cached stage cutoffs, including from attachment anchors that never spawn."""
+    if not note.is_attached:
+        return _basic_note_stage_visibility_end(note)
+    head = note.attach_head_ref.get()
+    tail = note.attach_tail_ref.get()
+    fraction = safe_unlerp_clamped(head.target_time, tail.target_time, note.target_time)
+    if fraction <= 0:
+        return _basic_note_stage_visibility_end(head)
+    if fraction >= 1:
+        return _basic_note_stage_visibility_end(tail)
+    return max(_basic_note_stage_visibility_end(head), _basic_note_stage_visibility_end(tail))
+
+
+def note_visibility_end(note: Any) -> float:
+    """Return when timescale hiding or stage alpha alone guarantees permanent invisibility."""
+    return min(group_visibility_end(note.timescale_group), note_stage_visibility_end(note))
+
+
+def extend_note_chain_stage_windows(head: Any, start: float, end: float) -> None:
+    """Keep the stages of each note pair updating while the slide manager uses them."""
+    if start >= end:
+        return
+    ref = +head.ref()
+    while ref.index > 0:
+        current = ref.get()
+        segment_start = max(start, current.target_time)
+        next_ref = +current.next_ref
+        if next_ref.index <= 0:
+            if segment_start < end:
+                current.extend_stage_windows(segment_start - 1.0, end + 1.0)
+            return
+        following = next_ref.get()
+        segment_end = min(end, following.target_time)
+        if segment_start < segment_end:
+            current.extend_stage_windows(segment_start - 1.0, segment_end + 1.0)
+            following.extend_stage_windows(segment_start - 1.0, segment_end + 1.0)
+        if following.target_time >= end:
+            return
+        ref.index = next_ref.index
+
+
 def _append_visibility_source(
     note: Any, sources: VarArray[VisibilitySource, Dim[4]], offsets: Interval, clamp_after_hit: bool
 ) -> None:
@@ -100,12 +149,16 @@ def append_note_visibility_sources(note: Any, sources: VarArray[VisibilitySource
 
 
 def note_visual_spawn_time(note: Any, latest: float) -> float:
+    if latest < MIN_START_TIME:
+        return inf
     sources = +VarArray[VisibilitySource, Dim[4]]
     append_note_visibility_sources(note, sources)
     return get_sources_visual_spawn_time(sources, latest)
 
 
 def segment_visual_spawn_time(head: Any, tail: Any, latest: float) -> float:
+    if latest < MIN_START_TIME:
+        return inf
     sources = +VarArray[VisibilitySource, Dim[4]]
     append_note_visibility_sources(head, sources)
     append_note_visibility_sources(tail, sources)

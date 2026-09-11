@@ -6,8 +6,9 @@ from sonolus.script.runtime import time
 from sekai.debug import DISABLE_NOTES
 from sekai.lib import archetype_names
 from sekai.lib.sim_line import draw_sim_line
-from sekai.lib.timescale import TrajectoryCache, group_hide_notes
+from sekai.lib.timescale import MIN_START_TIME, TrajectoryCache, group_hide_notes
 from sekai.lib.timescale_consumer import (
+    note_visibility_end,
     note_visual_progress,
     prepare_note_trajectories,
     register_note_group_window,
@@ -37,14 +38,20 @@ class WatchSimLine(WatchArchetype):
             return
         if not self.left.preprocess_done or not self.right.preprocess_done:
             return
+        # Hiding either endpoint hides the line.
+        visibility_end = min(note_visibility_end(self.left), note_visibility_end(self.right))
+        if visibility_end <= MIN_START_TIME:
+            return
         start_time = min(
             self.left.start_time,
             self.right.start_time,
-            segment_visual_spawn_time(self.left, self.right, min(self.left.target_time, self.right.target_time)),
+            segment_visual_spawn_time(
+                self.left, self.right, min(self.left.target_time, self.right.target_time, visibility_end)
+            ),
         )
-        if start_time == inf:
+        if start_time == inf or start_time >= visibility_end:
             return
-        self.end_time = min(self.left.despawn_time(), self.right.despawn_time(), self.left.target_time)
+        self.end_time = min(self.left.despawn_time(), self.right.despawn_time(), self.left.target_time, visibility_end)
         self.left.extend_stage_windows(start_time - 1.0, self.end_time + 1.0)
         self.right.extend_stage_windows(start_time - 1.0, self.end_time + 1.0)
 

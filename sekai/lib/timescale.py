@@ -117,6 +117,7 @@ class TimescaleGroupLike(Protocol):
     effective_preempt: float
     needed_start: float
     needed_end: float
+    note_visibility_end: float
     lookup_ref: int
     current_event: int
     current_run: int
@@ -238,9 +239,11 @@ def initialize_timescale_group(group: TimescaleGroupLike) -> None:
     group.monotone_targets = True
     group.used, group.time_valid, group.spawn_cursor_valid = False, False, False
     group.needed_start, group.needed_end = inf, -inf
+    group.note_visibility_end = -inf
     group.lookup_ref, group.current_event, group.current_run = 0, 0, 0
     group.effective_preempt = preempt_time(group.force_note_speed)
     ref, previous, previous_time, ordinal = group.first_ref.index, 0, -inf, 0
+    hidden = False
     while ref != 0:
         if not _valid_marker_ref(ref):
             _fail(group, TimelineError.REFERENCE)
@@ -271,6 +274,10 @@ def initialize_timescale_group(group: TimescaleGroupLike) -> None:
         if not abs(converted) < inf or converted < previous_time:
             _fail(group, TimelineError.ORDER if converted < previous_time else TimelineError.VALUE)
             return
+        # Only count visible intervals between distinct marker times.
+        if not hidden and converted > previous_time:
+            group.note_visibility_end = converted
+        hidden = marker.hide_notes
         marker.converted_skip = 0
         if marker.timescale_skip != 0:
             bpm = beat_to_bpm(marker.beat)
@@ -287,6 +294,10 @@ def initialize_timescale_group(group: TimescaleGroupLike) -> None:
         if marker.transition_style == TransitionStyle.SCROLL:
             group.has_scroll = True
         previous, previous_time, ref = ref, converted, marker.next_ref.index
+    if not hidden:
+        group.note_visibility_end = inf
+    elif group.note_visibility_end <= MIN_START_TIME:
+        group.note_visibility_end = -inf
     run, previous_run, run_count = 0, -1, 0
     for marker in iter_timescale_changes(group.first_ref.index):
         marker.scroll_skip = TimePosition.of(0)
@@ -623,6 +634,13 @@ def register_group_window(group: int | EntityRef, start: float, end: float) -> N
 def group_hide_notes(group: int | EntityRef) -> bool:
     index = _group_index(group)
     return index > 0 and not Options.disable_timescale and _require_group(index).hide_notes
+
+
+def group_visibility_end(group: int | EntityRef) -> float:
+    index = _group_index(group)
+    if index <= 0 or Options.disable_timescale:
+        return inf
+    return _require_group(index).note_visibility_end
 
 
 def group_force_note_speed(group: int | EntityRef) -> float:
