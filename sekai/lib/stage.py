@@ -463,6 +463,32 @@ def stage_note_visibility_end(stage: DynamicStageLike) -> float:
     return result
 
 
+def stage_note_visibility_start(stage: DynamicStageLike, start: float) -> float:
+    """Return a conservative start for positive stage note alpha at or after start, or inf.
+
+    Fades with a positive endpoint are allowed from the beginning of the interval.
+    """
+    if start == inf or stage.first_style_change_ref.index <= 0:
+        return start
+    ref, following_ref = query_event_list(stage.first_style_change_ref, start, lambda event: event.time)
+    if ref.index <= 0:
+        first = get_event_as(following_ref, _stage_style_change_archetype())
+        if first.note_alpha > 0:
+            return start
+        ref.index = following_ref.index
+    while ref.index > 0:
+        style = get_event_as(ref, _stage_style_change_archetype())
+        if style.next_ref.index <= 0:
+            return max(start, style.time) if style.note_alpha > 0 else inf
+        following = get_event_as(style.next_ref, _stage_style_change_archetype())
+        if following.time > max(start, style.time) and (
+            style.note_alpha > 0 or (style.ease != EaseType.NONE and following.note_alpha > 0)
+        ):
+            return max(start, style.time)
+        ref.index = style.next_ref.index
+    return inf
+
+
 def center_anchor_weight(anchor: StageTransformAnchor) -> float:
     return 1.0 if anchor == StageTransformAnchor.CENTER else 0.0
 

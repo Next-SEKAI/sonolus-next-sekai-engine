@@ -85,6 +85,7 @@ from sekai.lib.timescale import (
 from sekai.lib.timescale_consumer import (
     note_progress,
     note_visibility_end,
+    note_visibility_start,
     note_visual_spawn_time,
     prepare_note_trajectories,
     register_note_group_window,
@@ -212,12 +213,24 @@ class WatchBaseNote(WatchArchetype):
         if not self.is_scored:
             self.visual_end_time = min(self.target_time, note_visibility_end(self))
             end_time = self.visual_end_time
-        self.visual_start_time = note_visual_spawn_time(self, end_time)
+        natural_start_time = note_visual_spawn_time(self, end_time)
+        self.visual_start_time = note_visibility_start(self, natural_start_time)
         if not self.is_scored and self.visual_start_time >= self.visual_end_time:
             self.visual_start_time = inf
         start_time = self.visual_start_time
 
         if self.is_scored:
+            # Keep a one-second buffer for hit particles without extending short lifetimes.
+            start_time = min(start_time, max(natural_start_time, self.despawn_time() - 1.0))
+            input_start = self.target_time + get_note_window(self.kind).bad.start
+            if self.kind == NoteKind.HIDE_DAMAGE_TICK:
+                window_start_beat = damage_tick_input_start_beat(self.beat)
+                if self.active_head_ref.index > 0:
+                    window_start_beat = max(window_start_beat, self.active_head_ref.get().beat)
+                input_start = beat_to_time(window_start_beat)
+            start_time = min(start_time, input_start)
+            if Options.show_hitboxes:
+                start_time = min(start_time, hitbox_draw_start(self.kind, input_start, self.target_time))
             hitbox_lane, hitbox_size = self.visual_extents_at(self.target_time, left_limit=True)
             self.hitbox @= compute_hitbox_at_time(
                 hitbox_lane,
@@ -329,9 +342,6 @@ class WatchBaseNote(WatchArchetype):
         else:
             return self.target_time
 
-    def update_sequential(self):
-        prepare_note_trajectories(self, self.trajectory_first, self.trajectory_second, time())
-
     def update_parallel(self):
         self.draw_hitbox()
         if time() < self.visual_start_time:
@@ -342,9 +352,13 @@ class WatchBaseNote(WatchArchetype):
             return
         if Options.disable_fake_notes and not self.is_scored:
             return
+        note_alpha = self.visual_note_alpha
+        if note_alpha <= 0:
+            return
         render_lane, render_size = self.visual_extents
         if render_size <= 0:
             return
+        prepare_note_trajectories(self, self.trajectory_first, self.trajectory_second, time())
         if self.has_stage_transform():
             draw_note(
                 self.kind,
@@ -354,7 +368,7 @@ class WatchBaseNote(WatchArchetype):
                 self.direction,
                 self.target_time,
                 transform=self.visual_stage_transform().to_screen_transform(),
-                note_alpha=self.visual_note_alpha,
+                note_alpha=note_alpha,
             )
         else:
             draw_note(
@@ -365,7 +379,7 @@ class WatchBaseNote(WatchArchetype):
                 self.direction,
                 self.target_time,
                 transform=IDENTITY_STAGE_SCREEN_TRANSFORM,
-                note_alpha=self.visual_note_alpha,
+                note_alpha=note_alpha,
             )
 
     def draw_hitbox(self):

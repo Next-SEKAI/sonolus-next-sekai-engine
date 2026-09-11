@@ -6,12 +6,14 @@ from sonolus.script.containers import VarArray
 from sonolus.script.interval import Interval, lerp
 
 from sekai.lib.ease import safe_unlerp_clamped
+from sekai.lib.stage import stage_note_visibility_start
 from sekai.lib.timescale import (
     MIN_START_TIME,
     TrajectoryCache,
     evaluate_trajectory,
     group_preempt_time,
     group_visibility_end,
+    group_visibility_start,
     prepare_trajectory,
     register_group_window,
 )
@@ -81,7 +83,7 @@ def _basic_note_stage_visibility_end(note: Any) -> float:
 
 
 def note_stage_visibility_end(note: Any) -> float:
-    """Read cached stage cutoffs, including from attachment anchors that never spawn."""
+    """Return a conservative visibility cutoff from the note's contributing stages."""
     if not note.is_attached:
         return _basic_note_stage_visibility_end(note)
     head = note.attach_head_ref.get()
@@ -97,6 +99,31 @@ def note_stage_visibility_end(note: Any) -> float:
 def note_visibility_end(note: Any) -> float:
     """Return when timescale hiding or stage alpha alone guarantees permanent invisibility."""
     return min(group_visibility_end(note.timescale_group), note_stage_visibility_end(note))
+
+
+def _basic_note_stage_visibility_start(note: Any, start: float) -> float:
+    return stage_note_visibility_start(note.stage_ref.get(), start) if note.stage_ref.index > 0 else start
+
+
+def note_stage_visibility_start(note: Any, start: float) -> float:
+    """Return a conservative visibility start from the note's contributing stages."""
+    if not note.is_attached:
+        return _basic_note_stage_visibility_start(note, start)
+    head = note.attach_head_ref.get()
+    tail = note.attach_tail_ref.get()
+    fraction = safe_unlerp_clamped(head.target_time, tail.target_time, note.target_time)
+    if fraction <= 0:
+        return _basic_note_stage_visibility_start(head, start)
+    if fraction >= 1:
+        return _basic_note_stage_visibility_start(tail, start)
+    return min(_basic_note_stage_visibility_start(head, start), _basic_note_stage_visibility_start(tail, start))
+
+
+def note_visibility_start(note: Any, start: float) -> float:
+    """Advance a note's spawn candidate past any hiding from stage or group."""
+    if start == inf:
+        return start
+    return max(group_visibility_start(note.timescale_group, start), note_stage_visibility_start(note, start))
 
 
 def extend_note_chain_stage_windows(head: Any, start: float, end: float) -> None:

@@ -67,17 +67,19 @@ class WatchSimLine(WatchArchetype):
     def despawn_time(self) -> float:
         return self.end_time
 
-    def update_sequential(self):
-        prepare_note_trajectories(self.left, self.left_trajectory_first, self.left_trajectory_second, time())
-        prepare_note_trajectories(self.right, self.right_trajectory_first, self.right_trajectory_second, time())
-
     def update_parallel(self):
         if group_hide_notes(self.left.timescale_group) or group_hide_notes(self.right.timescale_group):
+            return
+        left_alpha = self.left.visual_note_alpha
+        right_alpha = self.right.visual_note_alpha
+        if left_alpha <= 0 or right_alpha <= 0:
             return
         left_lane, left_size = self.left.visual_extents
         right_lane, right_size = self.right.visual_extents
         if left_size <= 0 or right_size <= 0:
             return
+        prepare_note_trajectories(self.left, self.left_trajectory_first, self.left_trajectory_second, time())
+        prepare_note_trajectories(self.right, self.right_trajectory_first, self.right_trajectory_second, time())
         draw_sim_line(
             left_lane=left_lane,
             left_visual_progress=note_visual_progress(
@@ -91,8 +93,8 @@ class WatchSimLine(WatchArchetype):
             right_target_time=self.right.target_time,
             left_transform=self.left.visual_stage_transform().to_screen_transform(),
             right_transform=self.right.visual_stage_transform().to_screen_transform(),
-            left_note_alpha=self.left.visual_note_alpha,
-            right_note_alpha=self.right.visual_note_alpha,
+            left_note_alpha=left_alpha,
+            right_note_alpha=right_alpha,
         )
 
     @property

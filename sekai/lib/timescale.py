@@ -637,10 +637,29 @@ def group_hide_notes(group: int | EntityRef) -> bool:
 
 
 def group_visibility_end(group: int | EntityRef) -> float:
+    """Return the cached cutoff for permanent timescale hiding, or inf if none exists."""
     index = _group_index(group)
     if index <= 0 or Options.disable_timescale:
         return inf
     return _require_group(index).note_visibility_end
+
+
+def group_visibility_start(group: int | EntityRef, start: float) -> float:
+    """Return the first time at or after start when timescale hiding permits notes, or inf."""
+    index = _group_index(group)
+    if start == inf or index <= 0 or Options.disable_timescale:
+        return start
+    entity = _require_group(index)
+    ref = locate_time(index, start)
+    while ref > 0:
+        marker = _marker(ref)
+        if not marker.hide_notes:
+            return max(start, marker.event_start)
+        if marker.next_ref.index <= 0:
+            return inf
+        # Resolve all changes at this time before checking whether notes reappear.
+        ref = _locate(entity, _marker(marker.next_ref.index).event_start, ref)
+    return start
 
 
 def group_force_note_speed(group: int | EntityRef) -> float:

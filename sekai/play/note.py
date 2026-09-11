@@ -94,6 +94,7 @@ from sekai.lib.timescale import (
 from sekai.lib.timescale_consumer import (
     note_progress,
     note_visibility_end,
+    note_visibility_start,
     note_visual_spawn_time,
     prepare_note_trajectories,
     register_note_group_window,
@@ -250,12 +251,15 @@ class BaseNote(PlayArchetype):
         if not self.is_scored:
             self.visual_end_time = min(self.target_time, note_visibility_end(self))
             end_time = self.visual_end_time
-        self.visual_start_time = note_visual_spawn_time(self, end_time)
+        self.visual_start_time = note_visibility_start(self, note_visual_spawn_time(self, end_time))
         if not self.is_scored and self.visual_start_time >= self.visual_end_time:
             self.visual_start_time = inf
         start_time = (
             min(self.visual_start_time, self.input_interval.start) if self.is_scored else self.visual_start_time
         )
+        if self.is_scored and Options.allow_debug_options_in_play_mode and Options.show_hitboxes:
+            hitbox_start = hitbox_draw_start(self.kind, self.unadjusted_input_interval.start, self.target_time)
+            start_time = min(start_time, hitbox_start + input_offset())
 
         if self.is_scored:
             schedule_note_auto_sfx(self.effect_kind, self.target_time)
@@ -302,8 +306,6 @@ class BaseNote(PlayArchetype):
     def update_sequential(self):
         if self.despawn:
             return
-
-        prepare_note_trajectories(self, self.trajectory_first, self.trajectory_second, time())
 
         if self.kind == NoteKind.HIDE_DAMAGE_TICK and self.is_scored and time() in self.input_interval:
             self.hitbox.bounds @= self.damage_tick_input_bounds(offset_adjusted_time())
@@ -403,9 +405,13 @@ class BaseNote(PlayArchetype):
             return
         if Options.disable_fake_notes and not self.is_scored:
             return
+        note_alpha = self.visual_note_alpha
+        if note_alpha <= 0:
+            return
         render_lane, render_size = self.visual_extents
         if render_size <= 0:
             return
+        prepare_note_trajectories(self, self.trajectory_first, self.trajectory_second, time())
         if self.has_stage_transform():
             draw_note(
                 self.kind,
@@ -415,7 +421,7 @@ class BaseNote(PlayArchetype):
                 self.direction,
                 self.target_time,
                 transform=self.visual_stage_transform().to_screen_transform(),
-                note_alpha=self.visual_note_alpha,
+                note_alpha=note_alpha,
             )
         else:
             draw_note(
@@ -426,7 +432,7 @@ class BaseNote(PlayArchetype):
                 self.direction,
                 self.target_time,
                 transform=IDENTITY_STAGE_SCREEN_TRANSFORM,
-                note_alpha=self.visual_note_alpha,
+                note_alpha=note_alpha,
             )
 
     def draw_hitbox(self):
@@ -1443,5 +1449,5 @@ NOTE_ARCHETYPES = (
 
 
 def derive_note_archetypes[T: type[AnyArchetype]](base: T) -> tuple[T, ...]:
-    """Helper function to derive all note archetypes from a given base archetype for used in watch and preview."""
+    """Derive note archetypes from the given base for Watch or Preview."""
     return tuple(base.derive(str(a.name), is_scored=a.is_scored, key=a.key) for a in NOTE_ARCHETYPES)

@@ -143,9 +143,6 @@ class WatchConnector(WatchArchetype):
 
     @callback(order=-1)
     def update_sequential(self):
-        prepare_note_trajectories(self.head, self.head_trajectory_first, self.head_trajectory_second, time())
-        prepare_note_trajectories(self.tail, self.tail_trajectory_first, self.tail_trajectory_second, time())
-
         if self.active_head_ref.index > 0 and time() in self.visual_active_interval:
             # Callback order decides which connector wins when visual intervals overlap.
             self.active_connector_info.visual_connector_index = self.index + 1
@@ -181,6 +178,11 @@ class WatchConnector(WatchArchetype):
                 active_tail_end = active_tail.despawn_time() if active_tail.is_scored else active_tail.target_time
                 if time() >= active_tail_end:
                     return
+            head_note_alpha = head.visual_note_alpha
+            tail_note_alpha = tail.visual_note_alpha
+            if head_note_alpha <= 0 and tail_note_alpha <= 0:
+                return
+            prepare_note_trajectories(tail, self.tail_trajectory_first, self.tail_trajectory_second, time())
             head_transform = +StageTransform
             tail_transform = +StageTransform
             tail_transform @= tail.visual_stage_transform()
@@ -191,7 +193,7 @@ class WatchConnector(WatchArchetype):
                 head_frac = safe_unlerp_clamped(head.target_time, tail.target_time, time())
                 head_visual_progress = 1.0 - lerp(head.visual_y_offset, tail.visual_y_offset, head_frac)
                 head_target_time = time()
-                head_note_alpha = lerp(head.visual_note_alpha, tail.visual_note_alpha, head_frac)
+                head_note_alpha = lerp(head_note_alpha, tail_note_alpha, head_frac)
                 if self.ease_type == EaseType.NONE:
                     head_lane = head.visual_lane
                     head_size = head.size
@@ -216,6 +218,7 @@ class WatchConnector(WatchArchetype):
                         head.visual_stage_transform(), tail.visual_stage_transform(), head_interp_frac
                     )
             else:
+                prepare_note_trajectories(head, self.head_trajectory_first, self.head_trajectory_second, time())
                 head_lane = head.visual_lane
                 head_size = head.size
                 head_visual_progress = note_visual_progress(
@@ -223,7 +226,6 @@ class WatchConnector(WatchArchetype):
                 )
                 head_target_time = head.target_time
                 head_ease_frac = head.head_ease_frac
-                head_note_alpha = head.visual_note_alpha
                 head_transform @= head.visual_stage_transform()
             draw_connector(
                 kind=self.kind,
@@ -252,7 +254,7 @@ class WatchConnector(WatchArchetype):
                 head_transform=head_transform,
                 tail_transform=tail_transform,
                 head_note_alpha=head_note_alpha,
-                tail_note_alpha=tail.visual_note_alpha,
+                tail_note_alpha=tail_note_alpha,
                 head_mask=head_mask,
                 tail_mask=tail_mask,
             )

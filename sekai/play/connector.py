@@ -142,7 +142,8 @@ class Connector(PlayArchetype):
                     assert_never(self.kind)
 
         visibility_end = inf
-        # Active connectors must keep recording replay states after hiding.
+        # Input offsets can make post-hide state changes visible earlier in replay.
+        # Replay can also disable timescale hiding.
         if self.active_head_ref.index <= 0:
             visibility_end = min(
                 group_visibility_end(self.segment_head.timescale_group),
@@ -194,9 +195,6 @@ class Connector(PlayArchetype):
             self.despawn = True
             return
 
-        prepare_note_trajectories(self.head, self.head_trajectory_first, self.head_trajectory_second, time())
-        prepare_note_trajectories(self.tail, self.tail_trajectory_first, self.tail_trajectory_second, time())
-
         if self.active_head_ref.index > 0:
             if time() in self.input_active_interval:
                 self.active_connector_info.input_bounds @= note.compute_slide_input_bounds(
@@ -226,7 +224,6 @@ class Connector(PlayArchetype):
                 self.active_connector_info.connector_kind = ConnectorKind.NONE
 
     def update_parallel(self):
-        # Skip drawing after cleanup because the trajectories were not updated.
         if self.despawn:
             return
         self.draw_hitbox()
@@ -268,6 +265,11 @@ class Connector(PlayArchetype):
                     and time() >= active_tail.target_time
                 ):
                     return
+            head_note_alpha = head.visual_note_alpha
+            tail_note_alpha = tail.visual_note_alpha
+            if head_note_alpha <= 0 and tail_note_alpha <= 0:
+                return
+            prepare_note_trajectories(tail, self.tail_trajectory_first, self.tail_trajectory_second, time())
             head_transform = +StageTransform
             tail_transform = +StageTransform
             tail_transform @= tail.visual_stage_transform()
@@ -278,7 +280,7 @@ class Connector(PlayArchetype):
                 head_frac = safe_unlerp_clamped(head.target_time, tail.target_time, time())
                 head_visual_progress = 1.0 - lerp(head.visual_y_offset, tail.visual_y_offset, head_frac)
                 head_target_time = time()
-                head_note_alpha = lerp(head.visual_note_alpha, tail.visual_note_alpha, head_frac)
+                head_note_alpha = lerp(head_note_alpha, tail_note_alpha, head_frac)
                 if self.ease_type == EaseType.NONE:
                     head_lane = head.visual_lane
                     head_size = head.size
@@ -303,6 +305,7 @@ class Connector(PlayArchetype):
                         head.visual_stage_transform(), tail.visual_stage_transform(), head_interp_frac
                     )
             else:
+                prepare_note_trajectories(head, self.head_trajectory_first, self.head_trajectory_second, time())
                 head_lane = head.visual_lane
                 head_size = head.size
                 head_visual_progress = note_visual_progress(
@@ -310,7 +313,6 @@ class Connector(PlayArchetype):
                 )
                 head_target_time = head.target_time
                 head_ease_frac = head.head_ease_frac
-                head_note_alpha = head.visual_note_alpha
                 head_transform @= head.visual_stage_transform()
             draw_connector(
                 kind=self.kind,
@@ -339,7 +341,7 @@ class Connector(PlayArchetype):
                 head_transform=head_transform,
                 tail_transform=tail_transform,
                 head_note_alpha=head_note_alpha,
-                tail_note_alpha=tail.visual_note_alpha,
+                tail_note_alpha=tail_note_alpha,
                 head_mask=head_mask,
                 tail_mask=tail_mask,
             )
