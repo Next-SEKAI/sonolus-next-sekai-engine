@@ -63,6 +63,7 @@ from sekai.lib.note import (
     schedule_note_slot_effects,
 )
 from sekai.lib.options import Options
+from sekai.lib.spawn import jitter_spawn_time
 from sekai.lib.stage import (
     DivisionParity,
     InputGeometry,
@@ -124,6 +125,7 @@ class WatchBaseNote(WatchArchetype):
     visual_start_time: float = entity_data()
     visual_end_time: float = shared_memory()
     start_time: float = entity_data()
+    scheduled_spawn_time: float = shared_memory()
     # Replay imports overwrite entity data, so keep coordinates in shared memory.
     target_position: TargetPosition = shared_memory()
     target_y_offset: float = entity_data()
@@ -173,6 +175,7 @@ class WatchBaseNote(WatchArchetype):
 
     def preprocess(self):
         self.start_time = inf
+        self.scheduled_spawn_time = inf
         self.visual_start_time = inf
         self.result.target_time = inf
         if DISABLE_NOTES:
@@ -263,6 +266,7 @@ class WatchBaseNote(WatchArchetype):
         if self.kind != NoteKind.ANCHOR:
             register_note_group_window(self, start_time, self.despawn_time())
         self.start_time = start_time
+        self.scheduled_spawn_time = jitter_spawn_time(start_time, self.despawn_time())
         self.preprocess_done = True
 
     def _basic_extend_stage_window(self, start_time: float, end_time: float):
@@ -329,7 +333,7 @@ class WatchBaseNote(WatchArchetype):
     def spawn_time(self) -> float:
         if DISABLE_NOTES or self.kind == NoteKind.ANCHOR:
             return 1e8
-        return self.start_time
+        return self.scheduled_spawn_time
 
     def despawn_time(self) -> float:
         if not self.is_scored:

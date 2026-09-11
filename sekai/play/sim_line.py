@@ -6,6 +6,7 @@ from sonolus.script.runtime import time
 from sekai.debug import DISABLE_NOTES
 from sekai.lib import archetype_names
 from sekai.lib.sim_line import draw_sim_line
+from sekai.lib.spawn import jitter_spawn_time
 from sekai.lib.timescale import MIN_START_TIME, TrajectoryCache, group_hide_notes
 from sekai.lib.timescale_consumer import (
     note_visibility_end,
@@ -29,11 +30,13 @@ class SimLine(PlayArchetype):
     right_trajectory_second: TrajectoryCache = entity_memory()
 
     spawn_time: float = entity_data()
+    scheduled_spawn_time: float = entity_data()
     visibility_end_time: float = entity_data()
 
     @callback(order=1)
     def preprocess(self):
         self.spawn_time = inf
+        self.scheduled_spawn_time = inf
         if DISABLE_NOTES:
             return
         if not self.left.preprocess_done or not self.right.preprocess_done:
@@ -60,18 +63,21 @@ class SimLine(PlayArchetype):
         register_note_group_window(self.left, start_time, group_end)
         register_note_group_window(self.right, start_time, group_end)
         self.spawn_time = start_time
+        self.scheduled_spawn_time = jitter_spawn_time(start_time)
 
     def spawn_order(self) -> float:
         if DISABLE_NOTES:
             return 1e8
-        return self.spawn_time
+        return self.scheduled_spawn_time
 
     def should_spawn(self) -> bool:
         if DISABLE_NOTES:
             return False
-        return time() >= self.spawn_time
+        return time() >= self.scheduled_spawn_time
 
     def update_parallel(self):
+        if time() < self.spawn_time:
+            return
         if (
             self.left.is_despawned
             or self.right.is_despawned

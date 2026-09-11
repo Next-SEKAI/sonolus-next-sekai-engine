@@ -6,6 +6,7 @@ from sonolus.script.runtime import time
 from sekai.debug import DISABLE_NOTES
 from sekai.lib import archetype_names
 from sekai.lib.sim_line import draw_sim_line
+from sekai.lib.spawn import jitter_spawn_time
 from sekai.lib.timescale import MIN_START_TIME, TrajectoryCache, group_hide_notes
 from sekai.lib.timescale_consumer import (
     note_visibility_end,
@@ -29,11 +30,13 @@ class WatchSimLine(WatchArchetype):
     right_trajectory_second: TrajectoryCache = entity_memory()
 
     start_time: float = entity_data()
+    scheduled_spawn_time: float = entity_data()
     end_time: float = entity_data()
 
     @callback(order=1)
     def preprocess(self):
         self.start_time = inf
+        self.scheduled_spawn_time = inf
         if DISABLE_NOTES:
             return
         if not self.left.preprocess_done or not self.right.preprocess_done:
@@ -58,16 +61,19 @@ class WatchSimLine(WatchArchetype):
         register_note_group_window(self.left, start_time, self.end_time)
         register_note_group_window(self.right, start_time, self.end_time)
         self.start_time = start_time
+        self.scheduled_spawn_time = jitter_spawn_time(start_time, self.end_time)
 
     def spawn_time(self) -> float:
         if DISABLE_NOTES:
             return 1e8
-        return self.start_time
+        return self.scheduled_spawn_time
 
     def despawn_time(self) -> float:
         return self.end_time
 
     def update_parallel(self):
+        if time() < self.start_time:
+            return
         if group_hide_notes(self.left.timescale_group) or group_hide_notes(self.right.timescale_group):
             return
         left_alpha = self.left.visual_note_alpha

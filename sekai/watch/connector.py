@@ -34,6 +34,7 @@ from sekai.lib.ease import EaseType, safe_unlerp_clamped
 from sekai.lib.layout import StageTransform, blend_stage_transform
 from sekai.lib.note import draw_connector_hitbox_overlay, draw_slide_note_head, get_attach_params
 from sekai.lib.options import Options
+from sekai.lib.spawn import jitter_spawn_time
 from sekai.lib.stage import VisualMask, masked_note_extents_by_limits
 from sekai.lib.streams import Streams
 from sekai.lib.timescale import (
@@ -67,6 +68,7 @@ class WatchConnector(WatchArchetype):
     kind: ConnectorKind = entity_data()
     ease_type: EaseType = entity_data()
     start_time: float = entity_data()
+    scheduled_spawn_time: float = entity_data()
     end_time: float = entity_data()
     visual_active_interval: Interval = entity_data()
 
@@ -78,6 +80,7 @@ class WatchConnector(WatchArchetype):
     @callback(order=1)
     def preprocess(self):
         self.start_time = inf
+        self.scheduled_spawn_time = inf
         if DISABLE_NOTES:
             return
         head = self.head
@@ -133,17 +136,20 @@ class WatchConnector(WatchArchetype):
             WatchSlideManager.spawn(active_head_ref=self.active_head_ref, active_tail_ref=self.active_tail_ref)
 
         self.start_time = start_time
+        self.scheduled_spawn_time = jitter_spawn_time(start_time, self.end_time)
 
     def spawn_time(self) -> float:
         if DISABLE_NOTES:
             return 1e8
-        return self.start_time
+        return self.scheduled_spawn_time
 
     def despawn_time(self) -> float:
         return self.end_time
 
     @callback(order=-1)
     def update_sequential(self):
+        if time() < self.start_time:
+            return
         if self.active_head_ref.index > 0 and time() in self.visual_active_interval:
             # Callback order decides which connector wins when visual intervals overlap.
             self.active_connector_info.visual_connector_index = self.index + 1
@@ -153,6 +159,8 @@ class WatchConnector(WatchArchetype):
             self.active_connector_info.connector_kind = ConnectorKind.NONE
 
     def update_parallel(self):
+        if time() < self.start_time:
+            return
         self.draw_hitbox()
         if time() < self.visual_active_interval.end or self.segment_head.segment_through_judge_line:
             head = self.head

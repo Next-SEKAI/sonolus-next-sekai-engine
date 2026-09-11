@@ -39,6 +39,7 @@ from sekai.lib.ease import EaseType, safe_unlerp_clamped
 from sekai.lib.layout import StageTransform, blend_stage_transform
 from sekai.lib.note import NoteKind, draw_connector_hitbox_overlay, draw_slide_note_head, get_attach_params
 from sekai.lib.options import Options
+from sekai.lib.spawn import jitter_spawn_time
 from sekai.lib.stage import VisualMask, masked_note_extents_by_limits
 from sekai.lib.streams import Streams
 from sekai.lib.timescale import (
@@ -74,6 +75,7 @@ class Connector(PlayArchetype):
     kind: ConnectorKind = entity_data()
     ease_type: EaseType = entity_data()
     start_time: float = entity_data()
+    scheduled_spawn_time: float = entity_data()
     end_time: float = entity_data()
     visual_active_interval: Interval = entity_data()
 
@@ -88,6 +90,7 @@ class Connector(PlayArchetype):
     @callback(order=1)
     def preprocess(self):
         self.start_time = inf
+        self.scheduled_spawn_time = inf
         if DISABLE_NOTES:
             return
         head = self.head
@@ -173,6 +176,7 @@ class Connector(PlayArchetype):
         register_note_group_window(tail, start_time, self.end_time)
         register_group_window(self.segment_head.timescale_group, start_time, self.end_time)
         self.start_time = start_time
+        self.scheduled_spawn_time = jitter_spawn_time(start_time)
 
     def initialize(self):
         if self.head_ref.index == self.active_head_ref.index:
@@ -182,15 +186,17 @@ class Connector(PlayArchetype):
     def spawn_order(self) -> float:
         if DISABLE_NOTES:
             return 1e8
-        return self.start_time
+        return self.scheduled_spawn_time
 
     def should_spawn(self) -> bool:
         if DISABLE_NOTES:
             return False
-        return time() >= self.start_time
+        return time() >= self.scheduled_spawn_time
 
     @callback(order=-1)
     def update_sequential(self):
+        if time() < self.start_time:
+            return
         if time() >= self.end_time:
             self.despawn = True
             return
@@ -224,6 +230,8 @@ class Connector(PlayArchetype):
                 self.active_connector_info.connector_kind = ConnectorKind.NONE
 
     def update_parallel(self):
+        if time() < self.start_time:
+            return
         if self.despawn:
             return
         self.draw_hitbox()
