@@ -50,8 +50,9 @@ CONNECTOR_SLOT_SPAWN_PERIOD = 0.2
 CONNECTOR_THROUGH_JUDGE_LINE_DESPAWN_DELAY = 5.0
 CONNECTOR_LENIENCY = 1
 CONNECTOR_ZERO_SIZE_FALLBACK = 1e-3
-CONNECTOR_ALPHA_ERROR = 1 / 256
-CONNECTOR_MIN_SEGMENT_LENGTH = 2 * (8 / 1440)
+CONNECTOR_ALPHA_ERROR = 1 / 192
+CONNECTOR_ALPHA_SEGMENT_LENGTH = 2 * (32 / 1080)
+CONNECTOR_MIN_SEGMENT_LENGTH = 2 * (4 / 1080)
 
 
 def get_connector_interp_frac(
@@ -772,8 +773,15 @@ def connector_span_length(
 
 
 def connector_segment_count(geometry_detail: float, alpha_range: float, quality: float, path_length: float) -> int:
-    detail = max(geometry_detail, alpha_range / (2 * CONNECTOR_ALPHA_ERROR))
-    return max(1, floor(min(ceil(detail * quality), path_length * quality / CONNECTOR_MIN_SEGMENT_LENGTH)))
+    geometry_count = ceil(geometry_detail * quality)
+    alpha_detail = alpha_range * quality / (2 * CONNECTOR_ALPHA_ERROR)
+    alpha_count = ceil(alpha_detail)
+    scaled_length = path_length * quality
+    nominal_count = scaled_length / CONNECTOR_ALPHA_SEGMENT_LENGTH
+    if nominal_count < alpha_count:
+        error_ratio = max(1, alpha_detail / max(1, nominal_count))
+        alpha_count = floor(min(alpha_count, nominal_count * sqrt(error_ratio)))
+    return max(1, floor(min(max(geometry_count, alpha_count), scaled_length / CONNECTOR_MIN_SEGMENT_LENGTH)))
 
 
 def draw_connector_default_segment(
@@ -1201,10 +1209,11 @@ def draw_connector_default(
     if min(start_alpha, end_alpha) * alpha_option >= 1:
         alpha_range = 0.0
     alpha_detail = alpha_range / (2 * CONNECTOR_ALPHA_ERROR)
-    requested_count = ceil(max(geometry_detail, alpha_detail) * quality)
-    if not heterogeneous_endpoints and (
-        has_transform or vertical_span * quality < requested_count * CONNECTOR_MIN_SEGMENT_LENGTH
-    ):
+    minimum_span = max(
+        ceil(geometry_detail * quality) * CONNECTOR_MIN_SEGMENT_LENGTH,
+        ceil(alpha_detail * quality) * CONNECTOR_ALPHA_SEGMENT_LENGTH,
+    )
+    if not heterogeneous_endpoints and (has_transform or vertical_span * quality < minimum_span):
         path_length = connector_span_length(
             start_lane,
             start_size,
