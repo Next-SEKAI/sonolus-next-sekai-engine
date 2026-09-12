@@ -1119,7 +1119,7 @@ def draw_connector_default(
         mask_enabled and not same_mask_stage
     )
     if heterogeneous_endpoints:
-        geometry_detail = 15.0
+        geometry_detail = 20.0
     else:
         match ease_type:
             case EaseType.NONE:
@@ -1174,7 +1174,7 @@ def draw_connector_default(
                     last_pos_offset = current_pos_offset
                 total_pos_offsets += abs(last_pos_offset) ** 0.6
                 curve_change_scale = total_pos_offsets * 1.5
-        geometry_detail = curve_change_scale * 10
+        geometry_detail = curve_change_scale * 15
     quality = get_connector_quality_option(kind)
 
     if geometry_detail * quality <= 1 and head_alpha == tail_alpha and not has_transform and not mask_enabled:
