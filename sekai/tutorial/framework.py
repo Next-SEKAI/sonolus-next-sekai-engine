@@ -9,7 +9,7 @@ from sonolus.script.containers import VarArray
 from sonolus.script.effect import LoopedEffectHandle
 from sonolus.script.globals import level_memory
 from sonolus.script.instruction import clear_instruction
-from sonolus.script.interval import lerp, remap, remap_clamped, unlerp
+from sonolus.script.interval import lerp, remap, remap_clamped, unlerp_clamped
 from sonolus.script.particle import ParticleHandle
 from sonolus.script.record import Record
 from sonolus.script.runtime import set_particle_transform, set_skin_transform, time
@@ -319,15 +319,21 @@ class QueuedTutorialNoteDrawConnectorTo(Record):
         head_target_time = time() + 1 - self.progress - self.from_note.offset
         tail_progress = self.progress + self.to_note.offset
         tail_target_time = time() + 1 - self.progress - self.to_note.offset
+        if tail_progress >= 1 or head_progress == tail_progress:
+            return
+        head_ease_frac = unlerp_clamped(head_progress, tail_progress, 1)
+        eased_frac = ease(self.ease_type, head_ease_frac)
+        lane = lerp(self.from_note.lane, self.to_note.lane, eased_frac)
+        size = lerp(self.from_note.size, self.to_note.size, eased_frac)
         draw_connector(
             kind=kind,
             visual_state=visual_state,
             ease_type=self.ease_type,
-            head_lane=self.from_note.lane,
-            head_size=self.from_note.size,
-            head_visual_progress=head_progress,
-            head_target_time=head_target_time,
-            head_ease_frac=0.0,
+            head_lane=lane,
+            head_size=size,
+            head_visual_progress=min(head_progress, 1),
+            head_target_time=max(head_target_time, time()),
+            head_ease_frac=head_ease_frac,
             tail_lane=self.to_note.lane,
             tail_size=self.to_note.size,
             tail_visual_progress=tail_progress,
@@ -348,11 +354,20 @@ class QueuedTutorialNoteDrawConnectorTo(Record):
             head_mask=None,
             tail_mask=None,
         )
-        if self.effect_index >= 0 and tail_progress < 1 < head_progress and self.active:
-            frac = unlerp(head_progress, tail_progress, 1)
-            eased_frac = ease(self.ease_type, frac)
-            lane = lerp(self.from_note.lane, self.to_note.lane, eased_frac)
-            size = lerp(self.from_note.size, self.to_note.size, eased_frac)
+        if head_progress < 1 or not self.active:
+            return
+        draw_slide_note_head(
+            self.active_head_kind,
+            kind,
+            lane,
+            size,
+            head_target_time,
+            transform=IDENTITY_STAGE_SCREEN_TRANSFORM,
+            note_alpha=1.0,
+        )
+        if self.show_touch:
+            paint_hold_motion(transformed_vec_at(lane))
+        if self.effect_index >= 0:
             handles = get_slide_effect_handles(self.effect_index)
             update_circular_connector_particle(
                 handles.circular,
@@ -388,17 +403,6 @@ class QueuedTutorialNoteDrawConnectorTo(Record):
             draw_connector_slot_glow_effect(
                 kind, head_target_time, lane, size, transform=IDENTITY_STAGE_SCREEN_TRANSFORM
             )
-            draw_slide_note_head(
-                self.active_head_kind,
-                kind,
-                lane,
-                size,
-                head_target_time,
-                transform=IDENTITY_STAGE_SCREEN_TRANSFORM,
-                note_alpha=1.0,
-            )
-            if self.show_touch:
-                paint_hold_motion(transformed_vec_at(lane))
 
 
 @level_memory
