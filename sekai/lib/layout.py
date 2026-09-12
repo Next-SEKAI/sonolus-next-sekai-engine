@@ -47,9 +47,8 @@ APPROACH_TILT_LERP_MIN = 0.05
 # Stage width at 0 tilt
 STAGE_WIDTH_MID = (APPROACH_SCALE + 1) / 2
 
-# As tilt decreases, the perspective vanishing point (where the width factor reaches 0) recedes
-# upward and the stage top is extended toward it. This floors the effective tilt used for that
-# extent so it stays finite (instead of diverging) as tilt approaches 0.
+# As tilt decreases, the vanishing point moves upward and we extend the stage toward it.
+# This is a minimum tilt for this extension so the stage height stays finite at zero tilt.
 STAGE_TILT_VANISH_MIN = 0.2
 
 
@@ -139,7 +138,7 @@ class StageScreenTransform(Record):
         )
 
     def apply_inverse(self, p: Vec2) -> Vec2:
-        """Undo the stage mapping, using a pseudoinverse near or at collapse."""
+        """Undo the stage mapping with a pseudoinverse if the stage has nearly or fully collapsed to a line."""
         result = +Vec2
         det = self.a00 * self.a11 - self.a01 * self.a10
         dx = p.x - self.a02
@@ -168,7 +167,7 @@ class StageScreenTransform(Record):
         )
 
     def transform_billboard(self, q: QuadLike, anchor: Vec2) -> Quad:
-        """Project a decoration's anchor while preserving its size and rigid rotation."""
+        """Transform a decoration's anchor and rotate the decoration without changing its size."""
         rotation = Vec2(self.a00 + self.a11, self.a10 - self.a01).normalize_or_zero()
         if rotation.magnitude == 0:
             rotation @= Vec2(1, 0)
@@ -192,8 +191,8 @@ IDENTITY_STAGE_SCREEN_TRANSFORM = StageScreenTransform(
 class StageTransform(Record):
     """Blendable components of a stage's screen transform for one camera state.
 
-    Applies the elevation projection, rotate by `sr` about pivot `(px, py)`, then
-    translate by `(tx, ty)`.
+    The mapping applies elevation projection, rotation by `sr` about pivot
+    `(px, py)`, then translation by `(tx, ty)`.
     """
 
     sr: float
@@ -228,9 +227,10 @@ def stage_transform_is_identity(st: StageTransform) -> bool:
 
 
 def elevation_projection(camera: LayoutTransform, elevation: float) -> StageScreenTransform:
-    """Raise one lane per unit at full tilt, fixing the perspective vanishing line.
+    """Project stage elevation while keeping the perspective vanishing line fixed.
 
-    Avoids the divergent vanishing point at zero tilt and clamps before inversion.
+    At full tilt, one elevation unit raises the stage by one lane width.
+    The formula stays finite at zero tilt. Limit elevation so the stage cannot flip.
     """
     tilt = camera.stage_tilt
     amount = elevation * camera.w_scale * tilt
@@ -345,9 +345,8 @@ def init_layout():
 
     Layout.approach_start = 0.0
 
-    # Fixed approach-curve depths for the cover/spawn and far cutoff boundaries. These are
-    # tilt-independent (they pin screen positions); refresh_layout() converts them to the
-    # equivalent progress bounds under the current tilt each frame.
+    # Store the cover and drawing cutoff depths. These depths stay fixed as tilt changes.
+    # Each frame, refresh_layout() uses them to calculate progress bounds for the current tilt.
     cover = stage_cover_amount()
     hidden = hidden_amount()
     if cover:
@@ -778,7 +777,7 @@ def _compute_conservative_progress_bounds() -> Interval:
             # The cover hides notes before the approach starts.
             lower = 0.0
         else:
-            # Use the smallest allowed vanishing-point tilt to include earlier visibility.
+            # Use the minimum tilt for extending the stage so notes spawn before they can become visible.
             vanish_ext = (1 - STAGE_TILT_VANISH_MIN) * STAGE_WIDTH_MID / STAGE_TILT_VANISH_MIN
             lower = inverse_approach_slice(APPROACH_SCALE - vanish_ext, STAGE_TILT_VANISH_MIN, APPROACH_SCALE)
         # The untilted bound covers the end cutoff for all tilt values.
@@ -1451,7 +1450,7 @@ def compute_hitbox(
     rot = -transform.rotate
     target_l = stage_transform.apply(Vec2(l_x, note_y).rotate(rot))
     target_r = stage_transform.apply(Vec2(r_x, note_y).rotate(rot))
-    # Preserve finger tolerance at collapse.
+    # Keep the hitbox height and leniency even when elevation flattens the stage to a line.
     axis = Vec2(1, 0).rotate(rot)
     horizontal = Vec2(
         stage_transform.a00 * axis.x + stage_transform.a01 * axis.y,

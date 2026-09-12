@@ -464,8 +464,8 @@ class BaseNote(PlayArchetype):
         if self.best_touch_time == DEFAULT_BEST_TOUCH_TIME:
             return False
 
-        # Give until the end of the perfect window to give a right-way touch if we've only had wrong-way touches.
-        # After that, wrong-way has no impact anyway.
+        # Allow another try until the perfect window ends if the best recorded touch has the wrong direction.
+        # After that, the direction no longer changes the judgment.
         if (
             not self.best_touch_matches_direction
             and offset_adjusted_time() < self.target_time + self.judgment_window.perfect.end
@@ -599,7 +599,7 @@ class BaseNote(PlayArchetype):
             elif offset_adjusted_time() > self.target_time + self.judgment_window.perfect.end:
                 self.judge_wrong_way(offset_adjusted_time())
                 return
-        # Either pre-target, or post-target within perfect window with wrong direction
+        # The touch is either before the target time or has the wrong direction within the perfect window.
         current_abs_error = abs(self.best_touch_time - self.target_time)
         if not self.best_touch_matches_direction:
             current_abs_error = max(current_abs_error, self.judgment_window.perfect.end)

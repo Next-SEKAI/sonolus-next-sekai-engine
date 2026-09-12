@@ -54,8 +54,8 @@ POSES = (
     (40, (0,) * 5),
 )
 
-# beat, note/judge alpha, background alpha, separated borders.
-# Borders merge at equal elevation or zero tilt.
+# Each pose sets the beat, note and judge-line alpha, background alpha, and whether to separate the borders.
+# Borders merge when the stages have equal elevations or the camera has zero tilt.
 STYLE_POSES = (
     (0, 0, 0, False),
     (1, 0, 0, False),

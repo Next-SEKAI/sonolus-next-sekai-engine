@@ -11,7 +11,8 @@ class TimePosition(Record):
     """Scaled time split into whole seconds and a signed fraction.
 
     Keeping the parts separate preserves small differences at large times.
-    f32 stores whole seconds exactly through 2**24; fractions can round to +/-1.
+    Whole seconds remain exact in f32 through 2**24. A stored fraction may
+    round to -1 or 1.
     """
 
     whole: float

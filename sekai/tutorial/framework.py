@@ -71,10 +71,8 @@ def update_start():
 
 def update_end():
     PhaseState.prev_time = time()
-    # For engine size and compile performance reasons, we queue up actions, then
-    # execute them at the end of the frame.
-    # This means that the body of the act() methods are only compiled once due to
-    # how the compiler inlines all function calls.
+    # Queue actions until the end of the frame so each act() method is compiled in one place.
+    # The compiler inlines every function call, so this keeps the engine smaller and speeds up compilation.
     for action_group in (
         PhaseState.queued_note_draws,
         PhaseState.queued_note_hit_effects,

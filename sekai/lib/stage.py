@@ -166,7 +166,7 @@ def judge_line_style_weight(style: Transition[JudgeLineStyle], target: JudgeLine
 
 
 def resolve_judge_line_style(style: Transition[JudgeLineStyle]) -> JudgeLineStyle:
-    """The dominant judge line style at the current moment, for discrete decisions (e.g. slot effects)."""
+    """Choose the more visible judge line style for effects that cannot blend styles."""
     if style.progress < 0.5:
         return style.start
     return style.end
@@ -419,8 +419,8 @@ def _stage_transform_change_archetype() -> type[StageTransformChangeLike]:
 def stage_y_offset_bounds(stage: DynamicStageLike) -> Interval:
     """Scan the stage's pivot offsets and return their full y offset range.
 
-    Call after converting beat offsets into pivot.y_offset values. Pivot easing
-    stays between its endpoint offsets, so their extrema bound the full range.
+    Call after converting beat offsets into pivot.y_offset values. Easing keeps
+    each offset between the two event values, so checking those values is enough.
     """
     ref = +stage.first_pivot_change_ref
     result = Interval(0.0, 0.0)
@@ -464,9 +464,10 @@ def stage_note_visibility_end(stage: DynamicStageLike) -> float:
 
 
 def stage_note_visibility_start(stage: DynamicStageLike, start: float) -> float:
-    """Return a conservative start for positive stage note alpha at or after start, or inf.
+    """Return the next time at or after start when stage notes could be visible.
 
-    Fades with a positive endpoint are allowed from the beginning of the interval.
+    Return inf if no later style can make the notes visible. If either end of a
+    fade has positive alpha, treat the whole fade as potentially visible.
     """
     if start == inf or stage.first_style_change_ref.index <= 0:
         return start
@@ -592,7 +593,7 @@ def update_stage_mask_props(result: StageProps, first_mask_change_ref: EntityRef
     if left_limit and mask_a_ref.index > 0:
         mask_curr = get_event_as(mask_a_ref, _stage_mask_change_archetype())
         if mask_curr.time == t:
-            # Walk back through any same-time chain so b_ref ends up at the earliest at-t event.
+            # Find the first event at t so interpolation uses the value just before t.
             mask_probe_ref = +mask_curr.prev_ref
             while mask_probe_ref.index > 0:
                 if get_event_as(mask_probe_ref, _stage_mask_change_archetype()).time != t:
@@ -837,7 +838,6 @@ def draw_aspect_box(sprite: Sprite, ratio: float, sub: int):
 def draw_test_aspect_overlay():
     if not test_aspect_active():
         return
-    # Higher sub = drawn on top; 16:9 (the field reference) is drawn last so it sits topmost.
     draw_aspect_box(ActiveSkin.guide_red, 21 / 9, 0)
     draw_aspect_box(ActiveSkin.guide_blue, 4 / 3, 1)
     draw_aspect_box(ActiveSkin.guide_green, 16 / 9, 2)

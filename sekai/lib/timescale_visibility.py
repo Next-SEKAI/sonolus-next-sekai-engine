@@ -62,8 +62,8 @@ def _distance_bounds(
     peak_speed = abs(v0) if easing == EaseType.NONE else max(abs(v0), abs(v1))
     magnitude = max(abs(distance), peak_speed * max(end - start, abs(anchor - start), abs(b - anchor)))
     if scroll:
-        # Use interval arithmetic: bound speed and width separately, then take
-        # the min and max of their four endpoint products. This covers sign changes too.
+        # Bound speed and width separately, then find the smallest and largest
+        # of the four endpoint products. This also covers sign changes.
         va, vb = _scroll_speed(va), _scroll_speed(vb)
         width = distance / _scroll_speed(speed_at(v0, v1, easing, start, end, anchor))
         magnitude = max(magnitude, (abs(width) + abs(b - anchor)) * max(peak_speed, 1e-4))
@@ -77,10 +77,11 @@ def _distance_bounds(
         upper = value + max(0.0, -min(va, vb) * (b - a))
     if not -inf < lower <= upper < inf:
         return result
-    # Stopped timescale needs only numeric slack; zero scroll still moves.
+    # When timescale speed stays at zero, only rounding needs extra margin.
+    # Scroll still moves at zero because _scroll_speed enforces a minimum speed.
     stopped = not scroll and v0 == 0 and (easing == EaseType.NONE or v1 == 0)
     slack = (0.0 if stopped else 0.01) + source.preempt * 1e-4 + max(magnitude, abs(lower), abs(upper)) * 1e-6
-    # A capped distance may extend farther in the capped direction.
+    # If the distance was capped, we do not know how far it extends beyond the cap.
     result @= Interval(
         -inf if distance <= -DISTANCE_LIMIT else lower - slack, inf if distance >= DISTANCE_LIMIT else upper + slack
     )
@@ -92,8 +93,8 @@ def first_visible(
 ) -> float:
     """Find an early spawn time by rejecting intervals that cannot be visible.
 
-    The search subdivides remaining intervals, earlier halves first. The result
-    is a padded candidate start that may precede actual visibility.
+    Search earlier halves first as we subdivide the remaining intervals.
+    Add a small margin so notes spawn before they might become visible.
     """
     if len(sources) == 0 or latest < earliest:
         return inf
@@ -176,22 +177,22 @@ def get_sources_visual_spawn_time(sources: VarArray[VisibilitySource, Dim[4]], l
                 proxy.offset_min = min(proxy.offset_min, source.offset_min)
                 proxy.offset_max = max(proxy.offset_max, source.offset_max)
             if reusable and proxy.hit_time >= MIN_START_TIME:
-                # Before the earliest hit, clamps are inactive and each source's
-                # distance is at least the proxy's. While the proxy's distance
-                # exceeds its ceiling, every source exceeds its own ceiling.
-                # All distance windows include zero, so the proxy can be visible
-                # by that hit. Its spawn is a lower bound for the segment search.
+                # Before the earliest hit, no source is clamped or closer than the proxy.
+                # The proxy also has the widest visible distance range. All sources are
+                # therefore out of view until the proxy could be visible. The proxy is
+                # within its range at its hit time because the range includes zero, so
+                # its spawn time is a safe starting point for the segment search.
                 proxies = VarArray[VisibilitySource, Dim[4]].new()
                 proxies.append(proxy)
                 earliest = _search_with_spawn_cursor(proxies, bounds, latest)
-                # Only the proxy search updates the cursor. The segment's later
-                # result need not be a safe starting point for future queries.
+                # Only the proxy search updates the cursor. Using the segment's later
+                # spawn time could skip visible intervals in future searches.
                 return first_visible(sources, bounds.start, bounds.end, earliest, latest)
     return _search_with_spawn_cursor(sources, bounds, latest)
 
 
 def _search_with_spawn_cursor(sources: VarArray[VisibilitySource, Dim[4]], bounds: Interval, latest: float) -> float:
-    """Search sources, reusing and updating the group cursor for eligible single sources."""
+    """Find a spawn time, using the group's previous result when it is safe to reuse."""
     earliest = MIN_START_TIME
     cache_group = 0
     ceiling = 0.0

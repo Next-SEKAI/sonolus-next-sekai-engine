@@ -83,7 +83,7 @@ def _basic_note_stage_visibility_end(note: Any) -> float:
 
 
 def note_stage_visibility_end(note: Any) -> float:
-    """Return a conservative visibility cutoff from the note's contributing stages."""
+    """Return a time after which the note's stages keep it invisible."""
     if not note.is_attached:
         return _basic_note_stage_visibility_end(note)
     head = note.attach_head_ref.get()
@@ -97,7 +97,7 @@ def note_stage_visibility_end(note: Any) -> float:
 
 
 def note_visibility_end(note: Any) -> float:
-    """Return when timescale hiding or stage alpha alone guarantees permanent invisibility."""
+    """Return when timescale hiding or stage alpha keeps the note invisible for the rest of the level."""
     return min(group_visibility_end(note.timescale_group), note_stage_visibility_end(note))
 
 
@@ -106,7 +106,7 @@ def _basic_note_stage_visibility_start(note: Any, start: float) -> float:
 
 
 def note_stage_visibility_start(note: Any, start: float) -> float:
-    """Return a conservative visibility start from the note's contributing stages."""
+    """Return a later start if the note's stages keep it invisible after start."""
     if not note.is_attached:
         return _basic_note_stage_visibility_start(note, start)
     head = note.attach_head_ref.get()
@@ -120,7 +120,7 @@ def note_stage_visibility_start(note: Any, start: float) -> float:
 
 
 def note_visibility_start(note: Any, start: float) -> float:
-    """Return a conservative spawn bound from stage alpha and timescale hiding."""
+    """Return a spawn time after skipping known periods of invisibility."""
     if start == inf:
         return start
     return max(group_visibility_start(note.timescale_group, start), note_stage_visibility_start(note, start))

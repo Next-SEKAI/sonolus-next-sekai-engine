@@ -112,7 +112,7 @@ def draw_preview_dynamic_stage(stage: DynamicStageLike, start_time: float, end_t
 
 
 def slice_lane_alpha(props_a: StageProps, props_b: StageProps) -> float:
-    """Mask alpha (lane_alpha) averaged across the slice endpoints."""
+    """Return the average mask alpha at the slice endpoints."""
     alpha_a = props_a.lane_alpha * (1 - props_a.full_width)
     alpha_b = props_b.lane_alpha * (1 - props_b.full_width)
     return (alpha_a + alpha_b) / 2
@@ -259,9 +259,8 @@ def draw_dynamic_stage_dividers_slice(
     if alpha <= 0:
         return
 
-    # During a division/parity transition, division.start and division.end describe two
-    # different divider sets that need to cross-fade by `progress`. Outside a transition,
-    # start == end and we draw one set at full alpha.
+    # When divider spacing or parity changes, fade between the old and new sets using division.progress.
+    # Otherwise, division.start and division.end match, so draw the set once at full alpha.
     division_a = props_a.division
     division_b = props_b.division
     if division_b.start == division_b.end:
@@ -294,19 +293,13 @@ def draw_dynamic_stage_division_set(
 ):
     """Draw the dividers for one division set across a slice.
 
-    Each divider sits at `pivot(t) + parity_offset + k*size` for an integer index `k`.
-    Pivot moves continuously between events, so the divider's x-position varies over
-    the slice. We sample at t_a and t_b and emit one slanted strip per `k`:
+    Each divider follows the stage pivot, with spacing from `size` and an offset
+    for `parity`. Draw a strip between its positions at `t_a` and `t_b`.
 
-      * both endpoints inside the (clipped) mask -> draw the full strip.
-      * only t_b inside -> divider entered the mask mid-slice; bsearch backwards to
-        find the entry time and clip the strip to it.
-      * only t_a inside -> divider is leaving; bsearch forwards for the exit time.
-      * neither inside -> skip.
-
-    The mask used for in/out tests is `[max(l, -bound), min(r, bound)]`, so dividers
-    are clipped to the column boundary the same way they are clipped to the mask
-    edges.
+    If only one endpoint is inside the mask, use a binary search to find where the
+    divider enters or leaves and clip the strip there. Skip dividers whose endpoints
+    are both outside. Also clip the mask to `[-bound, bound]` to keep dividers within
+    their preview column.
     """
     if alpha <= 0:
         return
@@ -330,7 +323,7 @@ def draw_dynamic_stage_division_set(
     shifted_pivot_a = props_a.pivot_lane + parity_offset + shift_a
     shifted_pivot_b = props_b.pivot_lane + parity_offset + shift_b
 
-    # k range: union of indices that could be visible at either endpoint.
+    # Include every divider index that could be visible at either endpoint.
     k_lo = min(floor((mask_l_a - shifted_pivot_a + eps) / size), floor((mask_l_b - shifted_pivot_b + eps) / size)) + 1
     k_hi = max(ceil((mask_r_a - shifted_pivot_a - eps) / size), ceil((mask_r_b - shifted_pivot_b - eps) / size)) - 1
 
@@ -372,12 +365,12 @@ def bsearch_divider_mask_edge(
     t_hi: float,
     target_in_mask: bool,
 ) -> float:
-    """Bisect [t_lo, t_hi] for the time at which divider `k` crosses the mask edge.
+    """Find when divider `k` crosses the mask edge between `t_lo` and `t_hi`.
 
-    Caller knows divider `k` is in-mask at one endpoint and out-of-mask at the other.
-    `target_in_mask` says which endpoint is in-mask: True -> t_hi is in (we're looking
-    for the entry time on its side), False -> t_lo is in (we're looking for the exit
-    time). On exit we return the time on the in-mask side of the converged interval.
+    One endpoint must be inside the mask and the other outside. Set `target_in_mask`
+    to True to find the entry time when `t_hi` is inside the mask. Set it to False
+    to find the exit time when `t_lo` is inside. Return the time on the visible side
+    of the crossing.
     """
     eps = PREVIEW_DYNAMIC_STAGE_EPS
     bound = PreviewLayout.lane_bound

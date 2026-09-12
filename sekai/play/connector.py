@@ -23,6 +23,7 @@ from sekai.lib.connector import (
     destroy_looped_sfx,
     draw_connector,
     draw_connector_slot_glow_effect,
+    get_connector_alpha_option,
     get_connector_fractions,
     get_connector_input_leniency,
     get_connector_interp_frac,
@@ -145,7 +146,7 @@ class Connector(PlayArchetype):
                     assert_never(self.kind)
 
         visibility_end = inf
-        # Active sections must keep recording replay state after their bodies disappear.
+        # Active sections must keep recording replay state after the connector body is hidden.
         # Input offsets and replay options can make those later states visible.
         if self.active_head_ref.index <= 0:
             visibility_end = min(
@@ -243,7 +244,7 @@ class Connector(PlayArchetype):
             if self.active_head_ref.index > 0:
                 active_head = self.active_head
                 if self.kind == ConnectorKind.DAMAGE:
-                    # No 'leniency' to be active at the start
+                    # Damage connectors do not get the initial grace period for staying active.
                     if self.active_connector_info.is_active:
                         visual_state = ConnectorVisualState.ACTIVE
                     else:
@@ -273,6 +274,8 @@ class Connector(PlayArchetype):
                     and time() >= active_tail.target_time
                 ):
                     return
+            if get_connector_alpha_option(self.kind) <= 0:
+                return
             head_note_alpha = head.visual_note_alpha
             tail_note_alpha = tail.visual_note_alpha
             if head_note_alpha <= 0 and tail_note_alpha <= 0:
@@ -308,7 +311,7 @@ class Connector(PlayArchetype):
                     if head_mask.enabled and tail_mask.enabled:
                         head_mask.left = lerp(head_mask.left, tail_mask.left, head_interp_frac)
                         head_mask.right = lerp(head_mask.right, tail_mask.right, head_interp_frac)
-                    # Head has crossed the judge line, so its transform is the connector's blend at that point.
+                    # The head has passed the judge line. Blend the transforms at the connector's current head position.
                     head_transform @= blend_stage_transform(
                         head.visual_stage_transform(), tail.visual_stage_transform(), head_interp_frac
                     )

@@ -43,11 +43,12 @@ class TargetPosition(Record):
 
 
 class RunSummary(Record):
-    """An affine transform for distances across runs.
+    """Note-distance changes across a sequence of runs.
 
-    For note distance D: D(left, hit) = forward + ratio * D(right, hit).
-    backward = -D(right, left) is stored separately to avoid dividing forward
-    by the combined ratio, which can become very large or small.
+    Distances at the two boundaries satisfy
+    D(left, hit) = forward + ratio * D(right, hit).
+    The separate backward term, -D(right, left), avoids division by the combined
+    ratio, which can become very large or small.
     """
 
     ratio: float
@@ -66,7 +67,7 @@ class TrajectoryCache(Record):
     """A target's distance from a fixed boundary of the current run.
 
     Each consumer refreshes its cache when the run changes. Later targets use
-    the run's end; earlier targets use its start.
+    the run's end, and earlier targets use its start.
     """
 
     run_ref: int  # 0: uninitialized; -1: before the first marker.
@@ -380,7 +381,6 @@ def _run(ref: int) -> int:
 
 
 def _scroll_speed(value: float) -> float:
-    # Keep scroll divisors nonzero. Negative speeds keep their sign; zero uses +1e-4.
     return min(value, -1e-4) if value < 0 else max(value, 1e-4)
 
 
@@ -561,8 +561,9 @@ def prepare_group(group: int | EntityRef, now: float) -> None:
     if entity.style == TransitionStyle.SCROLL:
         entity.current_speed = _scroll_speed(entity.current_speed)
     entity.current_constant = entity.ease == EaseType.NONE or entity.v0 == entity.v1
-    # For either run boundary b, D(now, hit) = offset + gain * D(b, hit).
-    # Consumers cache D(b, hit); only gain and offset change within this run.
+    # Compute note distance from a cached distance at either run boundary:
+    # D(now, hit) = offset + gain * D(boundary, hit).
+    # Only gain and offset need to change while we stay in the same run.
     entity.future_gain, entity.past_gain, entity.future_offset, entity.past_offset = 1, 1, 0, 0
     for side in range(2):
         anchor = future if side == 0 else entity.current_run
@@ -614,7 +615,8 @@ def evaluate_trajectory(
     entity = _require_group(index)
     assert cache.run_ref == entity.current_run
     if cache.target_side == 0:
-        # Within one event, skips cancel and scroll distance is just speed * time.
+        # No skips occur between two times in the same event, so scroll distance
+        # is the current speed multiplied by the time remaining until the hit.
         if target.event_ref == entity.current_event:
             if entity.style == TransitionStyle.SCROLL or entity.current_constant:
                 return entity.current_speed * (hit - now)
