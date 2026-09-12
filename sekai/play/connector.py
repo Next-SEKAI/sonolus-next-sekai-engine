@@ -74,6 +74,7 @@ class Connector(PlayArchetype):
 
     kind: ConnectorKind = entity_data()
     ease_type: EaseType = entity_data()
+    shared_stage_transform: bool = entity_data()
     start_time: float = entity_data()
     scheduled_spawn_time: float = entity_data()
     end_time: float = entity_data()
@@ -103,6 +104,9 @@ class Connector(PlayArchetype):
             return
         if self.active_tail_ref.index > 0 and not self.active_tail.preprocess_done:
             return
+        self.shared_stage_transform = (
+            not head.is_attached and not tail.is_attached and head.stage_ref.index == tail.stage_ref.index
+        )
         self.kind = self.segment_head.segment_kind
         self.ease_type = head.connector_ease
         self.visual_active_interval.start = min(head.target_time, tail.target_time)
@@ -283,6 +287,11 @@ class Connector(PlayArchetype):
             head_transform = +StageTransform
             tail_transform = +StageTransform
             tail_transform @= tail.visual_stage_transform()
+            shared_stage_transform = self.shared_stage_transform
+            if shared_stage_transform:
+                head_transform @= tail_transform
+            else:
+                head_transform @= head.visual_stage_transform()
             head_mask = +VisualMask
             head_mask @= head.visual_mask
             tail_mask = tail.visual_mask
@@ -295,7 +304,6 @@ class Connector(PlayArchetype):
                     head_lane = head.visual_lane
                     head_size = head.size
                     head_ease_frac = head.head_ease_frac
-                    head_transform @= head.visual_stage_transform()
                 else:
                     head_ease_frac = lerp(head.head_ease_frac, tail.tail_ease_frac, head_frac)
                     head_interp_frac = get_connector_interp_frac(
@@ -310,10 +318,9 @@ class Connector(PlayArchetype):
                     if head_mask.enabled and tail_mask.enabled:
                         head_mask.left = lerp(head_mask.left, tail_mask.left, head_interp_frac)
                         head_mask.right = lerp(head_mask.right, tail_mask.right, head_interp_frac)
-                    # The head has passed the judge line. Blend the transforms at the connector's current head position.
-                    head_transform @= blend_stage_transform(
-                        head.visual_stage_transform(), tail.visual_stage_transform(), head_interp_frac
-                    )
+                    # The head has passed the judge line. Blend distinct endpoint transforms at its current position.
+                    if not shared_stage_transform:
+                        head_transform @= blend_stage_transform(head_transform, tail_transform, head_interp_frac)
             else:
                 prepare_note_trajectories(head, self.head_trajectory_first, self.head_trajectory_second, time())
                 head_lane = head.visual_lane
@@ -323,7 +330,6 @@ class Connector(PlayArchetype):
                 )
                 head_target_time = head.target_time
                 head_ease_frac = head.head_ease_frac
-                head_transform @= head.visual_stage_transform()
             draw_connector(
                 kind=self.kind,
                 visual_state=visual_state,
@@ -350,6 +356,7 @@ class Connector(PlayArchetype):
                 bypass_tail_target_time_check=segment_head.segment_through_judge_line,
                 head_transform=head_transform,
                 tail_transform=tail_transform,
+                shared_transform=shared_stage_transform,
                 head_note_alpha=head_note_alpha,
                 tail_note_alpha=tail_note_alpha,
                 head_mask=head_mask,

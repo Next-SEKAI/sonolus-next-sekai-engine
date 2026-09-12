@@ -731,6 +731,36 @@ def approach(progress: float) -> float:
     return approach_at_tilt(progress, current_stage_tilt())
 
 
+class ApproachCache(Record):
+    """Approach setup shared by samples within one draw, while the camera is fixed."""
+
+    spawn_depth: float
+    slice_start: float
+    slice_spawn: float
+
+    def prepare(self):
+        tilt = current_stage_tilt()
+        if tilt < 1.0:
+            self.spawn_depth = approach_curve_base(Layout.approach_start)
+            if tilt > 0.0:
+                self.slice_start, self.slice_spawn = approach_slice_window(
+                    max(tilt, APPROACH_TILT_LERP_MIN), self.spawn_depth
+                )
+
+    def at(self, progress: float) -> float:
+        tilt = current_stage_tilt()
+        if tilt >= 1.0:
+            return approach_curve_base(lerp(Layout.approach_start, 1.0, progress))
+        if tilt <= 0.0:
+            return lerp(self.spawn_depth, 1.0, progress)
+        travel = approach_curve_base(lerp(self.slice_start, 1.0, progress))
+        sliced = remap(self.slice_spawn, 1.0, self.spawn_depth, 1.0, travel)
+        if tilt < APPROACH_TILT_LERP_MIN:
+            linear = lerp(self.spawn_depth, 1.0, progress)
+            return lerp(linear, sliced, tilt / APPROACH_TILT_LERP_MIN)
+        return sliced
+
+
 def inverse_approach_untilted(approach_value: float) -> float:
     return unlerp(Layout.approach_start, 1.0, inverse_approach_curve_base(approach_value))
 
@@ -1259,12 +1289,44 @@ def layout_slide_connector_segment(
         start_lane, end_lane = end_lane, start_lane
         start_size, end_size = end_size, start_size
         start_travel, end_travel = end_travel, start_travel
-    return Quad(
-        bl=perspective_vec(start_lane - start_size, 1, start_travel),
-        br=perspective_vec(start_lane + start_size, 1, start_travel),
-        tl=perspective_vec(end_lane - end_size, 1, end_travel),
-        tr=perspective_vec(end_lane + end_size, 1, end_travel),
-    )
+    start_width = tilt_width_factor(start_travel)
+    end_width = tilt_width_factor(end_travel)
+    start_left_x = (start_lane - start_size) * start_width * DynamicLayout.w_scale + DynamicLayout.x_translate
+    start_right_x = (start_lane + start_size) * start_width * DynamicLayout.w_scale + DynamicLayout.x_translate
+    end_left_x = (end_lane - end_size) * end_width * DynamicLayout.w_scale + DynamicLayout.x_translate
+    end_right_x = (end_lane + end_size) * end_width * DynamicLayout.w_scale + DynamicLayout.x_translate
+    start_y = start_travel * DynamicLayout.h_scale + DynamicLayout.t
+    end_y = end_travel * DynamicLayout.h_scale + DynamicLayout.t
+    result = +Quad
+    if DynamicLayout.rotate == 0:
+        result @= Quad(
+            bl=Vec2(start_left_x, start_y),
+            br=Vec2(start_right_x, start_y),
+            tl=Vec2(end_left_x, end_y),
+            tr=Vec2(end_right_x, end_y),
+        )
+    else:
+        camera_cos = cos(-DynamicLayout.rotate)
+        camera_sin = sin(-DynamicLayout.rotate)
+        result @= Quad(
+            bl=Vec2(
+                start_left_x * camera_cos - start_y * camera_sin,
+                start_left_x * camera_sin + start_y * camera_cos,
+            ),
+            br=Vec2(
+                start_right_x * camera_cos - start_y * camera_sin,
+                start_right_x * camera_sin + start_y * camera_cos,
+            ),
+            tl=Vec2(
+                end_left_x * camera_cos - end_y * camera_sin,
+                end_left_x * camera_sin + end_y * camera_cos,
+            ),
+            tr=Vec2(
+                end_right_x * camera_cos - end_y * camera_sin,
+                end_right_x * camera_sin + end_y * camera_cos,
+            ),
+        )
+    return result
 
 
 def st_slide_connector_segment(

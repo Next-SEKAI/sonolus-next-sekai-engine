@@ -1,6 +1,6 @@
 from enum import IntEnum
 from math import ceil, cos, floor, inf, pi, sin, sqrt
-from typing import Literal, assert_never
+from typing import Literal, Self, assert_never
 
 from sonolus.script.archetype import EntityRef
 from sonolus.script.array import Dim
@@ -21,6 +21,8 @@ from sekai.lib.ease import EaseType, ease, safe_unlerp_clamped
 from sekai.lib.effect import Effects
 from sekai.lib.layer import ZIndexes, get_z, layers
 from sekai.lib.layout import (
+    IDENTITY_STAGE_SCREEN_TRANSFORM,
+    ApproachCache,
     DynamicLayout,
     StageScreenTransform,
     StageTransform,
@@ -458,6 +460,7 @@ def draw_connector(
     tail_note_alpha: float,
     head_mask: VisualMask | None = None,
     tail_mask: VisualMask | None = None,
+    shared_transform: bool = False,
 ):
     match presentation:
         case SegmentPresentation.DEFAULT:
@@ -604,6 +607,7 @@ def draw_connector(
                 tail_transform=tail_transform,
                 head_mask=head_mask,
                 tail_mask=tail_mask,
+                shared_transform=shared_transform,
             )
         case SegmentPresentation.FULL_SCREEN:
             if head_transform is not None and tail_transform is not None:
@@ -646,9 +650,12 @@ def masked_connector_extents_by_limits(
 class ConnectorRenderCache(Record):
     transform_valid: bool
     constant_transform: bool
+    translation_only: bool
+    no_stage_rotation: bool
+    rigid_transform: bool
     interp_frac: float
     transform: StageScreenTransform
-    camera_ready: bool
+    camera_rotated: bool
     camera_cos: float
     camera_sin: float
     edge_valid: bool
@@ -656,10 +663,58 @@ class ConnectorRenderCache(Record):
     right: Vec2
     elevation: float
 
+    @classmethod
+    def new(cls) -> Self:
+        result = +cls
+        result.camera_rotated = DynamicLayout.rotate != 0
+        if result.camera_rotated:
+            result.camera_cos = cos(-DynamicLayout.rotate)
+            result.camera_sin = sin(-DynamicLayout.rotate)
+        return result
+
+    def prepare_transform(self, head: StageTransform, tail: StageTransform, constant_transform: bool):
+        self.constant_transform = constant_transform
+        if constant_transform:
+            self.translation_only = head.sr == 0 and head.projection == IDENTITY_STAGE_SCREEN_TRANSFORM
+        else:
+            self.no_stage_rotation = head.sr == 0 and tail.sr == 0
+            self.rigid_transform = (
+                head.projection == IDENTITY_STAGE_SCREEN_TRANSFORM
+                and tail.projection == IDENTITY_STAGE_SCREEN_TRANSFORM
+            )
+            self.translation_only = self.no_stage_rotation and self.rigid_transform
+
     def update_transform(self, head: StageTransform, tail: StageTransform, interp_frac: float):
         if not self.transform_valid or (not self.constant_transform and self.interp_frac != interp_frac):
             if self.constant_transform:
                 self.transform @= head.to_screen_transform()
+            elif self.no_stage_rotation:
+                self.transform @= StageScreenTransform(
+                    a00=lerp(head.projection.a00, tail.projection.a00, interp_frac),
+                    a01=lerp(head.projection.a01, tail.projection.a01, interp_frac),
+                    a02=lerp(head.projection.a02, tail.projection.a02, interp_frac)
+                    + lerp(head.tx, tail.tx, interp_frac),
+                    a10=lerp(head.projection.a10, tail.projection.a10, interp_frac),
+                    a11=lerp(head.projection.a11, tail.projection.a11, interp_frac),
+                    a12=lerp(head.projection.a12, tail.projection.a12, interp_frac)
+                    + lerp(head.ty, tail.ty, interp_frac),
+                    elevation=lerp(head.projection.elevation, tail.projection.elevation, interp_frac),
+                )
+            elif self.rigid_transform:
+                rotation = lerp(head.sr, tail.sr, interp_frac)
+                stage_cos = cos(rotation)
+                stage_sin = sin(rotation)
+                pivot_x = lerp(head.px, tail.px, interp_frac)
+                pivot_y = lerp(head.py, tail.py, interp_frac)
+                self.transform @= StageScreenTransform(
+                    a00=stage_cos,
+                    a01=stage_sin,
+                    a02=pivot_x * (1 - stage_cos) - stage_sin * pivot_y + lerp(head.tx, tail.tx, interp_frac),
+                    a10=-stage_sin,
+                    a11=stage_cos,
+                    a12=pivot_y * (1 - stage_cos) + stage_sin * pivot_x + lerp(head.ty, tail.ty, interp_frac),
+                    elevation=0.0,
+                )
             else:
                 self.transform @= blend_stage_transform(head, tail, interp_frac).to_screen_transform()
             self.interp_frac = interp_frac
@@ -675,30 +730,42 @@ class ConnectorRenderCache(Record):
         head: StageTransform | None,
         tail: StageTransform | None,
     ):
-        if not self.camera_ready:
-            self.camera_cos = cos(-DynamicLayout.rotate)
-            self.camera_sin = sin(-DynamicLayout.rotate)
-            self.camera_ready = True
         width = tilt_width_factor(travel)
         left_x = (lane - size) * width * DynamicLayout.w_scale + DynamicLayout.x_translate
         right_x = (lane + size) * width * DynamicLayout.w_scale + DynamicLayout.x_translate
         y = travel * DynamicLayout.h_scale + DynamicLayout.t
-        self.left @= Vec2(
-            left_x * self.camera_cos - y * self.camera_sin,
-            left_x * self.camera_sin + y * self.camera_cos,
-        )
-        self.right @= Vec2(
-            right_x * self.camera_cos - y * self.camera_sin,
-            right_x * self.camera_sin + y * self.camera_cos,
-        )
+        if self.camera_rotated:
+            self.left @= Vec2(
+                left_x * self.camera_cos - y * self.camera_sin,
+                left_x * self.camera_sin + y * self.camera_cos,
+            )
+            self.right @= Vec2(
+                right_x * self.camera_cos - y * self.camera_sin,
+                right_x * self.camera_sin + y * self.camera_cos,
+            )
+        else:
+            self.left @= Vec2(left_x, y)
+            self.right @= Vec2(right_x, y)
         self.elevation = 0.0
         if has_transform:
             assert head is not None
             assert tail is not None
-            self.update_transform(head, tail, interp_frac)
-            self.left @= self.transform.apply(self.left)
-            self.right @= self.transform.apply(self.right)
-            self.elevation = self.transform.elevation
+            if self.translation_only:
+                if self.constant_transform:
+                    x_offset = head.tx
+                    y_offset = head.ty
+                else:
+                    x_offset = lerp(head.tx, tail.tx, interp_frac)
+                    y_offset = lerp(head.ty, tail.ty, interp_frac)
+                self.left.x += x_offset
+                self.left.y += y_offset
+                self.right.x += x_offset
+                self.right.y += y_offset
+            else:
+                self.update_transform(head, tail, interp_frac)
+                self.left @= self.transform.apply(self.left)
+                self.right @= self.transform.apply(self.right)
+                self.elevation = self.transform.elevation
         self.edge_valid = True
 
 
@@ -731,9 +798,15 @@ def connector_span_length(
     end_interp_frac: float = 1.0,
     *,
     has_transform: bool = True,
+    transforms_equal: bool | None = None,
 ) -> float:
     """Estimate the guide's span from its projected endpoint edges."""
-    if not has_transform or head_transform is None or tail_transform is None or head_transform == tail_transform:
+    if (
+        not has_transform
+        or head_transform is None
+        or tail_transform is None
+        or (head_transform == tail_transform if transforms_equal is None else transforms_equal)
+    ):
         start_width = tilt_width_factor(start_travel) * DynamicLayout.w_scale
         end_width = tilt_width_factor(end_travel) * DynamicLayout.w_scale
         left_change = (end_lane - end_size) * end_width - (start_lane - start_size) * start_width
@@ -1005,9 +1078,12 @@ def clip_connector_progress_to_screen(
     end: float,
     head_transform: StageTransform | None,
     tail_transform: StageTransform | None,
+    transforms_equal: bool | None = None,
 ) -> tuple[float, float]:
     """Trim the vertical span when screen y depends only on connector progress."""
-    can_clip = DynamicLayout.rotate == 0 and head_transform == tail_transform
+    can_clip = DynamicLayout.rotate == 0 and (
+        head_transform == tail_transform if transforms_equal is None else transforms_equal
+    )
     y_offset = DynamicLayout.t
     y_scale = DynamicLayout.h_scale
     if head_transform is not None:
@@ -1062,11 +1138,13 @@ def draw_connector_default(
     tail_transform: StageTransform | None = None,
     head_mask: VisualMask | None = None,
     tail_mask: VisualMask | None = None,
+    shared_transform: bool = False,
 ):
     start_visual_progress = clamp(head_visual_progress, DynamicLayout.progress_start, DynamicLayout.progress_cutoff)
     end_visual_progress = clamp(tail_visual_progress, DynamicLayout.progress_start, DynamicLayout.progress_cutoff)
+    transforms_equal = shared_transform or head_transform == tail_transform
     start_visual_progress, end_visual_progress = clip_connector_progress_to_screen(
-        start_visual_progress, end_visual_progress, head_transform, tail_transform
+        start_visual_progress, end_visual_progress, head_transform, tail_transform, transforms_equal
     )
     if start_visual_progress == end_visual_progress:
         return
@@ -1121,11 +1199,13 @@ def draw_connector_default(
     has_transform = (
         head_transform is not None
         and tail_transform is not None
-        and not (stage_transform_is_identity(head_transform) and stage_transform_is_identity(tail_transform))
+        and not (
+            stage_transform_is_identity(head_transform)
+            and (transforms_equal or stage_transform_is_identity(tail_transform))
+        )
     )
-    heterogeneous_endpoints = (has_transform and head_transform != tail_transform) or (
-        mask_enabled and not same_mask_stage
-    )
+    constant_transform = has_transform and transforms_equal
+    heterogeneous_endpoints = (has_transform and not constant_transform) or (mask_enabled and not same_mask_stage)
     if heterogeneous_endpoints:
         geometry_detail = 20.0
     else:
@@ -1185,7 +1265,12 @@ def draw_connector_default(
         geometry_detail = curve_change_scale * 15
     quality = get_connector_quality_option(kind)
 
-    if geometry_detail * quality <= 1 and head_alpha == tail_alpha and not has_transform and not mask_enabled:
+    if (
+        geometry_detail * quality <= 1
+        and head_alpha == tail_alpha
+        and (not has_transform or constant_transform)
+        and not mask_enabled
+    ):
         if start_size <= 0 and end_size <= 0:
             return
         layout = layout_slide_connector_segment(
@@ -1201,9 +1286,23 @@ def draw_connector_default(
         ) / 2
         base_a = clamp(get_alpha(midpoint_time) * (start_alpha + end_alpha) / 2 * alpha_option, 0, 1)
         if base_a > 0:
-            draw_connector_quad(layout, visual_state, normal_sprite, active_sprite, z_normal, z_active, base_a)
+            if has_transform:
+                assert head_transform is not None
+                transform = head_transform.to_screen_transform()
+                layout @= transform.transform_quad(layout)
+                segment_z_normal = +z_normal
+                segment_z_active = +z_active
+                segment_z_normal.z2 += transform.elevation
+                segment_z_active.z2 += transform.elevation
+                draw_connector_quad(
+                    layout, visual_state, normal_sprite, active_sprite, segment_z_normal, segment_z_active, base_a
+                )
+            else:
+                draw_connector_quad(layout, visual_state, normal_sprite, active_sprite, z_normal, z_active, base_a)
         return
 
+    approach_cache = +ApproachCache
+    approach_cache.prepare()
     path_length = inf
     alpha_range = abs(end_alpha - start_alpha) * alpha_option
     if min(start_alpha, end_alpha) * alpha_option >= 1:
@@ -1226,6 +1325,7 @@ def draw_connector_default(
             start_interp_frac,
             end_interp_frac,
             has_transform=has_transform,
+            transforms_equal=transforms_equal,
         )
     last_travel = start_travel
     last_lane = start_lane
@@ -1233,9 +1333,11 @@ def draw_connector_default(
     last_alpha = start_alpha
     last_target_time = lerp(head_target_time, tail_target_time, start_frac)
     last_interp_frac = start_interp_frac
-    render_cache = +ConnectorRenderCache
-    render_cache.transform_valid = False
-    render_cache.constant_transform = has_transform and head_transform == tail_transform
+    render_cache = ConnectorRenderCache.new()
+    if has_transform:
+        assert head_transform is not None
+        assert tail_transform is not None
+        render_cache.prepare_transform(head_transform, tail_transform, constant_transform)
 
     segment_count = connector_segment_count(geometry_detail, alpha_range, quality, path_length)
     cache_edges = segment_count > 1
@@ -1247,7 +1349,7 @@ def draw_connector_default(
             ease_type, head_eased, tail_eased, next_ease_frac, next_frac
         )
         next_visual_progress = lerp(start_visual_progress, end_visual_progress, segment_frac)
-        next_travel = approach(next_visual_progress)
+        next_travel = approach_cache.at(next_visual_progress)
         next_lane = lerp(head_lane, tail_lane, next_interp_frac)
         next_size = lerp(head_size, tail_size, next_interp_frac)
         next_alpha = lerp(head_alpha, tail_alpha, next_frac)
