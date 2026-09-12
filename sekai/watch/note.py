@@ -64,7 +64,6 @@ from sekai.lib.note import (
     schedule_note_slot_effects,
 )
 from sekai.lib.options import Options
-from sekai.lib.spawn import jitter_spawn_time
 from sekai.lib.stage import (
     DivisionParity,
     InputGeometry,
@@ -73,6 +72,7 @@ from sekai.lib.stage import (
     VisualMask,
     get_stage_pivot_lane,
     get_stage_props,
+    get_stage_y_offset,
     interpolate_visual_masks,
     masked_note_extents,
     masked_note_extents_by_limits,
@@ -164,9 +164,8 @@ class WatchBaseNote(WatchArchetype):
         self.target_position = locate_target(self.timescale_group, self.target_time)
 
         if self.stage_ref.index > 0:
-            stage_props = get_stage_props(self.stage_ref.get(), self.target_time)
             self.rel_lane = self.lane
-            self.lane += stage_props.pivot_lane
+            self.lane += get_stage_pivot_lane(self.stage_ref.get(), self.target_time)
             self.target_y_offset = self._basic_y_offset_at(self.target_time, left_limit=True)
 
         if self.next_ref.index > 0:
@@ -267,7 +266,7 @@ class WatchBaseNote(WatchArchetype):
         if self.kind != NoteKind.ANCHOR:
             register_note_group_window(self, start_time, self.despawn_time())
         self.start_time = start_time
-        self.scheduled_spawn_time = jitter_spawn_time(start_time, self.despawn_time())
+        self.scheduled_spawn_time = start_time
         self.preprocess_done = True
 
     def _basic_extend_stage_window(self, start_time: float, end_time: float):
@@ -535,7 +534,7 @@ class WatchBaseNote(WatchArchetype):
     def _basic_y_offset_at(self, t: float, left_limit: bool = False) -> float:
         if self.stage_ref.index <= 0:
             return 0.0
-        return get_stage_props(self.stage_ref.get(), t, left_limit=left_limit).y_offset
+        return get_stage_y_offset(self.stage_ref.get(), t, left_limit=left_limit)
 
     def y_offset_at(self, t: float, left_limit: bool = False) -> float:
         if self.is_attached:

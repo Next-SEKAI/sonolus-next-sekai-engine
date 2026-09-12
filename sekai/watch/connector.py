@@ -35,7 +35,6 @@ from sekai.lib.ease import EaseType, safe_unlerp_clamped
 from sekai.lib.layout import StageTransform, blend_stage_transform
 from sekai.lib.note import draw_connector_hitbox_overlay, draw_slide_note_head, get_attach_params
 from sekai.lib.options import Options
-from sekai.lib.spawn import jitter_spawn_time
 from sekai.lib.stage import VisualMask, masked_note_extents_by_limits
 from sekai.lib.streams import Streams
 from sekai.lib.timescale import (
@@ -137,7 +136,7 @@ class WatchConnector(WatchArchetype):
             WatchSlideManager.spawn(active_head_ref=self.active_head_ref, active_tail_ref=self.active_tail_ref)
 
         self.start_time = start_time
-        self.scheduled_spawn_time = jitter_spawn_time(start_time, self.end_time)
+        self.scheduled_spawn_time = start_time
 
     def spawn_time(self) -> float:
         if DISABLE_NOTES:

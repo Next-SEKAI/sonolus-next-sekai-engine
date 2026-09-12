@@ -786,6 +786,12 @@ def get_stage_pivot_lane(stage: DynamicStageLike, t: float) -> float:
     return props.pivot_lane
 
 
+def get_stage_y_offset(stage: DynamicStageLike, t: float, left_limit: bool = False) -> float:
+    props = +StageProps
+    update_stage_pivot_props(props, stage.first_pivot_change_ref, t, left_limit)
+    return props.y_offset
+
+
 def masked_note_extents(lane: float, size: float, props: StageProps, x_translate: float = 0.0) -> tuple[float, float]:
     """Return the masked visual lane and half-width."""
     return masked_note_extents_by_limits(

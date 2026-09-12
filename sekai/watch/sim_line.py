@@ -6,7 +6,6 @@ from sonolus.script.runtime import time
 from sekai.debug import DISABLE_NOTES
 from sekai.lib import archetype_names
 from sekai.lib.sim_line import draw_sim_line
-from sekai.lib.spawn import jitter_spawn_time
 from sekai.lib.timescale import MIN_START_TIME, TrajectoryCache, group_hide_notes
 from sekai.lib.timescale_consumer import (
     note_visibility_end,
@@ -61,7 +60,7 @@ class WatchSimLine(WatchArchetype):
         register_note_group_window(self.left, start_time, self.end_time)
         register_note_group_window(self.right, start_time, self.end_time)
         self.start_time = start_time
-        self.scheduled_spawn_time = jitter_spawn_time(start_time, self.end_time)
+        self.scheduled_spawn_time = start_time
 
     def spawn_time(self) -> float:
         if DISABLE_NOTES:

@@ -40,7 +40,6 @@ from sekai.lib.ease import EaseType, safe_unlerp_clamped
 from sekai.lib.layout import StageTransform, blend_stage_transform
 from sekai.lib.note import NoteKind, draw_connector_hitbox_overlay, draw_slide_note_head, get_attach_params
 from sekai.lib.options import Options
-from sekai.lib.spawn import jitter_spawn_time
 from sekai.lib.stage import VisualMask, masked_note_extents_by_limits
 from sekai.lib.streams import Streams
 from sekai.lib.timescale import (
@@ -177,7 +176,7 @@ class Connector(PlayArchetype):
         register_note_group_window(tail, start_time, self.end_time)
         register_group_window(self.segment_head.timescale_group, start_time, self.end_time)
         self.start_time = start_time
-        self.scheduled_spawn_time = jitter_spawn_time(start_time)
+        self.scheduled_spawn_time = start_time
 
     def initialize(self):
         if self.head_ref.index == self.active_head_ref.index:

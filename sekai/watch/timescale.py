@@ -52,6 +52,7 @@ class WatchTimescaleGroup(WatchArchetype):
     valid: bool = entity_data()
     has_scroll: bool = entity_data()
     monotone_targets: bool = entity_data()
+    identity: bool = entity_data()
     error_code: TimelineError = entity_data()
     used: bool = entity_data()
     effective_preempt: float = entity_data()
