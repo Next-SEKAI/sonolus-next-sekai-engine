@@ -50,7 +50,6 @@ from sekai.lib.timescale_consumer import (
     note_visual_progress,
     prepare_note_trajectories,
     register_note_group_window,
-    segment_visual_spawn_time,
 )
 from sekai.watch import note
 
@@ -121,7 +120,6 @@ class WatchConnector(WatchArchetype):
             self.visual_active_interval.start,
             head.start_time,
             tail.start_time,
-            segment_visual_spawn_time(head, tail, min(self.visual_active_interval.end, visibility_end)),
         )
         if start_time >= visibility_end:
             return
