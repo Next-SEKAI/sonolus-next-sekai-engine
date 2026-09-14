@@ -15,6 +15,7 @@ from sekai.lib.timescale import (
     TargetPosition,
     _require_group,
     _scroll_speed,
+    _timescale_distance,
     _visibility_node_bounds,
     _VisibilityBounds,
     distance_to_target,
@@ -200,45 +201,6 @@ def _constant_piece_spawn_time(
     return result if result <= end else inf
 
 
-def _identity_spawn_time(
-    sources: VarArray[VisibilitySource, Dim[4]], low: float, high: float, earliest: float, latest: float
-) -> float:
-    """Solve identity trajectories without marker lookups; -inf requests fallback."""
-    if len(sources) == 0 or latest < earliest:
-        return inf
-    if not -inf < earliest <= latest < inf or not -inf < low <= high < inf:
-        return -inf
-    above = below = True
-    crossing = inf
-    for source in sources:
-        if source.group > 0 and not Options.disable_timescale and not _require_group(source.group).identity:
-            return -inf
-        ceiling = source.preempt * (1 - low - source.offset_min)
-        floor = source.preempt * (1 - high - source.offset_max)
-        distance = source.hit_time - earliest
-        if source.preempt <= 0 or not -inf < floor <= ceiling < inf or not -DISTANCE_LIMIT < distance < DISTANCE_LIMIT:
-            return -inf
-        if source.clamp_after_hit and ceiling < 0:
-            return -inf
-        if source.clamp_after_hit:
-            distance = max(0.0, distance)
-        # Unit-speed groups still incur rounding when composing timeline coordinates.
-        magnitude = max(abs(source.hit_time), abs(earliest), abs(latest), abs(distance), abs(ceiling), abs(floor))
-        slack = 0.01 + source.preempt * 1e-4 + magnitude * 1e-6
-        if source.clamp_after_hit and earliest >= source.hit_time:
-            slack = 0.0
-        ceiling += slack
-        floor -= slack
-        above = above and distance > ceiling
-        below = below and distance < floor
-        if not source.clamp_after_hit or ceiling >= 0:
-            crossing = min(crossing, source.hit_time - ceiling)
-    if below:
-        return inf
-    result = max(earliest, crossing) if above else earliest
-    return max(earliest, result - SPAWN_PADDING - SPAWN_STEP) if result <= latest else inf
-
-
 def _can_use_visibility_indexes(
     sources: VarArray[VisibilitySource, Dim[4]], low: float, high: float, earliest: float, latest: float
 ) -> bool:
@@ -382,7 +344,11 @@ def _source_range_end(
     root = timescale_group_archetype().at(source.group).tree_root if source.group > 0 else 0
     clamped = source.clamp_after_hit and anchor >= source.hit_time
     if clamped or ref <= 0 or root == 0 or timescale_change_archetype().at(ref).next_ref.index <= 0:
-        distance = 0.0 if clamped else distance_to_target(source.group, ref, anchor, target, source.hit_time)
+        distance = (
+            0.0
+            if clamped
+            else max(-DISTANCE_LIMIT, min(DISTANCE_LIMIT, _timescale_distance(ref, anchor, target, source.hit_time)))
+        )
         if not clamped:
             if ref > 0:
                 marker = timescale_change_archetype().at(ref)
@@ -459,7 +425,7 @@ def first_visible(
     earliest: float,
     latest: float,
     *,
-    use_index: bool = False,
+    use_index: bool = True,
 ) -> float:
     """Find an early spawn time by rejecting intervals that cannot be visible.
 
@@ -572,166 +538,9 @@ def first_visible(
     return inf
 
 
-def _monotone_point_bounds(source: VisibilitySource, target: TargetPosition, ref: int, now: float) -> Interval:
-    result = Interval(-inf, inf)
-    distance = distance_to_target(source.group, ref, now, target, source.hit_time)
-    piece = _prepare_distance_bounds(source, ref, now, distance, 0, 0)
-    magnitude = max(abs(distance), piece.peak_speed * piece.span)
-    if not magnitude < inf:
-        return result
-    stopped = piece.v0 == 0 and (piece.easing == EaseType.NONE or piece.v1 == 0)
-    slack = (0.0 if stopped else 0.01) + source.preempt * 1e-4 + magnitude * 1e-6
-    result @= Interval(
-        -inf if distance <= -DISTANCE_LIMIT else distance - slack,
-        inf if distance >= DISTANCE_LIMIT else distance + slack,
-    )
-    return result
-
-
-def _monotone_spawn_time(source: VisibilitySource, bounds: Interval, earliest: float, latest: float) -> float:
-    """Bisect a nonincreasing pre-hit distance or return -inf to request the general search."""
-    if source.group <= 0 or Options.disable_timescale:
-        return -inf
-    group = _require_group(source.group)
-    if group.has_scroll or not group.monotone_targets:
-        return -inf
-    ceiling = source.preempt * (1 - bounds.start - source.offset_min)
-    floor = source.preempt * (1 - bounds.end - source.offset_max)
-    if (
-        source.preempt <= 0
-        or not -inf < floor <= 0 <= ceiling < DISTANCE_LIMIT
-        or not -inf < earliest <= source.hit_time < inf
-        or not earliest <= latest < inf
-    ):
-        return -inf
-    target = locate_target(source.group, source.hit_time)
-    speed, start, span, constant = 1.0, earliest, max(1.0, source.hit_time - earliest), True
-    if target.event_ref > 0:
-        event = timescale_change_archetype().at(target.event_ref)
-        speed, start = event.timescale, event.event_start
-        span = max(1.0, source.hit_time - start)
-        if event.next_ref.index > 0:
-            span = max(span, event.event_end - start)
-            constant = (
-                event.timescale_ease == EaseType.NONE
-                or speed == timescale_change_archetype().at(event.next_ref.index).timescale
-            )
-    if constant and speed > 0:
-        slack = 0.01 + source.preempt * 1e-4 + speed * span * 1e-6
-        crossing = source.hit_time - (ceiling + slack) / speed
-        if -inf < crossing < inf and max(earliest, crossing) >= start:
-            return max(earliest, crossing - SPAWN_PADDING - SPAWN_STEP) if crossing <= latest else inf
-    left, right = earliest, min(latest, source.hit_time)
-    if constant and speed == 0:
-        right = min(right, max(earliest, start))
-    ref = locate_time_from(source.group, left, target.event_ref)
-    initial = _monotone_point_bounds(source, target, ref, left)
-    if initial.start <= ceiling:
-        return earliest
-    if ref == 0 and group.first_ref.index > 0:
-        crossing = left + initial.start - ceiling
-        if crossing <= min(right, timescale_change_archetype().at(group.first_ref.index).event_start):
-            return max(earliest, crossing - SPAWN_PADDING - SPAWN_STEP)
-    witnessed = True
-    if right < source.hit_time:
-        end_ref = locate_time_from(source.group, right, target.event_ref)
-        endpoint = _monotone_point_bounds(source, target, end_ref, right)
-        if endpoint.start > ceiling:
-            return inf
-        witnessed = endpoint.end <= ceiling
-    while True:
-        middle = left + (right - left) * 0.5
-        if (
-            right - left <= SPAWN_STEP
-            or (witnessed and right - left <= COARSE_SPAWN_STEP)
-            or middle <= left
-            or middle >= right
-        ):
-            return max(earliest, left - SPAWN_PADDING)
-        ref = locate_time_from(source.group, middle, ref)
-        sample = _monotone_point_bounds(source, target, ref, middle)
-        if sample.start > ceiling:
-            left = middle
-        else:
-            right = middle
-            witnessed = sample.end <= ceiling
-
-
 def get_sources_visual_spawn_time(sources: VarArray[VisibilitySource, Dim[4]], latest: float) -> float:
     bounds = conservative_progress_bounds()
-    identity = _identity_spawn_time(sources, bounds.start, bounds.end, MIN_START_TIME, latest)
-    if identity > -inf:
-        return identity
-    if len(sources) > 1:
-        first = sources[0]
-        if first.group > 0 and not Options.disable_timescale:
-            group = timescale_group_archetype().at(first.group)
-            proxy = VisibilitySource(
-                first.group, first.hit_time, first.preempt, first.offset_min, first.offset_max, False
-            )
-            reusable = group.monotone_targets and first.preempt > 0
-            for source in sources:
-                floor = source.preempt * (1 - bounds.end - source.offset_max)
-                ceiling = source.preempt * (1 - bounds.start - source.offset_min)
-                reusable = (
-                    reusable
-                    and source.group == proxy.group
-                    and source.preempt == proxy.preempt
-                    and floor <= 0 <= ceiling
-                )
-                proxy.hit_time = min(proxy.hit_time, source.hit_time)
-                proxy.offset_min = min(proxy.offset_min, source.offset_min)
-                proxy.offset_max = max(proxy.offset_max, source.offset_max)
-            if reusable and proxy.hit_time >= MIN_START_TIME:
-                # Before the earliest hit, no source is clamped or closer than the proxy.
-                # The proxy also has the widest visible distance range. All sources are
-                # therefore out of view until the proxy could be visible. The proxy is
-                # within its range at its hit time because the range includes zero, so
-                # its spawn time is a safe starting point for the segment search.
-                proxies = VarArray[VisibilitySource, Dim[4]].new()
-                proxies.append(proxy)
-                earliest = _search_with_spawn_cursor(proxies, bounds, latest)
-                # Only the proxy search updates the cursor. Using the segment's later
-                # spawn time could skip visible intervals in future searches.
-                return first_visible(sources, bounds.start, bounds.end, earliest, latest)
-    return _search_with_spawn_cursor(sources, bounds, latest)
-
-
-def _search_with_spawn_cursor(sources: VarArray[VisibilitySource, Dim[4]], bounds: Interval, latest: float) -> float:
-    """Find a spawn time, using the group's previous result when it is safe to reuse."""
-    earliest = MIN_START_TIME
-    cache_group = 0
-    ceiling = 0.0
-    if len(sources) == 1:
-        source = sources[0]
-        if source.group > 0 and not source.clamp_after_hit and not Options.disable_timescale:
-            group = timescale_group_archetype().at(source.group)
-            floor = source.preempt * (1 - bounds.end - source.offset_max)
-            ceiling = source.preempt * (1 - bounds.start - source.offset_min)
-            # Before the hit, monotone target distances and a nonincreasing ceiling
-            # make cached spawn times safe to reuse. Hits before the search start
-            # are excluded because their first visible interval may occur after the hit.
-            if group.monotone_targets and source.hit_time >= MIN_START_TIME and floor <= 0 <= ceiling:
-                cache_group = source.group
-                if (
-                    group.spawn_cursor_valid
-                    and source.hit_time >= group.last_spawn_target
-                    and ceiling <= group.last_spawn_ceiling
-                    and group.last_spawn_time <= latest
-                ):
-                    earliest = max(earliest, group.last_spawn_time)
-    result = -inf
-    if len(sources) == 1:
-        result = _monotone_spawn_time(sources[0], bounds, earliest, latest)
-    if result == -inf:
-        result = first_visible(sources, bounds.start, bounds.end, earliest, latest, use_index=True)
-    if cache_group > 0 and result < inf:
-        group = timescale_group_archetype().at(cache_group)
-        group.last_spawn_target = sources[0].hit_time
-        group.last_spawn_ceiling = ceiling
-        group.last_spawn_time = result
-        group.spawn_cursor_valid = True
-    return result
+    return first_visible(sources, bounds.start, bounds.end, MIN_START_TIME, latest)
 
 
 def group_index(group: int | EntityRef) -> int:

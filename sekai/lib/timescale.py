@@ -127,8 +127,6 @@ class TimescaleGroupLike(Protocol):
     force_note_speed: float
     valid: bool
     has_scroll: bool
-    monotone_targets: bool
-    identity: bool
     error_code: TimelineError
     used: bool
     effective_preempt: float
@@ -156,10 +154,6 @@ class TimescaleGroupLike(Protocol):
     v1: float
     ease: EaseType
     style: TransitionStyle
-    last_spawn_target: float
-    last_spawn_ceiling: float
-    last_spawn_time: float
-    spawn_cursor_valid: bool
 
     @classmethod
     def at(cls, index: int) -> Self: ...
@@ -255,9 +249,7 @@ def _coordinate(ref: int, now: float) -> TimePosition:
 
 def initialize_timescale_group(group: TimescaleGroupLike) -> None:
     group.valid, group.has_scroll, group.error_code = False, False, TimelineError.NONE
-    group.monotone_targets = True
-    group.identity = True
-    group.used, group.time_valid, group.spawn_cursor_valid = False, False, False
+    group.used, group.time_valid = False, False
     group.needed_start, group.needed_end = inf, -inf
     group.note_visibility_end = -inf
     group.lookup_ref, group.current_event, group.current_run = 0, 0, 0
@@ -308,8 +300,6 @@ def initialize_timescale_group(group: TimescaleGroupLike) -> None:
                 return
             marker.converted_skip = marker.timescale_skip * (60 / bpm)
         ordinal += 1
-        group.monotone_targets = group.monotone_targets and marker.timescale >= 0 and marker.converted_skip >= 0
-        group.identity = group.identity and marker.timescale == 1 and marker.converted_skip == 0
         marker.ordinal, marker.prev_ref = ordinal, previous
         marker.event_start, marker.event_end = converted, converted
         if previous > 0:
