@@ -247,6 +247,9 @@ class WatchBaseNote(WatchArchetype):
 
         if is_replay():
             if self.played_hit_effects:
+                if self.is_scored:
+                    # Spawn before the recorded hit so termination can emit its particles.
+                    start_time = min(start_time, self.end_time - 1.0)
                 if Options.auto_sfx:
                     schedule_note_auto_sfx(self.effect_kind, self.target_time)
                 else:
