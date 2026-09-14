@@ -78,7 +78,6 @@ class TimescaleGroup(PlayArchetype):
     needed_end: float = entity_data()
     note_visibility_end: float = entity_data()
     last_ref: int = entity_data()
-    visibility_index_ready: bool = entity_data()
     tree_root: int = entity_data()
     lookup_ref: int = shared_memory()
     current_event: int = shared_memory()

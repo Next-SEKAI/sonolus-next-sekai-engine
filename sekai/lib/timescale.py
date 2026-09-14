@@ -136,7 +136,6 @@ class TimescaleGroupLike(Protocol):
     needed_end: float
     note_visibility_end: float
     last_ref: int
-    visibility_index_ready: bool
     tree_root: int
     lookup_ref: int
     current_event: int
@@ -262,7 +261,7 @@ def initialize_timescale_group(group: TimescaleGroupLike) -> None:
     group.needed_start, group.needed_end = inf, -inf
     group.note_visibility_end = -inf
     group.lookup_ref, group.current_event, group.current_run = 0, 0, 0
-    group.last_ref, group.visibility_index_ready = 0, False
+    group.last_ref = 0
     group.tree_root = 0
     group.effective_preempt = preempt_time(group.force_note_speed)
     ref, previous, previous_time, ordinal = group.first_ref.index, 0, -inf, 0
@@ -365,6 +364,8 @@ def initialize_timescale_group(group: TimescaleGroupLike) -> None:
         _initialize_run_index(run, run_count)
     group.last_ref = previous
     group.valid = True
+    if not group.has_scroll:
+        prepare_visibility_index(group)
 
 
 class _VisibilityBounds(Record):
@@ -462,8 +463,6 @@ class _VisibilityTreeBuilder(Record):
 
 def prepare_visibility_index(group: TimescaleGroupLike) -> None:
     """Cache coordinate bounds over the group's finite intervals."""
-    if group.visibility_index_ready:
-        return
     assert not group.has_scroll
     group.tree_root = 0
     if group.last_ref > 0 and group.first_ref.index != group.last_ref:
@@ -510,7 +509,6 @@ def prepare_visibility_index(group: TimescaleGroupLike) -> None:
                         pending.append(child)
                         escapes.append(following)
                         following = child
-    group.visibility_index_ready = True
 
 
 def _locate(group: TimescaleGroupLike, now: float, ref: int, use_visibility_index: bool = False) -> int:

@@ -20,7 +20,6 @@ from sekai.lib.timescale import (
     distance_to_target,
     locate_target,
     locate_time_from,
-    prepare_visibility_index,
     timescale_change_archetype,
     timescale_group_archetype,
 )
@@ -240,7 +239,7 @@ def _identity_spawn_time(
     return max(earliest, result - SPAWN_PADDING - SPAWN_STEP) if result <= latest else inf
 
 
-def _prepare_visibility_indexes(
+def _can_use_visibility_indexes(
     sources: VarArray[VisibilitySource, Dim[4]], low: float, high: float, earliest: float, latest: float
 ) -> bool:
     if Options.disable_timescale or not -inf < earliest <= latest < inf:
@@ -252,9 +251,6 @@ def _prepare_visibility_indexes(
             return False
         if source.group > 0 and _require_group(source.group).has_scroll:
             return False
-    for source in sources:
-        if source.group > 0:
-            prepare_visibility_index(_require_group(source.group))
     return True
 
 
@@ -472,7 +468,7 @@ def first_visible(
     """
     if len(sources) == 0 or latest < earliest:
         return inf
-    indexed = use_index and _prepare_visibility_indexes(sources, low, high, earliest, latest)
+    indexed = use_index and _can_use_visibility_indexes(sources, low, high, earliest, latest)
     tree_root = 0
     common_group = 0
     if indexed:
