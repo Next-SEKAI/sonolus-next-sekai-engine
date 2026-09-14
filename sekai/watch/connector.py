@@ -118,8 +118,8 @@ class WatchConnector(WatchArchetype):
             return
         start_time = min(
             self.visual_active_interval.start,
-            head.start_time,
-            tail.start_time,
+            head.spawn_eligibility_time,
+            tail.spawn_eligibility_time,
         )
         if start_time >= visibility_end:
             return

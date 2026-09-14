@@ -125,7 +125,7 @@ class WatchBaseNote(WatchArchetype):
     target_time: float = entity_data()
     visual_start_time: float = entity_data()
     visual_end_time: float = shared_memory()
-    start_time: float = entity_data()
+    spawn_eligibility_time: float = entity_data()
     scheduled_spawn_time: float = shared_memory()
     # Replay imports overwrite entity data, so keep coordinates in shared memory.
     target_position: TargetPosition = shared_memory()
@@ -148,7 +148,7 @@ class WatchBaseNote(WatchArchetype):
     def init_data(self):
         if self.data_init_done:
             return
-        self.start_time = inf
+        self.spawn_eligibility_time = inf
         self.visual_start_time = inf
 
         self.kind = map_note_kind(cast(NoteKind, self.key))
@@ -174,7 +174,7 @@ class WatchBaseNote(WatchArchetype):
         self.data_init_done = True
 
     def preprocess(self):
-        self.start_time = inf
+        self.spawn_eligibility_time = inf
         self.scheduled_spawn_time = inf
         self.visual_start_time = inf
         self.result.target_time = inf
@@ -213,10 +213,10 @@ class WatchBaseNote(WatchArchetype):
             )
 
         end_time = max(self.target_time, self.despawn_time())
+        natural_start_time = note_visual_spawn_time(self, end_time)
         if not self.is_scored:
             self.visual_end_time = min(self.target_time, note_visibility_end(self))
             end_time = self.visual_end_time
-        natural_start_time = note_visual_spawn_time(self, end_time)
         self.visual_start_time = note_visibility_start(self, natural_start_time)
         if not self.is_scored and self.visual_start_time >= self.visual_end_time:
             self.visual_start_time = inf
@@ -268,7 +268,8 @@ class WatchBaseNote(WatchArchetype):
             self.extend_stage_windows(start_time - 1.0, end_time + 1.0)
         if self.kind != NoteKind.ANCHOR:
             register_note_group_window(self, start_time, self.despawn_time())
-        self.start_time = start_time
+        # Connectors retain endpoint eligibility before hidden-note deferral.
+        self.spawn_eligibility_time = min(natural_start_time, start_time)
         self.scheduled_spawn_time = start_time
         self.preprocess_done = True
 

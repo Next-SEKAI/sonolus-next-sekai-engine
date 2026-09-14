@@ -161,8 +161,8 @@ class Connector(PlayArchetype):
         start_time = min(
             self.visual_active_interval.start,
             self.input_active_interval.start,
-            head.start_time,
-            tail.start_time,
+            head.spawn_eligibility_time,
+            tail.spawn_eligibility_time,
         )
         if start_time >= visibility_end:
             return
