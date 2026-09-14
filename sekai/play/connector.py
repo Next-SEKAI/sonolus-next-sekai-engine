@@ -228,7 +228,9 @@ class Connector(PlayArchetype):
                 self.active_connector_info.visual_connector_index = self.index + 1
                 self.active_connector_info.visual_update_time = time()
                 self.active_connector_info.connector_kind = self.kind
-            if group_hide_notes(self.segment_head.timescale_group) and self.active_head_ref.index > 0:
+            if self.active_connector_info.visual_connector_index == self.index + 1 and group_hide_notes(
+                self.segment_head.timescale_group
+            ):
                 self.active_connector_info.connector_kind = ConnectorKind.NONE
 
     def update_parallel(self):
