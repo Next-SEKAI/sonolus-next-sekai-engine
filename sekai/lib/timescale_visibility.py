@@ -15,13 +15,16 @@ from sekai.lib.timescale import (
     TargetPosition,
     _require_group,
     _scroll_speed,
+    _visibility_node_bounds,
+    _VisibilityBounds,
     distance_to_target,
     locate_target,
     locate_time_from,
+    prepare_visibility_index,
     timescale_change_archetype,
     timescale_group_archetype,
 )
-from sekai.lib.timescale_math import integrate_times, speed_at
+from sekai.lib.timescale_math import TimePosition, integrate_times, speed_at
 
 SPAWN_STEP = 1 / 120
 SPAWN_PADDING = 0.01
@@ -237,8 +240,230 @@ def _identity_spawn_time(
     return max(earliest, result - SPAWN_PADDING - SPAWN_STEP) if result <= latest else inf
 
 
-def first_visible(
+def _prepare_visibility_indexes(
     sources: VarArray[VisibilitySource, Dim[4]], low: float, high: float, earliest: float, latest: float
+) -> bool:
+    if Options.disable_timescale or not -inf < earliest <= latest < inf:
+        return False
+    for source in sources:
+        floor = source.preempt * (1 - high - source.offset_max)
+        ceiling = source.preempt * (1 - low - source.offset_min)
+        if source.preempt <= 0 or not -DISTANCE_LIMIT < floor <= ceiling < DISTANCE_LIMIT:
+            return False
+        if source.group > 0 and _require_group(source.group).has_scroll:
+            return False
+    for source in sources:
+        if source.group > 0:
+            prepare_visibility_index(_require_group(source.group))
+    return True
+
+
+def _prefix_range_end(
+    sources: VarArray[VisibilitySource, Dim[4]],
+    targets: VarArray[TargetPosition, Dim[4]],
+    low: float,
+    high: float,
+    anchor: float,
+    latest: float,
+) -> float:
+    """Reject the unit-speed prefix only when all sources share an offscreen side."""
+    above = below = True
+    end = latest
+    for i in range(len(sources)):
+        source, target = sources[i], targets[i]
+        floor = source.preempt * (1 - high - source.offset_max)
+        ceiling = source.preempt * (1 - low - source.offset_min)
+        lower = upper = slack = 0.0
+        if not source.clamp_after_hit or anchor < source.hit_time:
+            boundary = latest
+            magnitude = abs(target.coordinate.whole)
+            if source.group > 0:
+                first = timescale_group_archetype().at(source.group).first_ref.index
+                if first > 0:
+                    boundary = timescale_change_archetype().at(first).event_start
+            upper = target.coordinate.difference(TimePosition.of(anchor))
+            lower = upper - (boundary - anchor)
+            magnitude = max(magnitude, abs(anchor), abs(boundary))
+            magnitude = max(magnitude, abs(lower), abs(upper))
+            if not -inf < lower <= upper < inf or not magnitude < inf:
+                return anchor
+            # Allow for rounding in coordinate bounds and distance evaluation.
+            slack = 0.01 + source.preempt * 1e-4 + magnitude * 1e-6
+            end = min(end, boundary)
+            if anchor < source.hit_time:
+                end = min(end, source.hit_time)
+        above = above and lower > ceiling + slack
+        below = below and upper < floor - slack
+        if not above and not below:
+            return anchor
+    return max(anchor, end)
+
+
+def _tree_range_clear(
+    bounds: _VisibilityBounds,
+    sources: VarArray[VisibilitySource, Dim[4]],
+    targets: VarArray[TargetPosition, Dim[4]],
+    low: float,
+    high: float,
+    anchor: float,
+) -> bool:
+    above = below = True
+    for i in range(len(sources)):
+        source, target = sources[i], targets[i]
+        lower = upper = slack = 0.0
+        if not source.clamp_after_hit or anchor < source.hit_time:
+            lower = target.coordinate.difference(bounds.maximum)
+            upper = target.coordinate.difference(bounds.minimum)
+            magnitude = max(abs(target.coordinate.whole), bounds.magnitude, abs(lower), abs(upper))
+            if not -inf < lower <= upper < inf or not magnitude < inf:
+                return False
+            slack = 0.01 + source.preempt * 1e-4 + magnitude * 1e-6
+        ceiling = source.preempt * (1 - low - source.offset_min)
+        floor = source.preempt * (1 - high - source.offset_max)
+        above = above and lower > ceiling + slack
+        below = below and upper < floor - slack
+        if not above and not below:
+            return False
+    return True
+
+
+def _tree_range_end(
+    root: int,
+    sources: VarArray[VisibilitySource, Dim[4]],
+    targets: VarArray[TargetPosition, Dim[4]],
+    low: float,
+    high: float,
+    anchor: float,
+    latest: float,
+) -> float:
+    group = timescale_group_archetype().at(sources[0].group)
+    ref = root
+    end = latest
+    for source in sources:
+        if anchor < source.hit_time:
+            end = min(end, source.hit_time)
+    while ref != 0:
+        bounds = _visibility_node_bounds(ref)
+        if bounds.start >= end:
+            return max(anchor, end)
+        escape = 0
+        if ref < 0:
+            escape = timescale_change_archetype().at(-ref).leaf_escape
+        else:
+            escape = timescale_change_archetype().at(ref).tree_escape
+        if bounds.end <= anchor or _tree_range_clear(bounds, sources, targets, low, high, anchor):
+            ref = escape
+        elif ref < 0:
+            return max(anchor, bounds.start)
+        else:
+            ref = timescale_change_archetype().at(ref).tree_children[0]
+    return max(anchor, min(end, timescale_change_archetype().at(group.last_ref).event_start))
+
+
+class _OffscreenRange(Record):
+    side: int
+    end: float
+
+
+def _offscreen_side(lower: float, upper: float, ceiling: float, floor: float) -> int:
+    return 1 if lower > ceiling else -1 if upper < floor else 0
+
+
+def _source_range_end(
+    source: VisibilitySource,
+    target: TargetPosition,
+    ref: int,
+    low: float,
+    high: float,
+    anchor: float,
+    latest: float,
+    side: int,
+) -> _OffscreenRange:
+    result = _OffscreenRange(side, anchor)
+    end = min(latest, source.hit_time) if anchor < source.hit_time else latest
+    ceiling = source.preempt * (1 - low - source.offset_min)
+    floor = source.preempt * (1 - high - source.offset_max)
+    root = timescale_group_archetype().at(source.group).tree_root if source.group > 0 else 0
+    clamped = source.clamp_after_hit and anchor >= source.hit_time
+    if clamped or ref <= 0 or root == 0 or timescale_change_archetype().at(ref).next_ref.index <= 0:
+        distance = 0.0 if clamped else distance_to_target(source.group, ref, anchor, target, source.hit_time)
+        if not clamped:
+            if ref > 0:
+                marker = timescale_change_archetype().at(ref)
+                if marker.next_ref.index > 0:
+                    end = min(end, marker.event_end)
+            elif source.group > 0:
+                first = timescale_group_archetype().at(source.group).first_ref.index
+                if first > 0:
+                    end = min(end, timescale_change_archetype().at(first).event_start)
+        piece = _prepare_distance_bounds(source, ref, anchor, distance, low, high)
+        interval = _prepared_distance_bounds(source, piece, anchor, anchor, end)
+        found = _offscreen_side(interval.start, interval.end, ceiling, floor)
+        if found != 0 and side in (0, found):
+            result @= _OffscreenRange(found, max(anchor, end))
+        else:
+            result @= _OffscreenRange(0, anchor)
+        return result
+    node_ref = root
+    while node_ref != 0:
+        bounds = _visibility_node_bounds(node_ref)
+        if bounds.start >= end:
+            result @= _OffscreenRange(side, max(anchor, end))
+            return result
+        if node_ref < 0:
+            escape = timescale_change_archetype().at(-node_ref).leaf_escape
+        else:
+            escape = timescale_change_archetype().at(node_ref).tree_escape
+        if bounds.end <= anchor:
+            node_ref = escape
+            continue
+        lower = target.coordinate.difference(bounds.maximum)
+        upper = target.coordinate.difference(bounds.minimum)
+        magnitude = max(abs(target.coordinate.whole), bounds.magnitude, abs(lower), abs(upper))
+        found = 0
+        if -inf < lower <= upper < inf and magnitude < inf:
+            slack = 0.01 + source.preempt * 1e-4 + magnitude * 1e-6
+            found = _offscreen_side(lower - slack, upper + slack, ceiling, floor)
+        if found != 0 and side in (0, found):
+            side = found
+            node_ref = escape
+        elif node_ref < 0:
+            result @= _OffscreenRange(side, max(anchor, bounds.start))
+            return result
+        else:
+            node_ref = timescale_change_archetype().at(node_ref).tree_children[0]
+    last = timescale_group_archetype().at(source.group).last_ref
+    result @= _OffscreenRange(side, max(anchor, min(end, timescale_change_archetype().at(last).event_start)))
+    return result
+
+
+def _mixed_range_end(
+    sources: VarArray[VisibilitySource, Dim[4]],
+    targets: VarArray[TargetPosition, Dim[4]],
+    refs: VarArray[int, Dim[4]],
+    low: float,
+    high: float,
+    anchor: float,
+    latest: float,
+) -> float:
+    side, end = 0, latest
+    for i in range(len(sources)):
+        # Keep one side across groups; a skip can otherwise expose their hull.
+        result = _source_range_end(sources[i], targets[i], refs[i], low, high, anchor, end, side)
+        if result.side == 0 or result.end <= anchor:
+            return anchor
+        side, end = result.side, result.end
+    return end
+
+
+def first_visible(
+    sources: VarArray[VisibilitySource, Dim[4]],
+    low: float,
+    high: float,
+    earliest: float,
+    latest: float,
+    *,
+    use_index: bool = False,
 ) -> float:
     """Find an early spawn time by rejecting intervals that cannot be visible.
 
@@ -247,19 +472,44 @@ def first_visible(
     """
     if len(sources) == 0 or latest < earliest:
         return inf
+    indexed = use_index and _prepare_visibility_indexes(sources, low, high, earliest, latest)
+    tree_root = 0
+    common_group = 0
+    if indexed:
+        common_group = sources[0].group
+        for source in sources:
+            if source.group != common_group:
+                common_group = 0
+        if common_group > 0:
+            tree_root = timescale_group_archetype().at(common_group).tree_root
     targets = VarArray[TargetPosition, Dim[4]].new()
     refs = VarArray[int, Dim[4]].new()
     for source in sources:
         target = locate_target(source.group, source.hit_time)
         targets.append(target)
-        refs.append(target.event_ref)
+        refs.append(0 if indexed else target.event_ref)
     anchor = earliest
     while anchor <= latest:
+        if indexed:
+            for i in range(len(sources)):
+                if common_group > 0 and i > 0:
+                    refs[i] = refs[0]
+                else:
+                    refs[i] = locate_time_from(sources[i].group, anchor, refs[i], True)
+            if common_group > 0 and refs[0] == 0:
+                end = _prefix_range_end(sources, targets, low, high, anchor, latest)
+            elif tree_root != 0:
+                end = _tree_range_end(tree_root, sources, targets, low, high, anchor, latest)
+            else:
+                end = _mixed_range_end(sources, targets, refs, low, high, anchor, latest)
+            if end > anchor:
+                anchor = end
+                continue
         pieces = VarArray[_DistanceBoundsPiece, Dim[4]].new()
         piece_end = latest
         for i in range(len(sources)):
             source = sources[i]
-            ref = locate_time_from(source.group, anchor, refs[i])
+            ref = refs[i] if indexed else locate_time_from(source.group, anchor, refs[i])
             refs[i] = ref
             clamped = source.clamp_after_hit and anchor >= source.hit_time
             distance = 0.0 if clamped else distance_to_target(source.group, ref, anchor, targets[i], source.hit_time)
@@ -478,7 +728,7 @@ def _search_with_spawn_cursor(sources: VarArray[VisibilitySource, Dim[4]], bound
     if len(sources) == 1:
         result = _monotone_spawn_time(sources[0], bounds, earliest, latest)
     if result == -inf:
-        result = first_visible(sources, bounds.start, bounds.end, earliest, latest)
+        result = first_visible(sources, bounds.start, bounds.end, earliest, latest, use_index=True)
     if cache_group > 0 and result < inf:
         group = timescale_group_archetype().at(cache_group)
         group.last_spawn_target = sources[0].hit_time

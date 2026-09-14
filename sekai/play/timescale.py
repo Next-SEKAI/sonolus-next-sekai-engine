@@ -9,6 +9,7 @@ from sonolus.script.archetype import (
     imported,
     shared_memory,
 )
+from sonolus.script.array import Array, Dim
 from sonolus.script.runtime import time
 
 from sekai.lib import archetype_names
@@ -43,6 +44,17 @@ class TimescaleChange(PlayArchetype):
     jump_width: int = entity_data()
     jump: RunSummary = entity_data()
     note_visibility_start: float = entity_data()
+    leaf_min: TimePosition = shared_memory()
+    leaf_max: TimePosition = shared_memory()
+    leaf_magnitude: float = shared_memory()
+    leaf_escape: int = shared_memory()
+    tree_min: TimePosition = shared_memory()
+    tree_max: TimePosition = shared_memory()
+    tree_magnitude: float = shared_memory()
+    tree_start: float = shared_memory()
+    tree_end: float = shared_memory()
+    tree_escape: int = shared_memory()
+    tree_children: Array[int, Dim[4]] = shared_memory()
 
     def spawn_order(self) -> float:
         return 1e8
@@ -65,6 +77,9 @@ class TimescaleGroup(PlayArchetype):
     needed_start: float = entity_data()
     needed_end: float = entity_data()
     note_visibility_end: float = entity_data()
+    last_ref: int = entity_data()
+    visibility_index_ready: bool = entity_data()
+    tree_root: int = entity_data()
     lookup_ref: int = shared_memory()
     current_event: int = shared_memory()
     current_run: int = shared_memory()

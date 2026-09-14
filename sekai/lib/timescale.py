@@ -7,6 +7,8 @@ from typing import Protocol, Self, cast
 
 from sonolus.script import runtime
 from sonolus.script.archetype import EntityRef, entity_info_at, get_archetype_by_name
+from sonolus.script.array import Array, Dim
+from sonolus.script.containers import VarArray
 from sonolus.script.debug import error
 from sonolus.script.record import Record
 from sonolus.script.timing import beat_to_bpm, beat_to_time
@@ -101,6 +103,17 @@ class TimescaleChangeLike(Protocol):
     jump_width: int
     jump: RunSummary
     note_visibility_start: float
+    leaf_min: TimePosition
+    leaf_max: TimePosition
+    leaf_magnitude: float
+    leaf_escape: int
+    tree_min: TimePosition
+    tree_max: TimePosition
+    tree_magnitude: float
+    tree_start: float
+    tree_end: float
+    tree_escape: int
+    tree_children: Array[int, Dim[4]]
 
     @classmethod
     def at(cls, index: int) -> Self: ...
@@ -122,6 +135,9 @@ class TimescaleGroupLike(Protocol):
     needed_start: float
     needed_end: float
     note_visibility_end: float
+    last_ref: int
+    visibility_index_ready: bool
+    tree_root: int
     lookup_ref: int
     current_event: int
     current_run: int
@@ -246,6 +262,8 @@ def initialize_timescale_group(group: TimescaleGroupLike) -> None:
     group.needed_start, group.needed_end = inf, -inf
     group.note_visibility_end = -inf
     group.lookup_ref, group.current_event, group.current_run = 0, 0, 0
+    group.last_ref, group.visibility_index_ready = 0, False
+    group.tree_root = 0
     group.effective_preempt = preempt_time(group.force_note_speed)
     ref, previous, previous_time, ordinal = group.first_ref.index, 0, -inf, 0
     hidden = False
@@ -345,10 +363,180 @@ def initialize_timescale_group(group: TimescaleGroupLike) -> None:
         marker.run_first, marker.prev_run = run, previous_run
     if group.has_scroll:
         _initialize_run_index(run, run_count)
+    group.last_ref = previous
     group.valid = True
 
 
-def _locate(group: TimescaleGroupLike, now: float, ref: int) -> int:
+class _VisibilityBounds(Record):
+    minimum: TimePosition
+    maximum: TimePosition
+    magnitude: float
+    start: float
+    end: float
+
+    def include(self, other: Self) -> None:
+        if other.minimum.difference(self.minimum) < 0:
+            self.minimum @= other.minimum
+        if other.maximum.difference(self.maximum) > 0:
+            self.maximum @= other.maximum
+        self.magnitude = max(self.magnitude, other.magnitude)
+        self.end = other.end
+
+
+def _visibility_node_bounds(ref: int) -> _VisibilityBounds:
+    """Read a negative leaf reference or a positive internal node reference."""
+    result = +_VisibilityBounds
+    if ref < 0:
+        marker = _marker(-ref)
+        result @= _VisibilityBounds(
+            marker.leaf_min, marker.leaf_max, marker.leaf_magnitude, marker.event_start, marker.event_end
+        )
+    else:
+        marker = _marker(ref)
+        result @= _VisibilityBounds(
+            marker.tree_min, marker.tree_max, marker.tree_magnitude, marker.tree_start, marker.tree_end
+        )
+    return result
+
+
+def _visibility_interval_bounds(ref: int) -> _VisibilityBounds:
+    marker = _marker(ref)
+    following = _marker(marker.next_ref.index)
+    v0 = v1 = marker.timescale
+    if marker.timescale_ease != EaseType.NONE:
+        v1 = following.timescale
+    span = marker.event_end - marker.event_start
+    lower = min(0.0, min(v0, v1) * span)
+    upper = max(0.0, max(v0, v1) * span)
+    magnitude = max(
+        abs(lower),
+        abs(upper),
+        abs(marker.position.whole),
+        abs(marker.position.fraction),
+    )
+    result = _VisibilityBounds(+marker.position, +marker.position, inf, marker.event_start, marker.event_end)
+    if span < inf and -inf < lower <= upper < inf and magnitude < inf:
+        result.minimum @= marker.position.add(lower)
+        result.maximum @= marker.position.add(upper)
+        result.magnitude = max(magnitude, abs(result.minimum.whole), abs(result.maximum.whole))
+    return result
+
+
+class _VisibilityTreeBuilder(Record):
+    """Store internal nodes alongside leaves, in separate marker shared slots."""
+
+    free_ref: int
+    counts: Array[int, Dim[32]]
+    refs: Array[int, Dim[128]]
+
+    def parent(self, level: int) -> int:
+        ref = self.free_ref
+        assert ref > 0
+        node = _marker(ref)
+        self.free_ref = node.next_ref.index
+        bounds = _visibility_node_bounds(self.refs[level * 4])
+        for i in range(4):
+            child = 0
+            if i < self.counts[level]:
+                child = self.refs[level * 4 + i]
+                if i > 0:
+                    bounds.include(_visibility_node_bounds(child))
+            node.tree_children[i] = child
+        node.tree_min @= bounds.minimum
+        node.tree_max @= bounds.maximum
+        node.tree_magnitude = bounds.magnitude
+        node.tree_start, node.tree_end = bounds.start, bounds.end
+        return ref
+
+    def append(self, level: int, ref: int) -> None:
+        while True:
+            assert level < 32
+            self.refs[level * 4 + self.counts[level]] = ref
+            self.counts[level] += 1
+            if self.counts[level] < 4:
+                break
+            ref = self.parent(level)
+            self.counts[level] = 0
+            level += 1
+
+
+def prepare_visibility_index(group: TimescaleGroupLike) -> None:
+    """Cache coordinate bounds over the group's finite intervals."""
+    if group.visibility_index_ready:
+        return
+    assert not group.has_scroll
+    group.tree_root = 0
+    if group.last_ref > 0 and group.first_ref.index != group.last_ref:
+        builder = +_VisibilityTreeBuilder
+        builder.free_ref = group.first_ref.index
+        ref = group.first_ref.index
+        while ref > 0 and _marker(ref).next_ref.index > 0:
+            first = ref
+            bounds = _visibility_interval_bounds(ref)
+            ref = _marker(ref).next_ref.index
+            leaf = _marker(first)
+            leaf.leaf_min @= bounds.minimum
+            leaf.leaf_max @= bounds.maximum
+            leaf.leaf_magnitude = bounds.magnitude
+            builder.append(0, -first)
+        for level in range(32):
+            if builder.counts[level] == 0:
+                continue
+            ref = builder.refs[level * 4]
+            if builder.counts[level] > 1:
+                ref = builder.parent(level)
+            builder.counts[level] = 0
+            if level == 31:
+                group.tree_root = ref
+            else:
+                builder.append(level + 1, ref)
+
+        pending = VarArray[int, Dim[256]].new()
+        escapes = VarArray[int, Dim[256]].new()
+        if group.tree_root != 0:
+            pending.append(group.tree_root)
+            escapes.append(0)
+        while len(pending) > 0:
+            ref, escape = pending.pop(), escapes.pop()
+            if ref < 0:
+                _marker(-ref).leaf_escape = escape
+            else:
+                node = _marker(ref)
+                node.tree_escape = escape
+                following = escape
+                for i in range(4 - 1, -1, -1):
+                    child = node.tree_children[i]
+                    if child != 0:
+                        pending.append(child)
+                        escapes.append(following)
+                        following = child
+    group.visibility_index_ready = True
+
+
+def _locate(group: TimescaleGroupLike, now: float, ref: int, use_visibility_index: bool = False) -> int:
+    if use_visibility_index and group.tree_root != 0:
+        if ref > 0:
+            marker = _marker(ref)
+            if marker.event_start <= now and (marker.next_ref.index <= 0 or now < marker.event_end):
+                return ref
+        if now < _marker(group.first_ref.index).event_start:
+            return 0
+        if now >= _marker(group.last_ref).event_start:
+            return group.last_ref
+        node_ref = group.tree_root
+        while node_ref > 0:
+            node = _marker(node_ref)
+            selected = node.tree_children[0]
+            for i in range(1, 4):
+                child = node.tree_children[i]
+                if child == 0:
+                    break
+                start = _marker(-child).event_start if child < 0 else _marker(child).tree_start
+                if start > now:
+                    break
+                selected = child
+            node_ref = selected
+        return -node_ref
     while ref > 0 and now < _marker(ref).event_start:
         ref = _marker(ref).prev_ref
     following = group.first_ref.index if ref == 0 else _marker(ref).next_ref.index
@@ -372,12 +560,12 @@ def locate_target(group: int | EntityRef, hit_time: float) -> TargetPosition:
     return TargetPosition(ref, _coordinate(ref, hit_time))
 
 
-def locate_time_from(group: int | EntityRef, now: float, ref: int) -> int:
+def locate_time_from(group: int | EntityRef, now: float, ref: int, use_visibility_index: bool = False) -> int:
     # Leave the shared lookup cursor unchanged.
     index = _group_index(group)
     if index <= 0 or Options.disable_timescale:
         return 0
-    return _locate(_require_group(index), now, ref)
+    return _locate(_require_group(index), now, ref, use_visibility_index)
 
 
 def _run(ref: int) -> int:
