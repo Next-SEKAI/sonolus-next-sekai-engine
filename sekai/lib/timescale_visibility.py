@@ -326,6 +326,91 @@ def first_visible(
     return inf
 
 
+def _monotone_point_bounds(source: VisibilitySource, target: TargetPosition, ref: int, now: float) -> Interval:
+    result = Interval(-inf, inf)
+    distance = distance_to_target(source.group, ref, now, target, source.hit_time)
+    piece = _prepare_distance_bounds(source, ref, now, distance, 0, 0)
+    magnitude = max(abs(distance), piece.peak_speed * piece.span)
+    if not magnitude < inf:
+        return result
+    stopped = piece.v0 == 0 and (piece.easing == EaseType.NONE or piece.v1 == 0)
+    slack = (0.0 if stopped else 0.01) + source.preempt * 1e-4 + magnitude * 1e-6
+    result @= Interval(
+        -inf if distance <= -DISTANCE_LIMIT else distance - slack,
+        inf if distance >= DISTANCE_LIMIT else distance + slack,
+    )
+    return result
+
+
+def _monotone_spawn_time(source: VisibilitySource, bounds: Interval, earliest: float, latest: float) -> float:
+    """Bisect a nonincreasing pre-hit distance or return -inf to request the general search."""
+    if source.group <= 0 or Options.disable_timescale:
+        return -inf
+    group = _require_group(source.group)
+    if group.has_scroll or not group.monotone_targets:
+        return -inf
+    ceiling = source.preempt * (1 - bounds.start - source.offset_min)
+    floor = source.preempt * (1 - bounds.end - source.offset_max)
+    if (
+        source.preempt <= 0
+        or not -inf < floor <= 0 <= ceiling < DISTANCE_LIMIT
+        or not -inf < earliest <= source.hit_time < inf
+        or not earliest <= latest < inf
+    ):
+        return -inf
+    target = locate_target(source.group, source.hit_time)
+    speed, start, span, constant = 1.0, earliest, max(1.0, source.hit_time - earliest), True
+    if target.event_ref > 0:
+        event = timescale_change_archetype().at(target.event_ref)
+        speed, start = event.timescale, event.event_start
+        span = max(1.0, source.hit_time - start)
+        if event.next_ref.index > 0:
+            span = max(span, event.event_end - start)
+            constant = (
+                event.timescale_ease == EaseType.NONE
+                or speed == timescale_change_archetype().at(event.next_ref.index).timescale
+            )
+    if constant and speed > 0:
+        slack = 0.01 + source.preempt * 1e-4 + speed * span * 1e-6
+        crossing = source.hit_time - (ceiling + slack) / speed
+        if -inf < crossing < inf and max(earliest, crossing) >= start:
+            return max(earliest, crossing - SPAWN_PADDING - SPAWN_STEP) if crossing <= latest else inf
+    left, right = earliest, min(latest, source.hit_time)
+    if constant and speed == 0:
+        right = min(right, max(earliest, start))
+    ref = locate_time_from(source.group, left, target.event_ref)
+    initial = _monotone_point_bounds(source, target, ref, left)
+    if initial.start <= ceiling:
+        return earliest
+    if ref == 0 and group.first_ref.index > 0:
+        crossing = left + initial.start - ceiling
+        if crossing <= min(right, timescale_change_archetype().at(group.first_ref.index).event_start):
+            return max(earliest, crossing - SPAWN_PADDING - SPAWN_STEP)
+    witnessed = True
+    if right < source.hit_time:
+        end_ref = locate_time_from(source.group, right, target.event_ref)
+        endpoint = _monotone_point_bounds(source, target, end_ref, right)
+        if endpoint.start > ceiling:
+            return inf
+        witnessed = endpoint.end <= ceiling
+    while True:
+        middle = left + (right - left) * 0.5
+        if (
+            right - left <= SPAWN_STEP
+            or (witnessed and right - left <= COARSE_SPAWN_STEP)
+            or middle <= left
+            or middle >= right
+        ):
+            return max(earliest, left - SPAWN_PADDING)
+        ref = locate_time_from(source.group, middle, ref)
+        sample = _monotone_point_bounds(source, target, ref, middle)
+        if sample.start > ceiling:
+            left = middle
+        else:
+            right = middle
+            witnessed = sample.end <= ceiling
+
+
 def get_sources_visual_spawn_time(sources: VarArray[VisibilitySource, Dim[4]], latest: float) -> float:
     bounds = conservative_progress_bounds()
     identity = _identity_spawn_time(sources, bounds.start, bounds.end, MIN_START_TIME, latest)
@@ -389,7 +474,11 @@ def _search_with_spawn_cursor(sources: VarArray[VisibilitySource, Dim[4]], bound
                     and group.last_spawn_time <= latest
                 ):
                     earliest = max(earliest, group.last_spawn_time)
-    result = first_visible(sources, bounds.start, bounds.end, earliest, latest)
+    result = -inf
+    if len(sources) == 1:
+        result = _monotone_spawn_time(sources[0], bounds, earliest, latest)
+    if result == -inf:
+        result = first_visible(sources, bounds.start, bounds.end, earliest, latest)
     if cache_group > 0 and result < inf:
         group = timescale_group_archetype().at(cache_group)
         group.last_spawn_target = sources[0].hit_time

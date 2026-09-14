@@ -314,19 +314,20 @@ def initialize_timescale_group(group: TimescaleGroupLike) -> None:
         visibility_ref = marker.prev_ref
     run, previous_run, run_count = 0, -1, 0
     for marker in iter_timescale_changes(group.first_ref.index):
-        marker.scroll_skip = TimePosition.of(0)
-        marker.scroll_skip_base = 0
-        if marker.prev_ref > 0:
-            marker.scroll_skip = _marker(marker.prev_ref).scroll_skip
-            marker.scroll_skip_base = _marker(marker.prev_ref).scroll_skip_base
-        # Divide skips by destination speed. Near-zero speeds can make these values
-        # large, so store whole blocks separately to preserve small later skips.
-        skip = marker.converted_skip / _scroll_speed(marker.timescale)
-        whole = trunc(skip / SCROLL_SKIP_BLOCK) * SCROLL_SKIP_BLOCK
-        prefix = marker.scroll_skip.add(skip - whole)
-        carry = trunc(prefix.whole / SCROLL_SKIP_BLOCK) * SCROLL_SKIP_BLOCK
-        marker.scroll_skip_base += whole + carry
-        marker.scroll_skip = TimePosition(prefix.whole - carry, prefix.fraction)
+        if group.has_scroll:
+            marker.scroll_skip = TimePosition.of(0)
+            marker.scroll_skip_base = 0
+            if marker.prev_ref > 0:
+                marker.scroll_skip = _marker(marker.prev_ref).scroll_skip
+                marker.scroll_skip_base = _marker(marker.prev_ref).scroll_skip_base
+            # Divide skips by destination speed. Near-zero speeds can make these values
+            # large, so store whole blocks separately to preserve small later skips.
+            skip = marker.converted_skip / _scroll_speed(marker.timescale)
+            whole = trunc(skip / SCROLL_SKIP_BLOCK) * SCROLL_SKIP_BLOCK
+            prefix = marker.scroll_skip.add(skip - whole)
+            carry = trunc(prefix.whole / SCROLL_SKIP_BLOCK) * SCROLL_SKIP_BLOCK
+            marker.scroll_skip_base += whole + carry
+            marker.scroll_skip = TimePosition(prefix.whole - carry, prefix.fraction)
         if marker.prev_ref == 0:
             marker.position = TimePosition.of(marker.event_start).add(marker.converted_skip)
         else:
