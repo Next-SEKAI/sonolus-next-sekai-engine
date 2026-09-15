@@ -224,7 +224,7 @@ def _prefix_range_end(
     anchor: float,
     latest: float,
 ) -> float:
-    """Reject the unit-speed prefix only when all sources share an offscreen side."""
+    """Skip searching before the first marker only if all sources stay above or all stay below the visible range."""
     above = below = True
     end = latest
     for i in range(len(sources)):
@@ -410,7 +410,8 @@ def _mixed_range_end(
 ) -> float:
     side, end = 0, latest
     for i in range(len(sources)):
-        # Keep one side across groups; a skip can otherwise expose their hull.
+        # Require all sources to stay above the visible range or all to stay below it.
+        # Sources on opposite sides can have visible geometry between them.
         result = _source_range_end(sources[i], targets[i], refs[i], low, high, anchor, end, side)
         if result.side == 0 or result.end <= anchor:
             return anchor

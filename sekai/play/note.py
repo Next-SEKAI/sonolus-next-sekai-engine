@@ -281,7 +281,7 @@ class BaseNote(PlayArchetype):
             self.extend_stage_windows(start_time - 1.0, end_time + 1.0)
         if self.kind != NoteKind.ANCHOR:
             register_note_group_window(self, start_time, end_time)
-        # Connectors retain endpoint eligibility before hidden-note deferral.
+        # A hidden note can still be an endpoint of a visible connector.
         self.spawn_eligibility_time = min(natural_start_time, start_time)
         self.scheduled_spawn_time = start_time
         self.preprocess_done = True

@@ -375,7 +375,7 @@ class _VisibilityBounds(Record):
 
 
 def _visibility_node_bounds(ref: int) -> _VisibilityBounds:
-    """Read a negative leaf reference or a positive internal node reference."""
+    """Read bounds for a leaf (negative ref) or an internal node (positive ref)."""
     result = +_VisibilityBounds
     if ref < 0:
         marker = _marker(-ref)
@@ -414,7 +414,7 @@ def _visibility_interval_bounds(ref: int) -> _VisibilityBounds:
 
 
 class _VisibilityTreeBuilder(Record):
-    """Store internal nodes alongside leaves, in separate marker shared slots."""
+    """Store internal nodes in existing markers, using shared fields separate from the leaf bounds."""
 
     free_ref: int
     counts: Array[int, Dim[32]]
@@ -452,7 +452,7 @@ class _VisibilityTreeBuilder(Record):
 
 
 def prepare_visibility_index(group: TimescaleGroupLike) -> None:
-    """Cache coordinate bounds over the group's finite intervals."""
+    """Build a tree of coordinate bounds for intervals between consecutive timescale changes."""
     assert not group.has_scroll
     group.tree_root = 0
     if group.last_ref > 0 and group.first_ref.index != group.last_ref:
