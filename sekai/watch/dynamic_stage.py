@@ -32,7 +32,7 @@ from sekai.lib.stage import (
     get_end_time,
     get_stage_props,
     get_start_time,
-    stage_note_visibility_end,
+    initialize_stage_note_visibility,
     stage_y_offset_bounds,
 )
 
@@ -126,7 +126,7 @@ class WatchDynamicStage(WatchArchetype):
             pivot.y_offset = pivot.abs_y_offset + pivot.y_beat_offset * 60 / beat_to_bpm(pivot.beat) / preempt_time()
             pivot_ref.index = pivot.next_ref.index
         self.y_offset_bounds = stage_y_offset_bounds(self)
-        self.note_visibility_end = stage_note_visibility_end(self)
+        self.note_visibility_end = initialize_stage_note_visibility(self)
         self.start_time = get_start_time(self)
         self.end_time = get_end_time(self)
         self.draw_start_time = get_draw_start_time(self)
@@ -213,6 +213,8 @@ class WatchStageStyleChange(WatchArchetype, BaseEvent):
     next_ref: EntityRef[WatchStageStyleChange] = imported(name="next")
 
     time: float = shared_memory()
+    note_visibility_start: float = shared_memory()
+    previous_note_visibility_end: float = shared_memory()
 
     @callback(order=-4)
     def preprocess(self):
