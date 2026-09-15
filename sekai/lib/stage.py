@@ -463,13 +463,39 @@ def stage_note_visibility_end(stage: DynamicStageLike) -> float:
     return result
 
 
-def stage_note_visibility_start(stage: DynamicStageLike, start: float) -> float:
+def stage_note_visibility_end_before(stage: DynamicStageLike, end: float, earliest: float = -inf) -> float:
+    """Return the last potentially visible interval's end within [earliest, end), or earliest."""
+    if end <= earliest:
+        return earliest
+    if stage.first_style_change_ref.index <= 0:
+        return end
+    ref, _ = query_event_list(stage.first_style_change_ref, end, lambda event: event.time)
+    while ref.index > 0:
+        style = get_event_as(ref, _stage_style_change_archetype())
+        interval_end = end
+        visible = style.note_alpha > 0
+        if style.next_ref.index > 0:
+            following = get_event_as(style.next_ref, _stage_style_change_archetype())
+            interval_end = min(end, following.time)
+            visible = visible or (style.ease != EaseType.NONE and following.note_alpha > 0)
+        if interval_end > max(earliest, style.time) and visible:
+            return interval_end
+        if style.time <= earliest:
+            return earliest
+        ref.index = style.prev_ref.index
+    first = get_event_as(stage.first_style_change_ref, _stage_style_change_archetype())
+    return max(earliest, min(end, first.time)) if first.note_alpha > 0 else earliest
+
+
+def stage_note_visibility_start(stage: DynamicStageLike, start: float, latest: float = inf) -> float:
     """Return the next time at or after start when stage notes could be visible.
 
-    Return inf if no later style can make the notes visible. If either end of a
-    fade has positive alpha, treat the whole fade as potentially visible.
+    Return latest if no potentially visible interval begins before it. If either
+    end of a fade has positive alpha, treat the whole fade as potentially visible.
     """
-    if start == inf or stage.first_style_change_ref.index <= 0:
+    if start >= latest:
+        return latest
+    if stage.first_style_change_ref.index <= 0:
         return start
     ref, following_ref = query_event_list(stage.first_style_change_ref, start, lambda event: event.time)
     if ref.index <= 0:
@@ -479,15 +505,17 @@ def stage_note_visibility_start(stage: DynamicStageLike, start: float) -> float:
         ref.index = following_ref.index
     while ref.index > 0:
         style = get_event_as(ref, _stage_style_change_archetype())
+        if style.time >= latest:
+            return latest
         if style.next_ref.index <= 0:
-            return max(start, style.time) if style.note_alpha > 0 else inf
+            return max(start, style.time) if style.note_alpha > 0 else latest
         following = get_event_as(style.next_ref, _stage_style_change_archetype())
         if following.time > max(start, style.time) and (
             style.note_alpha > 0 or (style.ease != EaseType.NONE and following.note_alpha > 0)
         ):
             return max(start, style.time)
         ref.index = style.next_ref.index
-    return inf
+    return latest
 
 
 def center_anchor_weight(anchor: StageTransformAnchor) -> float:

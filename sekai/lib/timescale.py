@@ -103,6 +103,7 @@ class TimescaleChangeLike(Protocol):
     jump_width: int
     jump: RunSummary
     note_visibility_start: float
+    previous_note_visibility_end: float
     leaf_min: TimePosition
     leaf_max: TimePosition
     leaf_magnitude: float
@@ -291,6 +292,7 @@ def initialize_timescale_group(group: TimescaleGroupLike) -> None:
         # Only count visible intervals between distinct marker times.
         if not hidden and converted > previous_time:
             group.note_visibility_end = converted
+        marker.previous_note_visibility_end = group.note_visibility_end
         hidden = marker.hide_notes
         marker.converted_skip = 0
         if marker.timescale_skip != 0:
@@ -843,8 +845,27 @@ def group_visibility_start(group: int | EntityRef, start: float) -> float:
     entity = _require_group(index)
     if start >= MIN_START_TIME and start >= entity.note_visibility_end:
         return inf
-    ref = locate_time(index, start)
+    ref = _locate(entity, start, entity.lookup_ref, True)
+    if entity.tree_root == 0:
+        entity.lookup_ref = ref
     return max(start, _marker(ref).note_visibility_start) if ref > 0 else start
+
+
+def group_visibility_end_before(group: int | EntityRef, end: float) -> float:
+    """Return the last unhidden interval's end before the exclusive bound, or -inf."""
+    index = _group_index(group)
+    if end == -inf or index <= 0 or Options.disable_timescale:
+        return end
+    entity = _require_group(index)
+    ref = _locate(entity, end, entity.lookup_ref, True)
+    if entity.tree_root == 0:
+        entity.lookup_ref = ref
+    if ref <= 0:
+        return end
+    marker = _marker(ref)
+    if marker.event_start < end and not marker.hide_notes:
+        return end
+    return marker.previous_note_visibility_end
 
 
 def group_force_note_speed(group: int | EntityRef) -> float:

@@ -41,12 +41,12 @@ from sekai.lib.timescale import (
     MIN_START_TIME,
     TrajectoryCache,
     group_hide_notes,
-    group_visibility_end,
     register_group_window,
 )
 from sekai.lib.timescale_consumer import (
+    connector_visibility_end,
+    connector_visibility_start,
     extend_note_chain_stage_windows,
-    note_stage_visibility_end,
     note_visual_progress,
     prepare_note_trajectories,
     register_note_group_window,
@@ -106,23 +106,26 @@ class WatchConnector(WatchArchetype):
             self.end_time += CONNECTOR_THROUGH_JUDGE_LINE_DESPAWN_DELAY
         self.schedule_sfx()
 
-        visibility_end = inf
-        # Keep hidden active sections alive because slide effects and the slide head still use their geometry.
-        if self.active_head_ref.index <= 0:
-            visibility_end = min(
-                group_visibility_end(self.segment_head.timescale_group),
-                max(note_stage_visibility_end(head), note_stage_visibility_end(tail)),
-            )
-        self.end_time = min(self.end_time, visibility_end)
-        if visibility_end <= MIN_START_TIME:
-            return
         start_time = min(
             self.visual_active_interval.start,
             head.spawn_eligibility_time,
             tail.spawn_eligibility_time,
         )
-        if start_time >= visibility_end:
-            return
+        if self.active_head_ref.index > 0:
+            # Keep hidden active sections alive because slide effects and the slide head still use their geometry.
+            # Ownership and hitboxes are needed from the visual interval's start.
+            start_time = connector_visibility_start(
+                head, tail, self.segment_head.timescale_group, start_time, self.visual_active_interval.start
+            )
+        else:
+            self.end_time = connector_visibility_end(
+                head, tail, self.segment_head.timescale_group, self.end_time, start_time
+            )
+            start_time = connector_visibility_start(
+                head, tail, self.segment_head.timescale_group, start_time, self.end_time
+            )
+            if start_time >= self.end_time or self.end_time <= MIN_START_TIME:
+                return
 
         head.extend_stage_windows(start_time - 1.0, self.end_time + 1.0)
         tail.extend_stage_windows(start_time - 1.0, self.end_time + 1.0)

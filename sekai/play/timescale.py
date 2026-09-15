@@ -44,6 +44,7 @@ class TimescaleChange(PlayArchetype):
     jump_width: int = entity_data()
     jump: RunSummary = entity_data()
     note_visibility_start: float = entity_data()
+    previous_note_visibility_end: float = entity_data()
     leaf_min: TimePosition = shared_memory()
     leaf_max: TimePosition = shared_memory()
     leaf_magnitude: float = shared_memory()
