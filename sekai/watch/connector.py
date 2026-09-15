@@ -54,6 +54,12 @@ from sekai.lib.timescale_consumer import (
 from sekai.watch import note
 
 
+def slide_manager_end_time(active_tail: note.WatchBaseNote) -> float:
+    if active_tail.is_scored:
+        return min(active_tail.target_time, active_tail.despawn_time())
+    return active_tail.target_time
+
+
 class WatchConnector(WatchArchetype):
     name = archetype_names.CONNECTOR
 
@@ -130,8 +136,7 @@ class WatchConnector(WatchArchetype):
         register_group_window(self.segment_head.timescale_group, start_time, self.end_time)
 
         if self.head_ref.index == self.active_head_ref.index:
-            active_tail = self.active_tail
-            manager_end = active_tail.despawn_time() if active_tail.is_scored else active_tail.target_time
+            manager_end = slide_manager_end_time(self.active_tail)
             extend_note_chain_stage_windows(self.active_head, self.active_head.target_time, manager_end)
             WatchSlideManager.spawn(active_head_ref=self.active_head_ref, active_tail_ref=self.active_tail_ref)
 
@@ -460,8 +465,7 @@ class WatchSlideManager(WatchArchetype):
         return self.active_head.target_time
 
     def despawn_time(self) -> float:
-        active_tail = self.active_tail
-        return active_tail.despawn_time() if active_tail.is_scored else active_tail.target_time
+        return slide_manager_end_time(self.active_tail)
 
     def update_parallel(self):
         skipping = is_skip()
