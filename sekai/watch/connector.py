@@ -111,13 +111,8 @@ class WatchConnector(WatchArchetype):
             head.spawn_eligibility_time,
             tail.spawn_eligibility_time,
         )
-        if self.active_head_ref.index > 0:
-            # Keep hidden active sections alive because slide effects and the slide head still use their geometry.
-            # Ownership and hitboxes are needed from the visual interval's start.
-            start_time = connector_visibility_start(
-                head, tail, self.segment_head.timescale_group, start_time, self.visual_active_interval.start
-            )
-        else:
+        # Hidden active sections still provide slide-head ownership and hitboxes.
+        if self.active_head_ref.index <= 0:
             self.end_time = connector_visibility_end(
                 head, tail, self.segment_head.timescale_group, self.end_time, start_time
             )
