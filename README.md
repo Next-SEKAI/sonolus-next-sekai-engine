@@ -1,4 +1,4 @@
-# Next SEKAI Sonolus Engine
+sekai# Next SEKAI Sonolus Engine
 
 A new Project Sekai inspired engine for [Sonolus](https://sonolus.com).
 
