@@ -97,24 +97,20 @@ class _Layers(Record):
         return Layer(16, 0)
 
     @property
-    def note_flick_body(self) -> Layer:
+    def note_body(self) -> Layer:
         return Layer(16, 1)
 
     @property
-    def note_body(self) -> Layer:
+    def note_tick(self) -> Layer:
         return Layer(16, 2)
 
     @property
-    def note_tick(self) -> Layer:
+    def note_arrow(self) -> Layer:
         return Layer(16, 3)
 
     @property
-    def note_arrow(self) -> Layer:
-        return Layer(16, 4)
-
-    @property
     def slot_glow_effect(self) -> Layer:
-        return Layer(16, 5)
+        return Layer(16, 4)
 
     @property
     def active_slide_connector_over(self) -> Layer:

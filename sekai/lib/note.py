@@ -539,15 +539,6 @@ def get_note_body_layer(kind: NoteKind) -> Layer:
     result = +Layer
     match kind:
         case (
-            NoteKind.NORM_FLICK
-            | NoteKind.CRIT_FLICK
-            | NoteKind.NORM_HEAD_FLICK
-            | NoteKind.CRIT_HEAD_FLICK
-            | NoteKind.NORM_TAIL_FLICK
-            | NoteKind.CRIT_TAIL_FLICK
-        ):
-            result @= layers.note_flick_body
-        case (
             NoteKind.NORM_TRACE
             | NoteKind.CRIT_TRACE
             | NoteKind.NORM_TRACE_FLICK
