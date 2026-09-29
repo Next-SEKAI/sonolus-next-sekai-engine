@@ -6,6 +6,7 @@ from sekai.lib.options import Options
 from sekai.lib.ui import ui_config
 from sekai.play.mode import play_mode
 from sekai.preview.mode import preview_mode
+from sekai.server_resources import load_resources
 from sekai.test_level import load_levels
 from sekai.tutorial.mode import tutorial_mode
 from sekai.watch.mode import watch_mode
@@ -13,6 +14,10 @@ from sekai.watch.mode import watch_mode
 engine = Engine(
     name="next-sekai",
     title="Next SEKAI",
+    skin="coconut-next-sekai-1",
+    background="coconut-next-sekai-1",
+    effect="coconut-next-sekai-1",
+    particle="coconut-next-sekai-1",
     data=EngineData(
         ui=ui_config,
         options=Options,
@@ -25,7 +30,8 @@ engine = Engine(
 
 project = Project(
     engine=engine,
-    levels=[*load_levels()],
+    levels=load_levels,
+    resources=load_resources(),
     converters={
         "chcy-pjsekai-extended": convert_pjsekai_extended_level_data,
     },
