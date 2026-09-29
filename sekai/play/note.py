@@ -72,6 +72,7 @@ from sekai.lib.note import (
     play_note_hit_effects,
     schedule_note_auto_sfx,
 )
+from sekai.lib.note_style import NoteStyle
 from sekai.lib.options import Options
 from sekai.lib.stage import (
     DivisionParity,
@@ -114,6 +115,7 @@ class BaseNote(PlayArchetype):
     lane: float = imported()
     size: float = imported()
     direction: FlickDirection = imported()
+    style: NoteStyle = imported()
     active_head_ref: EntityRef[BaseNote] = imported(name="activeHead")
     is_attached: bool = imported(name="isAttached")
     connector_ease: EaseType = imported(name="connectorEase")
@@ -134,7 +136,7 @@ class BaseNote(PlayArchetype):
     preprocess_done: bool = entity_data()
     rel_lane: float = entity_data()
     target_time: float = entity_data()
-    visual_start_time: float = entity_data()
+    visual_start_time: float = entity_memory()
     visual_end_time: float = entity_memory()
     spawn_eligibility_time: float = entity_data()
     scheduled_spawn_time: float = shared_memory()
@@ -174,7 +176,6 @@ class BaseNote(PlayArchetype):
         if self.data_init_done:
             return
         self.spawn_eligibility_time = inf
-        self.visual_start_time = inf
 
         self.kind = map_note_kind(cast(NoteKind, self.key))
         self.effect_kind = get_note_effect_kind(self.kind, self.effect_kind)
@@ -430,6 +431,7 @@ class BaseNote(PlayArchetype):
                 self.target_time,
                 transform=self.visual_stage_transform().to_screen_transform(),
                 note_alpha=note_alpha,
+                style=self.style,
             )
         else:
             draw_note(
@@ -441,6 +443,7 @@ class BaseNote(PlayArchetype):
                 self.target_time,
                 transform=IDENTITY_STAGE_SCREEN_TRANSFORM,
                 note_alpha=note_alpha,
+                style=self.style,
             )
 
     def draw_hitbox(self):
@@ -503,6 +506,7 @@ class BaseNote(PlayArchetype):
                 single_line=self.visual_single_line,
                 lane_particles=self.visual_lane_particles,
                 transform=self.visual_stage_transform().to_screen_transform(),
+                style=self.style,
             )
         if self.is_scored:
             self.result.haptic = get_note_haptic_feedback(self.kind, self.result.judgment)

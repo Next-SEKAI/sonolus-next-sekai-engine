@@ -15,6 +15,7 @@ from sekai.lib.connector import (
     ConnectorLayer,
     get_active_connector_sprites,
     get_connector_alpha_option,
+    get_connector_base_kind,
     get_connector_fractions,
     get_connector_quality_option,
     get_connector_z,
@@ -130,12 +131,12 @@ def draw_connector(
         return
 
     normal_sprite = Sprite(-1)
-    match kind:
+    match get_connector_base_kind(kind):
         case (
             ConnectorKind.ACTIVE_NORMAL
             | ConnectorKind.ACTIVE_CRITICAL
-            | ConnectorKind.ACTIVE_FAKE_NORMAL
-            | ConnectorKind.ACTIVE_FAKE_CRITICAL
+            | ConnectorKind.FAKE_ACTIVE_NORMAL
+            | ConnectorKind.FAKE_ACTIVE_CRITICAL
         ):
             sprites = get_active_connector_sprites(kind)
             normal_sprite @= sprites.connection.normal
@@ -151,13 +152,13 @@ def draw_connector(
         ):
             normal_sprite @= get_guide_connector_sprite(kind)
         case ConnectorKind.DAMAGE | ConnectorKind.FAKE_DAMAGE:
-            normal_sprite @= get_damage_connector_sprite()
+            normal_sprite @= get_damage_connector_sprite(kind)
         case ConnectorKind.NONE:
             return
         case _:
             assert_never(kind)
 
-    match kind:
+    match get_connector_base_kind(kind):
         case (
             ConnectorKind.ACTIVE_NORMAL
             | ConnectorKind.ACTIVE_CRITICAL
@@ -166,7 +167,7 @@ def draw_connector(
         ):
             segment_head_alpha = 1.0
             segment_tail_alpha = 1.0
-        case ConnectorKind.ACTIVE_FAKE_NORMAL | ConnectorKind.ACTIVE_FAKE_CRITICAL:
+        case ConnectorKind.FAKE_ACTIVE_NORMAL | ConnectorKind.FAKE_ACTIVE_CRITICAL:
             segment_head_alpha = 1.0
             segment_tail_alpha = 1.0
         case (

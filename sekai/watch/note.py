@@ -63,6 +63,7 @@ from sekai.lib.note import (
     schedule_note_sfx,
     schedule_note_slot_effects,
 )
+from sekai.lib.note_style import NoteStyle
 from sekai.lib.options import Options
 from sekai.lib.stage import (
     DivisionParity,
@@ -103,6 +104,7 @@ class WatchBaseNote(WatchArchetype):
     lane: float = imported()
     size: float = imported()
     direction: FlickDirection = imported()
+    style: NoteStyle = imported()
     active_head_ref: EntityRef[WatchBaseNote] = imported(name="activeHead")
     is_attached: bool = imported(name="isAttached")
     connector_ease: EaseType = imported(name="connectorEase")
@@ -332,6 +334,7 @@ class WatchBaseNote(WatchArchetype):
             half_offset=half_offset,
             single_line=single_line,
             transform=transform.to_screen_transform(),
+            style=self.style,
         )
 
     def spawn_time(self) -> float:
@@ -380,6 +383,7 @@ class WatchBaseNote(WatchArchetype):
                 self.target_time,
                 transform=self.visual_stage_transform().to_screen_transform(),
                 note_alpha=note_alpha,
+                style=self.style,
             )
         else:
             draw_note(
@@ -391,6 +395,7 @@ class WatchBaseNote(WatchArchetype):
                 self.target_time,
                 transform=IDENTITY_STAGE_SCREEN_TRANSFORM,
                 note_alpha=note_alpha,
+                style=self.style,
             )
 
     def draw_hitbox(self):
@@ -469,6 +474,7 @@ class WatchBaseNote(WatchArchetype):
                 half_offset=self.visual_half_offset,
                 lane_particles=self._stage_lane_particles_at(time()),
                 transform=self.visual_stage_transform().to_screen_transform(),
+                style=self.style,
             )
 
     def _basic_input_geometry(self, context: InputGeometryContext) -> InputGeometry:
