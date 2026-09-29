@@ -158,7 +158,12 @@ def draw_connector(
             assert_never(kind)
 
     match kind:
-        case ConnectorKind.ACTIVE_NORMAL | ConnectorKind.ACTIVE_CRITICAL:
+        case (
+            ConnectorKind.ACTIVE_NORMAL
+            | ConnectorKind.ACTIVE_CRITICAL
+            | ConnectorKind.DAMAGE
+            | ConnectorKind.FAKE_DAMAGE
+        ):
             segment_head_alpha = 1.0
             segment_tail_alpha = 1.0
         case ConnectorKind.ACTIVE_FAKE_NORMAL | ConnectorKind.ACTIVE_FAKE_CRITICAL:
@@ -173,8 +178,6 @@ def draw_connector(
             | ConnectorKind.GUIDE_PURPLE
             | ConnectorKind.GUIDE_CYAN
             | ConnectorKind.GUIDE_BLACK
-            | ConnectorKind.DAMAGE
-            | ConnectorKind.FAKE_DAMAGE
         ):
             pass
         case _:

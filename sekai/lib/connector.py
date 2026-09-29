@@ -546,11 +546,15 @@ def draw_connector(
             | ConnectorKind.GUIDE_PURPLE
             | ConnectorKind.GUIDE_CYAN
             | ConnectorKind.GUIDE_BLACK
-            | ConnectorKind.FAKE_DAMAGE
         ):
             visual_state = ConnectorVisualState.WAITING
+        case ConnectorKind.FAKE_DAMAGE:
+            segment_head_alpha = 1.0
+            segment_tail_alpha = 1.0
+            visual_state = ConnectorVisualState.WAITING
         case ConnectorKind.DAMAGE:
-            pass
+            segment_head_alpha = 1.0
+            segment_tail_alpha = 1.0
         case _:
             assert_never(kind)
 
