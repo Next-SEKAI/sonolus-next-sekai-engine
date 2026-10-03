@@ -46,6 +46,7 @@ from sekai.lib.layout import (
     compute_hitbox,
     compute_hitbox_at_time,
     compute_stage_transform,
+    current_layout_transform,
     identity_stage_transform,
 )
 from sekai.lib.note import (
@@ -114,6 +115,7 @@ class BaseNote(PlayArchetype):
     stage_ref: EntityRef[DynamicStage] = imported(name="stage")
     lane: float = imported()
     size: float = imported()
+    elevation: float = imported(default=0.0)
     direction: FlickDirection = imported()
     style: NoteStyle = imported()
     active_head_ref: EntityRef[BaseNote] = imported(name="activeHead")
@@ -141,7 +143,6 @@ class BaseNote(PlayArchetype):
     spawn_eligibility_time: float = entity_data()
     scheduled_spawn_time: float = shared_memory()
     target_position: TargetPosition = entity_data()
-    target_y_offset: float = entity_data()
 
     trajectory_first: TrajectoryCache = entity_memory()
     trajectory_second: TrajectoryCache = entity_memory()
@@ -202,7 +203,6 @@ class BaseNote(PlayArchetype):
         if self.stage_ref.index > 0:
             self.rel_lane = self.lane
             self.lane += get_stage_pivot_lane(self.stage_ref.get(), self.target_time)
-            self.target_y_offset = self._basic_y_offset_at(self.target_time, left_limit=True)
 
         if self.next_ref.index > 0:
             self.next_ref.get().prev_ref = self.ref()
@@ -244,11 +244,6 @@ class BaseNote(PlayArchetype):
             )
             self.lane = lane
             self.size = size
-            self.target_y_offset = lerp(
-                attach_head._basic_y_offset_at(self.target_time, left_limit=True),
-                attach_tail._basic_y_offset_at(self.target_time, left_limit=True),
-                get_attach_frac(attach_head.target_time, attach_tail.target_time, self.target_time),
-            )
 
         end_time = max(self.target_time, self.input_interval.end) if self.is_scored else self.target_time
         natural_start_time = note_visual_spawn_time(self, end_time)
@@ -273,7 +268,7 @@ class BaseNote(PlayArchetype):
                 hitbox_size,
                 get_leniency(self.kind),
                 self.target_time,
-                self.target_y_offset,
+                self.y_offset_at(self.target_time, left_limit=True),
                 stage_transform=self.stage_transform_at(self.target_time, left_limit=True).to_screen_transform(),
                 left_limit=True,
             )
@@ -845,6 +840,8 @@ class BaseNote(PlayArchetype):
         else:
             result.lane = self.lane
             result.transform @= identity_stage_transform()
+        if self.elevation != 0.0:
+            result.transform @= self._basic_stage_transform_at(context.time, left_limit=True)
         return result
 
     def input_geometry(self, context: InputGeometryContext) -> InputGeometry:
@@ -1012,7 +1009,9 @@ class BaseNote(PlayArchetype):
     def _basic_visual_stage_transform(self) -> StageTransform:
         result = +StageTransform
         if self.stage_ref.index > 0:
-            result @= self.stage_ref.get().props.stage_transform()
+            result @= self.stage_ref.get().props.stage_transform(self.elevation)
+        elif self.elevation != 0.0:
+            result @= compute_stage_transform(current_layout_transform(), 0.0, 0.0, 0.0, 0.0, elevation=self.elevation)
         else:
             result @= identity_stage_transform()
         return result
@@ -1032,7 +1031,7 @@ class BaseNote(PlayArchetype):
         return result
 
     def _basic_has_stage_transform(self) -> bool:
-        return self.stage_ref.index > 0 and self.stage_ref.get().props.has_transform()
+        return self.elevation != 0.0 or (self.stage_ref.index > 0 and self.stage_ref.get().props.has_transform())
 
     def has_stage_transform(self) -> bool:
         if self.is_attached:
@@ -1071,7 +1070,11 @@ class BaseNote(PlayArchetype):
                 props.y_lane_translate,
                 props.lane,
                 props.center_weight,
-                props.elevation,
+                props.elevation + self.elevation,
+            )
+        elif self.elevation != 0.0:
+            result @= compute_stage_transform(
+                camera_layout_transform_at_time(t, left_limit=left_limit), 0.0, 0.0, 0.0, 0.0, elevation=self.elevation
             )
         else:
             result @= identity_stage_transform()

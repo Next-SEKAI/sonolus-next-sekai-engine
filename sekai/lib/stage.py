@@ -194,7 +194,7 @@ class StageProps(Record):
     center_weight: float
     elevation: float
 
-    def stage_transform(self) -> StageTransform:
+    def stage_transform(self, elevation_offset: float = 0.0) -> StageTransform:
         return compute_stage_transform(
             current_layout_transform(),
             self.rotate,
@@ -202,7 +202,7 @@ class StageProps(Record):
             self.y_lane_translate,
             self.lane,
             self.center_weight,
-            self.elevation,
+            self.elevation + elevation_offset,
         )
 
     def has_transform(self) -> bool:

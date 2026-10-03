@@ -17,6 +17,7 @@ from sekai.lib.connector import ConnectorKind, ConnectorLayer, SegmentPresentati
 from sekai.lib.ease import EaseType
 from sekai.lib.note import NoteKind
 from sekai.lib.stage import DivisionParity, JudgeLineColor, JudgeLineStyle, StageBorderStyle
+from sekai.note_elevation_test_level import level as note_elevation_test_level
 
 SLIDE_START_BEAT = 4.0
 SLIDE_END_BEAT = 20.0
@@ -1013,4 +1014,5 @@ def load_levels():
     yield mask_lab_level
     yield arc_level
     yield elevation_demo_level
+    yield note_elevation_test_level
     yield color_demo_level

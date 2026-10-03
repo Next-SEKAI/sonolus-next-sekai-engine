@@ -200,6 +200,7 @@ class LevelNote:
     connector_ease: EaseType = EaseType.LINEAR
     attach: LevelSlide | None = None
     style: NoteStyle = NoteStyle.DEFAULT
+    elevation: float = 0.0
 
 
 @dataclass
@@ -285,6 +286,7 @@ def build_level(
             "size": level_note.size,
             "direction": level_note.direction,
             "style": level_note.style,
+            "elevation": level_note.elevation,
             "connector_ease": level_note.connector_ease,
             "is_separator": level_note.is_separator or force_separator,
             "segment_kind": level_note.segment_kind,
