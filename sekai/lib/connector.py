@@ -610,7 +610,10 @@ def draw_connector(
                     head_visual_progress > DynamicLayout.progress_cutoff
                     and tail_visual_progress > DynamicLayout.progress_cutoff
                 )
-                or head_visual_progress == tail_visual_progress
+                or (
+                    head_visual_progress == tail_visual_progress
+                    and (shared_transform or head_transform == tail_transform)
+                )
             ):
                 return
         case SegmentPresentation.FULL_SCREEN:
@@ -1287,7 +1290,9 @@ def draw_connector_default(
     start_visual_progress, end_visual_progress = clip_connector_progress_to_screen(
         start_visual_progress, end_visual_progress, head_transform, tail_transform, transforms_equal
     )
-    if start_visual_progress == end_visual_progress:
+    if start_visual_progress == end_visual_progress and (
+        transforms_equal or head_visual_progress != tail_visual_progress
+    ):
         return
     start_frac = safe_unlerp_clamped(head_visual_progress, tail_visual_progress, start_visual_progress, 0.0)
     end_frac = safe_unlerp_clamped(head_visual_progress, tail_visual_progress, end_visual_progress, 1.0)
