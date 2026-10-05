@@ -25,7 +25,7 @@ BPM = 120.0
 FAMILIES = ("QUAD", "SINE", "CUBIC", "QUART", "QUINT", "EXPO", "CIRC", "BACK", "ELASTIC", "STEP")
 MODES = ("IN", "OUT", "IN_OUT", "OUT_IN")
 MODE_LANES = (-4.5, -1.5, 1.5, 4.5)
-SLIDE_BEATS = 3.0
+SLIDE_BEATS = 1.0
 ROW_BEATS = 4.0
 SLIDES_START = 4.0
 EVENTS_START = SLIDES_START + ROW_BEATS * (len(FAMILIES) + 1)
@@ -80,6 +80,26 @@ eased_slide(SLIDES_START + ROW_BEATS * len(FAMILIES), MODE_LANES[1], EaseType.NO
 # Overshoot past a narrow tail makes the size cross zero.
 eased_slide(SLIDES_START + ROW_BEATS * len(FAMILIES), MODE_LANES[2], EaseType.OUT_ELASTIC, size=1.5, tail_size=0.1)
 eased_slide(SLIDES_START + ROW_BEATS * len(FAMILIES), MODE_LANES[3], EaseType.IN_OUT_BACK, size=0.2, tail_size=1.5)
+
+# Circular guide with zero-width ends.
+entities.append(
+    LevelSlide(
+        notes=[
+            LevelNote(
+                beat=EVENTS_START - 2 + SLIDE_BEATS * i / 2,
+                lane=0.0,
+                size=size,
+                kind=NoteKind.ANCHOR,
+                is_separator=True,
+                segment_kind=ConnectorKind.GUIDE_GREEN,
+                connector_ease=ease,
+            )
+            for i, (size, ease) in enumerate(
+                ((0.0, EaseType.OUT_CIRC), (1.5, EaseType.IN_CIRC), (0.0, EaseType.LINEAR))
+            )
+        ]
+    )
+)
 
 # Stage movement, masks, offsets, and alpha.
 stage = LevelStage(
