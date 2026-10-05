@@ -295,7 +295,19 @@ def compute_stage_transform(
     return StageTransform(sr=stage_rotate, px=pivot.x, py=pivot.y, tx=tx, ty=ty, projection=projection)
 
 
+def stage_projection_blend_frac(a: StageScreenTransform, b: StageScreenTransform, frac: float) -> float:
+    if 0.0 <= frac <= 1.0:
+        return frac
+    # Both projections use the same camera axis. Stop at zero height to avoid a flip.
+    trace_a = a.a00 + a.a11
+    trace_b = b.a00 + b.a11
+    if trace_a != trace_b and lerp(trace_a, trace_b, frac) < 1.0:
+        return (1.0 - trace_a) / (trace_b - trace_a)
+    return frac
+
+
 def blend_stage_transform(a: StageTransform, b: StageTransform, frac: float) -> StageTransform:
+    projection_frac = stage_projection_blend_frac(a.projection, b.projection, frac)
     return StageTransform(
         sr=lerp(a.sr, b.sr, frac),
         px=lerp(a.px, b.px, frac),
@@ -303,13 +315,13 @@ def blend_stage_transform(a: StageTransform, b: StageTransform, frac: float) -> 
         tx=lerp(a.tx, b.tx, frac),
         ty=lerp(a.ty, b.ty, frac),
         projection=StageScreenTransform(
-            a00=lerp(a.projection.a00, b.projection.a00, frac),
-            a01=lerp(a.projection.a01, b.projection.a01, frac),
-            a02=lerp(a.projection.a02, b.projection.a02, frac),
-            a10=lerp(a.projection.a10, b.projection.a10, frac),
-            a11=lerp(a.projection.a11, b.projection.a11, frac),
-            a12=lerp(a.projection.a12, b.projection.a12, frac),
-            elevation=lerp(a.projection.elevation, b.projection.elevation, frac),
+            a00=lerp(a.projection.a00, b.projection.a00, projection_frac),
+            a01=lerp(a.projection.a01, b.projection.a01, projection_frac),
+            a02=lerp(a.projection.a02, b.projection.a02, projection_frac),
+            a10=lerp(a.projection.a10, b.projection.a10, projection_frac),
+            a11=lerp(a.projection.a11, b.projection.a11, projection_frac),
+            a12=lerp(a.projection.a12, b.projection.a12, projection_frac),
+            elevation=lerp(a.projection.elevation, b.projection.elevation, projection_frac),
         ),
     )
 
