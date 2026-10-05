@@ -1324,6 +1324,9 @@ def _ease_derivative_bounds() -> Array:
                 for j in range(CURVE_BIN_SAMPLES + 1):
                     # Avoid jumps and vertical slopes at endpoints.
                     x = clamp((i + j / CURVE_BIN_SAMPLES) / CURVE_BINS, 1e-3, 1 - 1e-3)
+                    if ease_type in (EaseType.OUT_IN_EXPO, EaseType.OUT_IN_ELASTIC) and x == 0.5:
+                        # Keep midpoint samples on one side of the jump.
+                        x = 0.5 - 2 * h if i < CURVE_BINS // 2 else 0.5 + 2 * h
                     before, at, after = (ease(ease_type, x + d) for d in (-h, 0, h)) if curved else (0, 0, 0)
                     derivative = (after - before) / (2 * h) if order == 1 else (after - 2 * at + before) / (h * h)
                     largest = max(largest, abs(derivative))
@@ -1381,6 +1384,56 @@ def connector_curve_detail(
         ease_type, 1, start, end
     )
     return sqrt(width * lane_change * span * bend / (8 * CONNECTOR_CURVE_ERROR))
+
+
+def circular_connector_fracs(
+    ease_type: EaseType,
+    start_ease_frac: float,
+    end_ease_frac: float,
+    start_progress: float,
+    end_progress: float,
+    lane_change: float,
+    quality: float,
+) -> VarArray[float, Dim[128]]:
+    """Split circular curves where straight segments differ too much."""
+    result = VarArray[float, Dim[128]].new()
+    starts = VarArray[float, Dim[17]].new()
+    ends = VarArray[float, Dim[17]].new()
+    depths = VarArray[int, Dim[17]].new()
+    starts.append(0.0)
+    ends.append(1.0)
+    depths.append(0)
+    tolerance = CONNECTOR_CURVE_ERROR / (2 * quality * quality)
+    while len(starts) > 0:
+        first, last, depth = starts.pop(), ends.pop(), depths.pop()
+        first_travel = approach(lerp(start_progress, end_progress, first))
+        last_travel = approach(lerp(start_progress, end_progress, last))
+        first_x = connector_endpoint_ease(ease_type, lerp(start_ease_frac, end_ease_frac, first))
+        first_x *= tilt_width_factor(first_travel)
+        last_x = connector_endpoint_ease(ease_type, lerp(start_ease_frac, end_ease_frac, last))
+        last_x *= tilt_width_factor(last_travel)
+        error = 0.0
+        for sample in Array(0.25, 0.5, 0.75):
+            frac = lerp(first, last, sample)
+            travel = approach(lerp(start_progress, end_progress, frac))
+            x = connector_endpoint_ease(ease_type, lerp(start_ease_frac, end_ease_frac, frac))
+            x *= tilt_width_factor(travel)
+            chord = lerp(first_x, last_x, safe_unlerp(first_travel, last_travel, travel, sample))
+            error = max(error, abs(x - chord) * lane_change * abs(DynamicLayout.w_scale))
+        if error <= tolerance or depth >= 16:
+            result.append(last)
+        else:
+            if len(result) + len(starts) + 2 > 128:
+                result.clear()
+                return result
+            middle = (first + last) / 2
+            starts.append(middle)
+            ends.append(last)
+            depths.append(depth + 1)
+            starts.append(first)
+            ends.append(middle)
+            depths.append(depth + 1)
+    return result
 
 
 def draw_connector_default(
@@ -1495,6 +1548,28 @@ def draw_connector_default(
             end_travel,
         )
     quality = get_connector_quality_option(kind)
+    circular_fracs = VarArray[float, Dim[128]].new()
+    if (
+        EaseType.IN_CIRC <= ease_type <= EaseType.OUT_IN_CIRC
+        and quality > 0
+        and constant_interp_frac < 0
+        and not has_transform
+        and not mask_enabled
+        and head_alpha == tail_alpha
+        and abs(tail_eased - head_eased) >= 1e-6
+    ):
+        circular_fracs @= circular_connector_fracs(
+            ease_type,
+            start_ease_frac,
+            end_ease_frac,
+            start_visual_progress,
+            end_visual_progress,
+            max(abs(tail_lane - tail_size - head_lane + head_size), abs(tail_lane + tail_size - head_lane - head_size))
+            / abs(tail_eased - head_eased),
+            quality,
+        )
+        if len(circular_fracs) > 0:
+            geometry_detail = len(circular_fracs) / quality
 
     if (
         geometry_detail * quality <= 1
@@ -1571,11 +1646,14 @@ def draw_connector_default(
         render_cache.prepare_transform(head_transform, tail_transform, constant_transform)
 
     segment_count = connector_segment_count(geometry_detail, alpha_range, quality, path_length)
+    if len(circular_fracs) > 0:
+        segment_count = len(circular_fracs)
     # Use fewer segments where the curve bends less.
     piece_counts = VarArray[int, Dim[CONNECTOR_CURVE_PIECES]].new()
     geometry_count = ceil(geometry_detail * quality)
     if (
         not heterogeneous_endpoints
+        and len(circular_fracs) == 0
         and geometry_count > CONNECTOR_CURVE_PIECE_THRESHOLD
         and geometry_count >= segment_count
     ):
@@ -1613,6 +1691,8 @@ def draw_connector_default(
         segment_size = piece_size / piece_counts[piece]
         for piece_segment in range(1, piece_counts[piece] + 1):
             segment_frac = piece_start + piece_segment * segment_size
+            if len(circular_fracs) > 0:
+                segment_frac = circular_fracs[piece_segment - 1]
             next_frac = lerp(start_frac, end_frac, segment_frac)
             next_ease_frac = lerp(start_ease_frac, end_ease_frac, segment_frac)
             next_interp_frac = constant_interp_frac
