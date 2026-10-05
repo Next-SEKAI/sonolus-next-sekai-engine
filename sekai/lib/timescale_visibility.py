@@ -136,8 +136,7 @@ def _prepared_distance_bounds(
     # Scroll still moves at zero because _scroll_speed enforces a minimum speed.
     stopped = not piece.scroll and piece.v0 == 0 and (is_in_step_ease(piece.easing) or piece.v1 == 0)
     slack = (0.0 if stopped else 0.01) + source.preempt * 1e-4 + max(magnitude, abs(lower), abs(upper)) * 1e-6
-    # Anchored distance, local integral, and queried distance may use different
-    # quadrature pieces. Their approximation errors need not cancel.
+    # Allow for errors that do not cancel between integration pieces.
     slack += piece.integration_error
     # If the distance was capped, we do not know how far it extends beyond the cap.
     result @= Interval(
@@ -292,8 +291,7 @@ def _tree_range_clear(
 
 
 def _target_integration_slack(target: TargetPosition, start: float, end: float) -> float:
-    # Within the target event, direct integration can differ from subtracting
-    # its two coordinates. Other events use the stored target coordinate.
+    # Direct same-event integration can differ from coordinate subtraction.
     if target.event_ref <= 0:
         return 0.0
     event = timescale_change_archetype().at(target.event_ref)
