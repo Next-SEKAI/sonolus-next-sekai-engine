@@ -15,7 +15,7 @@ from sonolus.script.vec import Vec2
 
 from sekai.lib import archetype_names
 from sekai.lib.baseevent import get_event_as, query_event_list
-from sekai.lib.ease import EaseType, ease
+from sekai.lib.ease import EaseType, ease, eased_range
 from sekai.lib.level_config import LevelConfig
 from sekai.lib.options import Options, StageCoverNoteSpeedCompensation
 
@@ -46,6 +46,8 @@ APPROACH_TILT_LERP_MIN = 0.05
 
 # Stage width at 0 tilt
 STAGE_WIDTH_MID = (APPROACH_SCALE + 1) / 2
+CAMERA_MIN_SIZE = 0.01
+CAMERA_MIN_ZOOM = 0.01
 
 # As tilt decreases, the vanishing point moves upward and we extend the stage toward it.
 # This is a minimum tilt for this extension so the stage height stays finite at zero tilt.
@@ -428,6 +430,11 @@ def max_camera_abs_rotation() -> float:
     while ref.index > 0:
         camera = get_event_as(ref, camera_archetype)
         result = max(result, abs(camera.rotate))
+        if camera.next_ref.index > 0:
+            lower, upper = eased_range(
+                camera.rotate, get_event_as(camera.next_ref, camera_archetype).rotate, camera.ease
+            )
+            result = max(result, -lower, upper)
         ref.index = camera.next_ref.index
     return result
 
@@ -501,8 +508,8 @@ def get_camera_info(target_time: float | None = None, left_limit: bool = False) 
                 ab = camera_zoom_anchor(camera_b.zoom_vertical_align)
                 result @= CameraInfo(
                     lane=lerp(camera_a.lane, camera_b.lane, p),
-                    size=lerp(camera_a.size, camera_b.size, p),
-                    zoom=lerp(camera_a.zoom, camera_b.zoom, p),
+                    size=max(CAMERA_MIN_SIZE, lerp(camera_a.size, camera_b.size, p)),
+                    zoom=max(CAMERA_MIN_ZOOM, lerp(camera_a.zoom, camera_b.zoom, p)),
                     zoom_target_lane=lerp(camera_a.zoom_target_lane, camera_b.zoom_target_lane, p),
                     zoom_target=Vec2(lerp(ta.x, tb.x, p), lerp(ta.y, tb.y, p)),
                     zoom_anchor=Vec2(lerp(aa.x, ab.x, p), lerp(aa.y, ab.y, p)),

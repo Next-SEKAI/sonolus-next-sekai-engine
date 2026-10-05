@@ -17,7 +17,7 @@ from sonolus.script.vec import Vec2
 
 from sekai.lib import archetype_names
 from sekai.lib.baseevent import get_event_as, query_event_list
-from sekai.lib.ease import EaseType, ease
+from sekai.lib.ease import EaseType, ease, eased_range, is_in_step_ease
 from sekai.lib.effect import SFX_DISTANCE, Effects
 from sekai.lib.layer import ZIndexes, get_z, get_z_alt, layers
 from sekai.lib.layout import (
@@ -419,10 +419,9 @@ def _stage_transform_change_archetype() -> type[StageTransformChangeLike]:
 
 
 def stage_y_offset_bounds(stage: DynamicStageLike) -> Interval:
-    """Scan the stage's pivot offsets and return their full y offset range.
+    """Return the stage's y offset bounds, including easing overshoot.
 
-    Call after converting beat offsets into pivot.y_offset values. Easing keeps
-    each offset between the two event values, so checking those values is enough.
+    Call after pivot y offsets and next links are initialized.
     """
     ref = +stage.first_pivot_change_ref
     result = Interval(0.0, 0.0)
@@ -434,6 +433,12 @@ def stage_y_offset_bounds(stage: DynamicStageLike) -> Interval:
         pivot = get_event_as(ref, _stage_pivot_change_archetype())
         result.start = min(result.start, pivot.y_offset)
         result.end = max(result.end, pivot.y_offset)
+        if pivot.next_ref.index > 0:
+            lower, upper = eased_range(
+                pivot.y_offset, get_event_as(pivot.next_ref, _stage_pivot_change_archetype()).y_offset, pivot.ease
+            )
+            result.start = min(result.start, lower)
+            result.end = max(result.end, upper)
         ref.index = pivot.next_ref.index
     return result
 
@@ -443,7 +448,7 @@ def _stage_style_interval_visible(style: StageStyleChangeLike) -> bool:
         return style.note_alpha > 0
     following = get_event_as(style.next_ref, _stage_style_change_archetype())
     return following.time > style.time and (
-        style.note_alpha > 0 or (style.ease != EaseType.NONE and following.note_alpha > 0)
+        style.note_alpha > 0 or (not is_in_step_ease(style.ease) and following.note_alpha > 0)
     )
 
 
@@ -641,7 +646,7 @@ def update_stage_mask_props(result: StageProps, first_mask_change_ref: EntityRef
             if t_b > t_a:
                 p = ease(mask_a.ease, (t - t_a) / (t_b - t_a))
                 result.lane = lerp(mask_a.lane, mask_b.lane, p)
-                result.width = lerp(mask_a.size, mask_b.size, p)
+                result.width = max(0.0, lerp(mask_a.size, mask_b.size, p))
     elif mask_b_ref.index > 0:
         mask_b = get_event_as(mask_b_ref, _stage_mask_change_archetype())
         result.lane = mask_b.lane
@@ -683,21 +688,24 @@ def update_stage_style_props(result: StageProps, first_style_change_ref: EntityR
             t_b = style_b.time
             if t_b > t_a:
                 p = ease(style_a.ease, (t - t_a) / (t_b - t_a))
+                blend = clamp(p, 0.0, 1.0)
                 result.judge_line_color.end = style_b.judge_line_color
-                result.judge_line_color.progress = p
+                result.judge_line_color.progress = blend
                 result.judge_line_style.end = style_b.judge_line_style
-                result.judge_line_style.progress = p
+                result.judge_line_style.progress = blend
                 result.left_border_style.end = style_b.left_border_style
-                result.left_border_style.progress = p
+                result.left_border_style.progress = blend
                 result.right_border_style.end = style_b.right_border_style
-                result.right_border_style.progress = p
-                result.lane_alpha = lerp(style_a.lane_alpha, style_b.lane_alpha, p)
-                result.judge_line_alpha = lerp(style_a.judge_line_alpha, style_b.judge_line_alpha, p)
-                result.full_width = lerp(
-                    full_width_factor(style_a.full_width), full_width_factor(style_b.full_width), p
+                result.right_border_style.progress = blend
+                result.lane_alpha = clamp(lerp(style_a.lane_alpha, style_b.lane_alpha, p), 0.0, 1.0)
+                result.judge_line_alpha = clamp(lerp(style_a.judge_line_alpha, style_b.judge_line_alpha, p), 0.0, 1.0)
+                result.full_width = clamp(
+                    lerp(full_width_factor(style_a.full_width), full_width_factor(style_b.full_width), p), 0.0, 1.0
                 )
-                result.division_line_alpha = lerp(style_a.division_line_alpha, style_b.division_line_alpha, p)
-                result.note_alpha = lerp(style_a.note_alpha, style_b.note_alpha, p)
+                result.division_line_alpha = clamp(
+                    lerp(style_a.division_line_alpha, style_b.division_line_alpha, p), 0.0, 1.0
+                )
+                result.note_alpha = clamp(lerp(style_a.note_alpha, style_b.note_alpha, p), 0.0, 1.0)
     elif style_b_ref.index > 0:
         style_b = get_event_as(style_b_ref, _stage_style_change_archetype())
         result.judge_line_color.start = style_b.judge_line_color

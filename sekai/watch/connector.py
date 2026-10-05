@@ -32,7 +32,7 @@ from sekai.lib.connector import (
     update_circular_connector_particle,
     update_linear_connector_particle,
 )
-from sekai.lib.ease import EaseType, safe_unlerp_clamped
+from sekai.lib.ease import EaseType, is_in_step_ease, safe_unlerp_clamped
 from sekai.lib.layout import StageTransform, blend_stage_transform
 from sekai.lib.note import draw_connector_hitbox_overlay, draw_slide_note_head, get_attach_params
 from sekai.lib.options import Options
@@ -224,7 +224,7 @@ class WatchConnector(WatchArchetype):
                 head_visual_progress = 1.0 - lerp(head.visual_y_offset, tail.visual_y_offset, head_frac)
                 head_target_time = time()
                 head_note_alpha = lerp(head_note_alpha, tail_note_alpha, head_frac)
-                if self.ease_type == EaseType.NONE:
+                if is_in_step_ease(self.ease_type):
                     head_lane = head.visual_lane
                     head_size = head.size
                     head_ease_frac = head.head_ease_frac
@@ -359,7 +359,7 @@ class WatchConnector(WatchArchetype):
         tail_mask = tail.visual_mask
         mask_left = head_mask.left
         mask_right = head_mask.right
-        if self.ease_type != EaseType.NONE:
+        if not is_in_step_ease(self.ease_type):
             _, interp_frac = get_connector_fractions(
                 self.ease_type,
                 head.target_time,
