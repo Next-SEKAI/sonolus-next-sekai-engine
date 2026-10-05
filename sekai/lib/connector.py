@@ -45,6 +45,7 @@ from sekai.lib.layout import (
     layout_slide_connector_segment,
     layout_slot_glow_effect,
     st_slide_connector_segment,
+    stage_projection_blend_frac,
     stage_transform_is_identity,
     tilt_width_factor,
     transformed_vec_at,
@@ -880,16 +881,17 @@ class ConnectorRenderCache(Record):
             if self.constant_transform:
                 self.transform @= head.to_screen_transform()
             elif self.no_stage_rotation:
+                projection_frac = stage_projection_blend_frac(head.projection, tail.projection, interp_frac)
                 self.transform @= StageScreenTransform(
-                    a00=lerp(head.projection.a00, tail.projection.a00, interp_frac),
-                    a01=lerp(head.projection.a01, tail.projection.a01, interp_frac),
-                    a02=lerp(head.projection.a02, tail.projection.a02, interp_frac)
+                    a00=lerp(head.projection.a00, tail.projection.a00, projection_frac),
+                    a01=lerp(head.projection.a01, tail.projection.a01, projection_frac),
+                    a02=lerp(head.projection.a02, tail.projection.a02, projection_frac)
                     + lerp(head.tx, tail.tx, interp_frac),
-                    a10=lerp(head.projection.a10, tail.projection.a10, interp_frac),
-                    a11=lerp(head.projection.a11, tail.projection.a11, interp_frac),
-                    a12=lerp(head.projection.a12, tail.projection.a12, interp_frac)
+                    a10=lerp(head.projection.a10, tail.projection.a10, projection_frac),
+                    a11=lerp(head.projection.a11, tail.projection.a11, projection_frac),
+                    a12=lerp(head.projection.a12, tail.projection.a12, projection_frac)
                     + lerp(head.ty, tail.ty, interp_frac),
-                    elevation=lerp(head.projection.elevation, tail.projection.elevation, interp_frac),
+                    elevation=lerp(head.projection.elevation, tail.projection.elevation, projection_frac),
                 )
             elif self.rigid_transform:
                 rotation = lerp(head.sr, tail.sr, interp_frac)
