@@ -19,6 +19,44 @@ from sekai.lib.ease import (
 from sekai.lib.ease import ease as ease_value
 
 SIMPSON_WEIGHTS = Array(1 / 6, 4 / 6, 1 / 6)
+QUADRATURE_WIDTH = 2**-6
+
+
+def _circ_quadrature_error(width: float) -> float:
+    # Allow for larger integration errors near circular curve endpoints.
+    gap = sqrt(width - width * width / 4) - sqrt(2 * width - width * width) / 2
+    return width * gap * 2 / 3
+
+
+CIRC_QUADRATURE_ERROR = _circ_quadrature_error(QUADRATURE_WIDTH)
+CIRC_COMBINED_QUADRATURE_ERROR = _circ_quadrature_error(2 * QUADRATURE_WIDTH) / 2
+
+
+def integration_error_bound(v0: float, v1: float, ease: int, span: float) -> float:
+    """Return an integration error bound, excluding rounding."""
+    if ease <= EaseType.OUT_IN_QUAD or is_step_ease(ease):
+        return 0.0
+    family = ease_family(ease)
+    combined = ease_mode(ease) >= EaseMode.IN_OUT
+    error = 0.0
+    if family == EaseFamily.CIRC:
+        error = CIRC_COMBINED_QUADRATURE_ERROR if combined else CIRC_QUADRATURE_ERROR
+    else:
+        derivative = 0.0
+        if family == EaseFamily.SINE:
+            derivative = (pi / 2) ** 4
+        elif family == EaseFamily.QUART:
+            derivative = 24.0
+        elif family == EaseFamily.QUINT:
+            derivative = 120.0
+        elif family == EaseFamily.EXPO:
+            derivative = (10 * log(2)) ** 4
+        # Combined eases use two shorter, more sharply curved pieces.
+        error = derivative * QUADRATURE_WIDTH**5 / 2880 * (16 if combined else 1)
+        if family == EaseFamily.EXPO:
+            # Include small jumps in exponential easing.
+            error += QUADRATURE_WIDTH * 2**-10 / 3 * (2 if combined else 1)
+    return abs(v1 - v0) * span * error
 
 
 class TimePosition(Record):
@@ -121,8 +159,8 @@ def speed_at(v0: float, v1: float, ease: int, start: float, end: float, t: float
     if t >= end:
         return v1
     u = (t - start) / (end - start)
-    # Evaluate falling curves from the lower speed to reduce rounding error.
-    if v1 < v0:
+    # Reverse falling curves for precision; keep the original midpoint value.
+    if v1 < v0 and u != 0.5:
         v0, v1 = v1, v0
         ease = ease_complement(ease)
         u = (end - t) / (end - start)
@@ -166,7 +204,11 @@ def _piece(v0: float, v1: float, ease: int, span: float, left: float, right: flo
     last = right / span
     average = 0.0
     # Sample cubics and short intervals to avoid subtracting close integrals.
-    if ease <= EaseType.OUT_IN_QUAD or EaseType.IN_CUBIC <= ease <= EaseType.OUT_IN_CUBIC or width <= span * 2**-6:
+    if (
+        ease <= EaseType.OUT_IN_QUAD
+        or EaseType.IN_CUBIC <= ease <= EaseType.OUT_IN_CUBIC
+        or width <= span * QUADRATURE_WIDTH
+    ):
         half = (last - first) * 0.5
         for i in range(3):
             average += SIMPSON_WEIGHTS[i] * ease_value(ease, first + half * i)
