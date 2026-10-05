@@ -32,8 +32,7 @@ CIRC_QUADRATURE_ERROR = _circ_quadrature_error(QUADRATURE_WIDTH)
 CIRC_COMBINED_QUADRATURE_ERROR = _circ_quadrature_error(2 * QUADRATURE_WIDTH) / 2
 
 
-def integration_error_bound(v0: float, v1: float, ease: int, span: float) -> float:
-    """Return an integration error bound, excluding rounding."""
+def _integration_error_coefficient(ease: int) -> float:
     if ease <= EaseType.OUT_IN_QUAD or is_step_ease(ease):
         return 0.0
     family = ease_family(ease)
@@ -56,7 +55,27 @@ def integration_error_bound(v0: float, v1: float, ease: int, span: float) -> flo
         if family == EaseFamily.EXPO:
             # Include small jumps in exponential easing.
             error += QUADRATURE_WIDTH * 2**-10 / 3 * (2 if combined else 1)
-    return abs(v1 - v0) * span * error
+    return error
+
+
+INTEGRATION_ERROR_COEFFICIENTS = Array(*(_integration_error_coefficient(ease) for ease in EaseType))
+INTEGRAL_TOTALS = Array(
+    1 / 3,
+    1 - 2 / pi,
+    1 / 4,
+    1 / 5,
+    1 / 6,
+    (1 - 2**-10) / (10 * log(2)),
+    1 - pi / 4,
+    0.0,
+    0.0,
+    0.0,
+)
+
+
+def integration_error_bound(v0: float, v1: float, ease: int, span: float) -> float:
+    """Return an integration error bound, excluding rounding."""
+    return abs(v1 - v0) * span * INTEGRATION_ERROR_COEFFICIENTS[ease]
 
 
 class TimePosition(Record):
@@ -108,23 +127,7 @@ def _in_integral(family: EaseFamily, y: float) -> float:
 
 
 def _in_integral_total(family: EaseFamily) -> float:
-    match family:
-        case EaseFamily.QUAD:
-            return 1 / 3
-        case EaseFamily.SINE:
-            return 1 - 2 / pi
-        case EaseFamily.CUBIC:
-            return 1 / 4
-        case EaseFamily.QUART:
-            return 1 / 5
-        case EaseFamily.QUINT:
-            return 1 / 6
-        case EaseFamily.EXPO:
-            return (1 - 2**-10) / (10 * log(2))
-        case EaseFamily.CIRC:
-            return 1 - pi / 4
-        case _:
-            return 0.0
+    return INTEGRAL_TOTALS[family]
 
 
 def _ease_integral(ease: EaseType, u: float) -> float:

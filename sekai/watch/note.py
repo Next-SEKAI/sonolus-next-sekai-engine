@@ -664,6 +664,18 @@ class WatchBaseNote(WatchArchetype):
             )
         return self._basic_visual_lane
 
+    @property
+    def _basic_visual_mask(self) -> VisualMask:
+        result = +VisualMask
+        if self.stage_ref.index > 0:
+            props = self.stage_ref.get().props
+            result.left = props.lane - props.width
+            result.right = props.lane + props.width
+            result.enabled = props.mask_notes
+            if result.enabled:
+                result.stage_index = self.stage_ref.index
+        return result
+
     def _basic_visual_mask_at(self, t: float, left_limit: bool = False) -> VisualMask:
         result = +VisualMask
         if self.stage_ref.index > 0:
@@ -688,7 +700,15 @@ class WatchBaseNote(WatchArchetype):
 
     @property
     def visual_mask(self) -> VisualMask:
-        return self.visual_mask_at(time())
+        result = +VisualMask
+        if not self.is_attached:
+            result @= self._basic_visual_mask
+            return result
+
+        head_mask = self.attach_head_ref.get()._basic_visual_mask
+        tail_mask = self.attach_tail_ref.get()._basic_visual_mask
+        result @= interpolate_visual_masks(head_mask, tail_mask, self.attach_eased_frac)
+        return result
 
     def visual_extents_at(self, t: float, left_limit: bool = False) -> tuple[float, float]:
         render_lane = self.visual_lane_at(t)
