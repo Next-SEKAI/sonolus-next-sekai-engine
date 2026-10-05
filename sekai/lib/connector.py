@@ -5,7 +5,7 @@ from typing import Literal, Self, assert_never, cast
 from sonolus.script.archetype import EntityRef
 from sonolus.script.array import Array, Dim
 from sonolus.script.containers import VarArray
-from sonolus.script.easing import ease_out_cubic
+from sonolus.script.easing import ease_in_circ, ease_in_out_circ, ease_out_circ, ease_out_cubic, ease_out_in_circ
 from sonolus.script.effect import Effect, LoopedEffectHandle
 from sonolus.script.interval import clamp, lerp, remap_clamped
 from sonolus.script.particle import Particle, ParticleHandle
@@ -1386,7 +1386,18 @@ def connector_curve_detail(
     return sqrt(width * lane_change * span * bend / (8 * CONNECTOR_CURVE_ERROR))
 
 
+def circular_connector_ease(ease_type: EaseType, frac: float) -> float:
+    if ease_type == EaseType.IN_CIRC:
+        return ease_in_circ(frac)
+    if ease_type == EaseType.OUT_CIRC:
+        return ease_out_circ(frac)
+    if ease_type == EaseType.IN_OUT_CIRC:
+        return ease_in_out_circ(frac)
+    return ease_out_in_circ(frac)
+
+
 def circular_connector_fracs(
+    result: VarArray[float, Dim[128]],
     ease_type: EaseType,
     start_ease_frac: float,
     end_ease_frac: float,
@@ -1394,46 +1405,56 @@ def circular_connector_fracs(
     end_progress: float,
     lane_change: float,
     quality: float,
-) -> VarArray[float, Dim[128]]:
+) -> None:
     """Split circular curves where straight segments differ too much."""
-    result = VarArray[float, Dim[128]].new()
-    starts = VarArray[float, Dim[17]].new()
+    result.clear()
     ends = VarArray[float, Dim[17]].new()
+    travels = VarArray[float, Dim[17]].new()
+    positions = VarArray[float, Dim[17]].new()
     depths = VarArray[int, Dim[17]].new()
-    starts.append(0.0)
+    first = 0.0
+    first_travel = approach(start_progress)
+    first_x = circular_connector_ease(ease_type, start_ease_frac) * tilt_width_factor(first_travel)
+    last_travel = approach(end_progress)
     ends.append(1.0)
+    travels.append(last_travel)
+    positions.append(circular_connector_ease(ease_type, end_ease_frac) * tilt_width_factor(last_travel))
     depths.append(0)
     tolerance = CONNECTOR_CURVE_ERROR / (2 * quality * quality)
-    while len(starts) > 0:
-        first, last, depth = starts.pop(), ends.pop(), depths.pop()
-        first_travel = approach(lerp(start_progress, end_progress, first))
-        last_travel = approach(lerp(start_progress, end_progress, last))
-        first_x = connector_endpoint_ease(ease_type, lerp(start_ease_frac, end_ease_frac, first))
-        first_x *= tilt_width_factor(first_travel)
-        last_x = connector_endpoint_ease(ease_type, lerp(start_ease_frac, end_ease_frac, last))
-        last_x *= tilt_width_factor(last_travel)
+    while len(ends) > 0:
+        last, last_travel, last_x, depth = ends.pop(), travels.pop(), positions.pop(), depths.pop()
         error = 0.0
+        middle_travel = 0.0
+        middle_x = 0.0
         for sample in Array(0.25, 0.5, 0.75):
             frac = lerp(first, last, sample)
             travel = approach(lerp(start_progress, end_progress, frac))
-            x = connector_endpoint_ease(ease_type, lerp(start_ease_frac, end_ease_frac, frac))
+            x = circular_connector_ease(ease_type, lerp(start_ease_frac, end_ease_frac, frac))
             x *= tilt_width_factor(travel)
             chord = lerp(first_x, last_x, safe_unlerp(first_travel, last_travel, travel, sample))
             error = max(error, abs(x - chord) * lane_change * abs(DynamicLayout.w_scale))
+            if sample == 0.5:
+                middle_travel = travel
+                middle_x = x
         if error <= tolerance or depth >= 16:
             result.append(last)
+            # Reuse this endpoint as the next span's start.
+            first = last
+            first_travel = last_travel
+            first_x = last_x
         else:
-            if len(result) + len(starts) + 2 > 128:
+            if len(result) + len(ends) + 2 > 128:
                 result.clear()
-                return result
+                return
             middle = (first + last) / 2
-            starts.append(middle)
             ends.append(last)
+            travels.append(last_travel)
+            positions.append(last_x)
             depths.append(depth + 1)
-            starts.append(first)
             ends.append(middle)
+            travels.append(middle_travel)
+            positions.append(middle_x)
             depths.append(depth + 1)
-    return result
 
 
 def draw_connector_default(
@@ -1558,7 +1579,8 @@ def draw_connector_default(
         and head_alpha == tail_alpha
         and abs(tail_eased - head_eased) >= 1e-6
     ):
-        circular_fracs @= circular_connector_fracs(
+        circular_connector_fracs(
+            circular_fracs,
             ease_type,
             start_ease_frac,
             end_ease_frac,
