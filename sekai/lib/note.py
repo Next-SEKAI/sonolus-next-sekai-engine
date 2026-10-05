@@ -335,7 +335,7 @@ def get_attach_params(
 ):
     eased_frac = get_attach_eased_frac(ease_type, head_target_time, tail_target_time, target_time)
     lane = lerp(head_lane, tail_lane, eased_frac)
-    size = lerp(head_size, tail_size, eased_frac)
+    size = max(0.0, lerp(head_size, tail_size, eased_frac))
     return lane, size
 
 
