@@ -494,15 +494,17 @@ def get_camera_info(target_time: float | None = None, left_limit: bool = False) 
             camera_a_ref.index = camera_probe_ref.index
     if camera_a_ref.index > 0:
         camera_a = get_event_as(camera_a_ref, camera_archetype)
+        size_a = max(CAMERA_MIN_SIZE, camera_a.size)
         if camera_b_ref.index > 0:
             camera_b = get_event_as(camera_b_ref, camera_archetype)
+            size_b = max(CAMERA_MIN_SIZE, camera_b.size)
             if camera_b.time > camera_a.time:
                 p = ease(camera_a.ease, unlerp(camera_a.time, camera_b.time, t))
                 ta = camera_zoom_target_at(
-                    camera_a.lane, camera_a.size, camera_a.zoom_target_lane, camera_a.zoom_target_y, camera_a.stage_tilt
+                    camera_a.lane, size_a, camera_a.zoom_target_lane, camera_a.zoom_target_y, camera_a.stage_tilt
                 )
                 tb = camera_zoom_target_at(
-                    camera_b.lane, camera_b.size, camera_b.zoom_target_lane, camera_b.zoom_target_y, camera_b.stage_tilt
+                    camera_b.lane, size_b, camera_b.zoom_target_lane, camera_b.zoom_target_y, camera_b.stage_tilt
                 )
                 aa = camera_zoom_anchor(camera_a.zoom_vertical_align)
                 ab = camera_zoom_anchor(camera_b.zoom_vertical_align)
@@ -519,11 +521,11 @@ def get_camera_info(target_time: float | None = None, left_limit: bool = False) 
                 return result
         result @= CameraInfo(
             lane=camera_a.lane,
-            size=camera_a.size,
+            size=size_a,
             zoom=camera_a.zoom,
             zoom_target_lane=camera_a.zoom_target_lane,
             zoom_target=camera_zoom_target_at(
-                camera_a.lane, camera_a.size, camera_a.zoom_target_lane, camera_a.zoom_target_y, camera_a.stage_tilt
+                camera_a.lane, size_a, camera_a.zoom_target_lane, camera_a.zoom_target_y, camera_a.stage_tilt
             ),
             zoom_anchor=camera_zoom_anchor(camera_a.zoom_vertical_align),
             rotate=camera_a.rotate,
@@ -532,13 +534,14 @@ def get_camera_info(target_time: float | None = None, left_limit: bool = False) 
         return result
     if camera_b_ref.index > 0:
         camera_b = get_event_as(camera_b_ref, camera_archetype)
+        size_b = max(CAMERA_MIN_SIZE, camera_b.size)
         result @= CameraInfo(
             lane=camera_b.lane,
-            size=camera_b.size,
+            size=size_b,
             zoom=camera_b.zoom,
             zoom_target_lane=camera_b.zoom_target_lane,
             zoom_target=camera_zoom_target_at(
-                camera_b.lane, camera_b.size, camera_b.zoom_target_lane, camera_b.zoom_target_y, camera_b.stage_tilt
+                camera_b.lane, size_b, camera_b.zoom_target_lane, camera_b.zoom_target_y, camera_b.stage_tilt
             ),
             zoom_anchor=camera_zoom_anchor(camera_b.zoom_vertical_align),
             rotate=camera_b.rotate,
