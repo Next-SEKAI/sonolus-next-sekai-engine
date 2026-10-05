@@ -1,5 +1,27 @@
 # Next Sekai Level Data Format
 
+## EaseType
+
+Every **ease** field uses these values. Curves follow the Sonolus easing functions, each in four modes: IN, OUT, IN_OUT, and OUT_IN.
+
+* NONE = 0: Same as IN_STEP. Kept for older charts.
+* LINEAR = 1
+* IN_QUAD = 2, OUT_QUAD = 3, IN_OUT_QUAD = 4, OUT_IN_QUAD = 5
+* IN_SINE = 6, OUT_SINE = 7, IN_OUT_SINE = 8, OUT_IN_SINE = 9
+* IN_CUBIC = 10, OUT_CUBIC = 11, IN_OUT_CUBIC = 12, OUT_IN_CUBIC = 13
+* IN_QUART = 14, OUT_QUART = 15, IN_OUT_QUART = 16, OUT_IN_QUART = 17
+* IN_QUINT = 18, OUT_QUINT = 19, IN_OUT_QUINT = 20, OUT_IN_QUINT = 21
+* IN_EXPO = 22, OUT_EXPO = 23, IN_OUT_EXPO = 24, OUT_IN_EXPO = 25
+* IN_CIRC = 26, OUT_CIRC = 27, IN_OUT_CIRC = 28, OUT_IN_CIRC = 29
+* IN_BACK = 30, OUT_BACK = 31, IN_OUT_BACK = 32, OUT_IN_BACK = 33
+* IN_ELASTIC = 34, OUT_ELASTIC = 35, IN_OUT_ELASTIC = 36, OUT_IN_ELASTIC = 37
+* IN_STEP = 38: Holds the start value until the end.
+* OUT_STEP = 39: Jumps to the end value at the start.
+* IN_OUT_STEP = 40: Jumps from the start value to the end value halfway through.
+* OUT_IN_STEP = 41: Holds the midpoint of the two values.
+
+BACK and ELASTIC overshoot the two values. Properties with a limited range, such as alphas, are clamped after easing.
+
 ## Initialization
 
 Handles common initialization logic for the engine. Must appear exactly once as the first entity in level data.
@@ -161,13 +183,7 @@ A timescale change event.
 * **#TIMESCALE (float)**
 * **#TIMESCALE_SKIP (float)**
 * **#TIMESCALE_GROUP (ref[#TIMESCALE_GROUP])**
-* **#TIMESCALE_EASE (EaseType)**: Easing for the transition to the next change.
-  * NONE = 0
-  * LINEAR = 1
-  * IN_QUAD = 2
-  * OUT_QUAD = 3
-  * IN_OUT_QUAD = 4
-  * OUT_IN_QUAD = 5
+* **#TIMESCALE_EASE (EaseType)**: Easing for the transition to the next change. BACK and ELASTIC are not supported.
 * **transitionStyle (TransitionStyle)**: Style of the transition to the next change. Defaults to TIMESCALE.
   * TIMESCALE = 0
   * SCROLL = 1
@@ -208,13 +224,7 @@ Comprised of many archetypes according to the following naming scheme:
 * **next (ref[Note])**: [Editor] A reference to the next note in the slide, if any.
 * **activeHead (ref?[Note])**: An optional reference to the starting note of the note's slide section.
 * **isAttached (bool)**: Whether this note's **lane, size**, and effective **timescale** should be calculated from **attachHead** and **attachTail**.
-* **connectorEase (EaseType)**: What kind of easing is used for the connector immediately following this note. Takes on one of the following values:
-  * NONE = 0
-  * LINEAR = 1
-  * IN_QUAD = 2
-  * OUT_QUAD = 3
-  * IN_OUT_QUAD = 4
-  * OUT_IN_QUAD = 5
+* **connectorEase (EaseType)**: What kind of easing is used for the connector immediately following this note.
 * **isSeparator**: [Editor] Whether this note is a connector segment separator. Head notes, tail notes, the first note of a slide, and the last note of a slide are always implicitly separators regardless of the value of this field.
 * **segmentKind (ConnectorKind)**: What kind of connector comes in the connector segment after this note, if any. Takes on one of the following values:
   * NONE = 0

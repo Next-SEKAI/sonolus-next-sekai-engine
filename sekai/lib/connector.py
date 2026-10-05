@@ -1,9 +1,9 @@
 from enum import IntEnum
-from math import ceil, cos, floor, inf, pi, sin, sqrt
+from math import ceil, cos, floor, inf, log, pi, sin, sqrt
 from typing import Literal, Self, assert_never, cast
 
 from sonolus.script.archetype import EntityRef
-from sonolus.script.array import Dim
+from sonolus.script.array import Array, Dim
 from sonolus.script.containers import VarArray
 from sonolus.script.easing import ease_out_cubic
 from sonolus.script.effect import Effect, LoopedEffectHandle
@@ -17,7 +17,16 @@ from sonolus.script.timing import beat_to_time
 from sonolus.script.vec import Vec2
 
 from sekai.lib.buckets import SLIDE_TICK_JUDGMENT_WINDOW
-from sekai.lib.ease import EaseType, ease, safe_unlerp_clamped
+from sekai.lib.ease import (
+    EaseType,
+    ease,
+    ease_overshoot,
+    is_curved_ease,
+    is_in_step_ease,
+    is_step_ease,
+    safe_unlerp,
+    safe_unlerp_clamped,
+)
 from sekai.lib.effect import Effects
 from sekai.lib.layer import ZIndexes, get_z, layers
 from sekai.lib.layout import (
@@ -35,7 +44,6 @@ from sekai.lib.layout import (
     layout_linear_effect,
     layout_slide_connector_segment,
     layout_slot_glow_effect,
-    pre_rotation_vec_at,
     st_slide_connector_segment,
     stage_transform_is_identity,
     tilt_width_factor,
@@ -61,6 +69,18 @@ CONNECTOR_ZERO_SIZE_FALLBACK = 1e-3
 CONNECTOR_ALPHA_ERROR = 1 / 192
 CONNECTOR_ALPHA_SEGMENT_LENGTH = 2 * (32 / 1080)
 CONNECTOR_MIN_SEGMENT_LENGTH = 2 * (4 / 1080)
+CONNECTOR_CURVE_ERROR = 2 * (2.5 / 1080)
+CONNECTOR_CURVE_PIECES = 8
+CONNECTOR_CURVE_PIECE_THRESHOLD = 32
+
+
+def connector_endpoint_ease(ease_type: EaseType, ease_frac: float) -> float:
+    # A step's notes sit on either side of the jump, so pin the outer endpoints.
+    if ease_frac <= 0:
+        return 0.0
+    if ease_frac >= 1:
+        return 1.0
+    return ease(ease_type, ease_frac)
 
 
 def get_connector_interp_frac(
@@ -70,12 +90,12 @@ def get_connector_interp_frac(
     target_ease_frac: float,
     fallback_frac: float,
 ) -> float:
-    if ease_type == EaseType.NONE:
+    if is_in_step_ease(ease_type):
         return 0.0
     return get_connector_interp_frac_from_eased_endpoints(
         ease_type,
-        ease(ease_type, head_ease_frac),
-        ease(ease_type, tail_ease_frac),
+        connector_endpoint_ease(ease_type, head_ease_frac),
+        connector_endpoint_ease(ease_type, tail_ease_frac),
         target_ease_frac,
         fallback_frac,
     )
@@ -88,9 +108,7 @@ def get_connector_interp_frac_from_eased_endpoints(
     target_ease_frac: float,
     fallback_frac: float,
 ) -> float:
-    if ease_type == EaseType.NONE:
-        return 0.0
-    return safe_unlerp_clamped(
+    return safe_unlerp(
         head_eased,
         tail_eased,
         ease(ease_type, target_ease_frac),
@@ -630,10 +648,6 @@ def draw_connector(
     if head_note_alpha <= 0 and tail_note_alpha <= 0:
         return
 
-    if ease_type == EaseType.NONE:
-        tail_lane = head_lane
-        tail_size = head_size
-
     normal_sprite = Sprite(-1)
     active_sprite = Sprite(-1)
     match get_connector_base_kind(kind):
@@ -727,32 +741,65 @@ def draw_connector(
 
     match presentation:
         case SegmentPresentation.DEFAULT:
-            draw_connector_default(
-                kind=kind,
-                visual_state=visual_state,
-                ease_type=ease_type,
-                normal_sprite=normal_sprite,
-                active_sprite=active_sprite,
-                z_normal=z_normal,
-                z_active=z_active,
-                head_lane=head_lane,
-                head_size=head_size,
-                head_visual_progress=head_visual_progress,
-                head_target_time=head_target_time,
-                head_ease_frac=head_ease_frac,
-                head_alpha=head_alpha,
-                tail_lane=tail_lane,
-                tail_size=tail_size,
-                tail_visual_progress=tail_visual_progress,
-                tail_target_time=tail_target_time,
-                tail_ease_frac=tail_ease_frac,
-                tail_alpha=tail_alpha,
-                head_transform=head_transform,
-                tail_transform=tail_transform,
-                head_mask=head_mask,
-                tail_mask=tail_mask,
-                shared_transform=shared_transform,
-            )
+            # Steps hold one value, so draw them as constant pieces split where an in-out step jumps.
+            piece_count = 1
+            split_frac = 1.0
+            if ease_type == EaseType.IN_OUT_STEP and head_ease_frac < 0.5 < tail_ease_frac:
+                piece_count = 2
+                split_frac = (0.5 - head_ease_frac) / (tail_ease_frac - head_ease_frac)
+            for piece in range(piece_count):
+                first_piece = piece == 0
+                last_piece = piece == piece_count - 1
+                piece_ease_type = ease_type
+                constant_interp_frac = -1.0
+                if is_step_ease(ease_type):
+                    piece_ease_type = EaseType.NONE
+                    constant_interp_frac = get_connector_interp_frac(
+                        ease_type,
+                        head_ease_frac,
+                        tail_ease_frac,
+                        ((head_ease_frac if first_piece else 0.5) + (tail_ease_frac if last_piece else 0.5)) / 2,
+                        0.0,
+                    )
+                draw_connector_default(
+                    kind=kind,
+                    visual_state=visual_state,
+                    ease_type=piece_ease_type,
+                    normal_sprite=normal_sprite,
+                    active_sprite=active_sprite,
+                    z_normal=z_normal,
+                    z_active=z_active,
+                    head_lane=head_lane,
+                    head_size=head_size,
+                    head_visual_progress=(
+                        head_visual_progress
+                        if first_piece
+                        else lerp(head_visual_progress, tail_visual_progress, split_frac)
+                    ),
+                    head_target_time=(
+                        head_target_time if first_piece else lerp(head_target_time, tail_target_time, split_frac)
+                    ),
+                    head_ease_frac=head_ease_frac if first_piece else 0.5,
+                    head_alpha=head_alpha if first_piece else lerp(head_alpha, tail_alpha, split_frac),
+                    tail_lane=tail_lane,
+                    tail_size=tail_size,
+                    tail_visual_progress=(
+                        tail_visual_progress
+                        if last_piece
+                        else lerp(head_visual_progress, tail_visual_progress, split_frac)
+                    ),
+                    tail_target_time=(
+                        tail_target_time if last_piece else lerp(head_target_time, tail_target_time, split_frac)
+                    ),
+                    tail_ease_frac=tail_ease_frac if last_piece else 0.5,
+                    tail_alpha=tail_alpha if last_piece else lerp(head_alpha, tail_alpha, split_frac),
+                    head_transform=head_transform,
+                    tail_transform=tail_transform,
+                    head_mask=head_mask,
+                    tail_mask=tail_mask,
+                    shared_transform=shared_transform,
+                    constant_interp_frac=constant_interp_frac,
+                )
         case SegmentPresentation.FULL_SCREEN:
             if head_transform is not None and tail_transform is not None:
                 judge_frac = safe_unlerp_clamped(head_target_time, tail_target_time, time())
@@ -1258,6 +1305,94 @@ def clip_connector_progress_to_screen(
     return start, end
 
 
+CURVE_BINS = 16
+CURVE_BIN_SAMPLES = 16
+CURVE_LEVELS = 5
+CURVE_TABLE_SIZE = sum(CURVE_BINS - 2**level + 1 for level in range(CURVE_LEVELS))
+
+
+def _ease_derivative_bounds() -> Array:
+    """Tabulate the largest first and second derivatives of each ease over ranges of its input.
+
+    For each ease, quantity, and power-of-two run of bins, store the largest value
+    over that run so any range of bins is covered by two overlapping runs.
+    """
+    values = []
+    h = 1e-4
+    for ease_type in range(EaseType.OUT_IN_STEP + 1):
+        curved = is_curved_ease(ease_type) or ease_type == EaseType.LINEAR
+        for order in (1, 2):
+            runs = []
+            for i in range(CURVE_BINS):
+                largest = 0.0
+                for j in range(CURVE_BIN_SAMPLES + 1):
+                    # Stay off the endpoints, where some eases are special-cased or unbounded.
+                    x = clamp((i + j / CURVE_BIN_SAMPLES) / CURVE_BINS, 1e-3, 1 - 1e-3)
+                    before, at, after = (ease(ease_type, x + d) for d in (-h, 0, h)) if curved else (0, 0, 0)
+                    derivative = (after - before) / (2 * h) if order == 1 else (after - 2 * at + before) / (h * h)
+                    largest = max(largest, abs(derivative))
+                runs.append(largest)
+            level = [runs]
+            while len(level[-1]) > 1:
+                previous = level[-1]
+                width = 2 ** (len(level) - 1)
+                level.append([max(previous[i], previous[i + width]) for i in range(len(previous) - width)])
+            values.extend(value for run in level for value in run)
+    return Array(*values)
+
+
+CURVE_DERIVATIVE_BOUNDS = _ease_derivative_bounds()
+
+
+def ease_derivative_bound(ease_type: EaseType, order: int, start: float, end: float) -> float:
+    """Return an upper bound for the absolute derivative of the given order over [start, end]."""
+    first = clamp(floor(start * CURVE_BINS), 0, CURVE_BINS - 1)
+    last = clamp(ceil(end * CURVE_BINS) - 1, first, CURVE_BINS - 1)
+    run = 1
+    offset = 0
+    while run * 2 <= last - first + 1:
+        offset += CURVE_BINS - run + 1
+        run *= 2
+    base = (ease_type * 2 + order - 1) * CURVE_TABLE_SIZE + offset
+    return max(CURVE_DERIVATIVE_BOUNDS[base + first], CURVE_DERIVATIVE_BOUNDS[base + last - run + 1])
+
+
+def connector_curve_detail(
+    ease_type: EaseType,
+    head_eased: float,
+    tail_eased: float,
+    start_ease_frac: float,
+    end_ease_frac: float,
+    left_change: float,
+    right_change: float,
+    start_travel: float,
+    end_travel: float,
+) -> float:
+    """Return the number of uniform segments needed to keep a connector within the curve error.
+
+    A uniform segment of length ds along the ease deviates from the curve by about
+    ds^2 / 8 * w * lane' * |lane'' / lane' + k|, where w is the screen width of a lane,
+    k is how quickly the approach changes travel, and derivatives are with respect to the ease input.
+    """
+    if (
+        is_step_ease(ease_type)
+        or (left_change == 0 and right_change == 0)
+        or abs(tail_eased - head_eased) < 1e-6
+        or min(start_travel, end_travel) <= 0
+    ):
+        return 0.0
+    start = min(start_ease_frac, end_ease_frac)
+    end = max(start_ease_frac, end_ease_frac)
+    span = end - start
+    lane_change = max(abs(left_change), abs(right_change)) / abs(tail_eased - head_eased)
+    approach_rate = abs(log(end_travel / start_travel))
+    width = tilt_width_factor(max(start_travel, end_travel)) * DynamicLayout.w_scale
+    bend = span * ease_derivative_bound(ease_type, 2, start, end) + approach_rate * ease_derivative_bound(
+        ease_type, 1, start, end
+    )
+    return sqrt(width * lane_change * span * bend / (8 * CONNECTOR_CURVE_ERROR))
+
+
 def draw_connector_default(
     kind: ConnectorKind,
     visual_state: ConnectorVisualState,
@@ -1283,6 +1418,7 @@ def draw_connector_default(
     head_mask: VisualMask | None = None,
     tail_mask: VisualMask | None = None,
     shared_transform: bool = False,
+    constant_interp_frac: float = -1.0,
 ):
     start_visual_progress = clamp(head_visual_progress, DynamicLayout.progress_start, DynamicLayout.progress_cutoff)
     end_visual_progress = clamp(tail_visual_progress, DynamicLayout.progress_start, DynamicLayout.progress_cutoff)
@@ -1298,14 +1434,17 @@ def draw_connector_default(
     end_frac = safe_unlerp_clamped(head_visual_progress, tail_visual_progress, end_visual_progress, 1.0)
     start_ease_frac = lerp(head_ease_frac, tail_ease_frac, start_frac)
     end_ease_frac = lerp(head_ease_frac, tail_ease_frac, end_frac)
-    head_eased = ease(ease_type, head_ease_frac)
-    tail_eased = ease(ease_type, tail_ease_frac)
-    start_interp_frac = get_connector_interp_frac_from_eased_endpoints(
-        ease_type, head_eased, tail_eased, start_ease_frac, start_frac
-    )
-    end_interp_frac = get_connector_interp_frac_from_eased_endpoints(
-        ease_type, head_eased, tail_eased, end_ease_frac, end_frac
-    )
+    head_eased = connector_endpoint_ease(ease_type, head_ease_frac)
+    tail_eased = connector_endpoint_ease(ease_type, tail_ease_frac)
+    start_interp_frac = constant_interp_frac
+    end_interp_frac = constant_interp_frac
+    if constant_interp_frac < 0:
+        start_interp_frac = get_connector_interp_frac_from_eased_endpoints(
+            ease_type, head_eased, tail_eased, start_ease_frac, start_frac
+        )
+        end_interp_frac = get_connector_interp_frac_from_eased_endpoints(
+            ease_type, head_eased, tail_eased, end_ease_frac, end_frac
+        )
     start_travel = approach(start_visual_progress)
     end_travel = approach(end_visual_progress)
     start_lane = lerp(head_lane, tail_lane, start_interp_frac)
@@ -1331,9 +1470,9 @@ def draw_connector_default(
     if head_mask is not None and tail_mask is not None:
         mask_enabled = head_mask.enabled and tail_mask.enabled
         same_mask_stage = mask_enabled and head_mask.stage_index > 0 and head_mask.stage_index == tail_mask.stage_index
-    if same_mask_stage:
+    if same_mask_stage and ease_overshoot(ease_type) == 0:
         assert head_mask is not None
-        # Each edge moves in one direction under the supported easing functions.
+        # Each edge moves in one direction under monotonic eases.
         # Checking its two endpoints is enough to bound it over the whole guide.
         mask_status = connector_mask_status(start_lane, start_size, end_lane, end_size, head_mask.left, head_mask.right)
         if mask_status == ConnectorMaskStatus.OUTSIDE:
@@ -1355,60 +1494,17 @@ def draw_connector_default(
     if heterogeneous_endpoints:
         geometry_detail = 20.0
     else:
-        match ease_type:
-            case EaseType.NONE:
-                curve_change_scale = 0.0
-            case EaseType.LINEAR:
-                x_diff = (
-                    max(
-                        abs((start_lane - start_size) - (end_lane - end_size)),
-                        abs((start_lane + start_size) - (end_lane + end_size)),
-                    )
-                    * DynamicLayout.w_scale
-                )
-                travel_adj = clamp(2 - max(start_travel, end_travel), 1, 2)
-                curve_change_scale = min(x_diff, vertical_span) * travel_adj * 0.8
-            case _:
-                left_start_lane = start_lane - start_size
-                left_end_lane = end_lane - end_size
-                right_start_lane = start_lane + start_size
-                right_end_lane = end_lane + end_size
-                if abs(start_size - end_size) < 0.1:
-                    ref_start_lane = start_lane
-                    ref_end_lane = end_lane
-                    ref_head_lane = head_lane
-                    ref_tail_lane = tail_lane
-                elif abs(left_start_lane - left_end_lane) > abs(right_start_lane - right_end_lane):
-                    ref_start_lane = left_start_lane
-                    ref_end_lane = left_end_lane
-                    ref_head_lane = head_lane - head_size
-                    ref_tail_lane = tail_lane - tail_size
-                else:
-                    ref_start_lane = right_start_lane
-                    ref_end_lane = right_end_lane
-                    ref_head_lane = head_lane + head_size
-                    ref_tail_lane = tail_lane + tail_size
-                start_ref = pre_rotation_vec_at(ref_start_lane, start_travel)
-                end_ref = pre_rotation_vec_at(ref_end_lane, end_travel)
-                last_pos_offset = 0
-                total_pos_offsets = 0
-                for r in (0.25, 0.75):
-                    ease_frac = lerp(start_ease_frac, end_ease_frac, r)
-                    raw_frac = lerp(start_frac, end_frac, r)
-                    interp_frac = get_connector_interp_frac_from_eased_endpoints(
-                        ease_type, head_eased, tail_eased, ease_frac, raw_frac
-                    )
-                    visual_progress = lerp(start_visual_progress, end_visual_progress, r)
-                    travel = approach(visual_progress)
-                    lane = lerp(ref_head_lane, ref_tail_lane, interp_frac)
-                    pos = pre_rotation_vec_at(lane, travel)
-                    ref_pos = lerp(start_ref, end_ref, safe_unlerp_clamped(start_travel, end_travel, travel, r))
-                    current_pos_offset = pos.x - ref_pos.x
-                    total_pos_offsets += abs(current_pos_offset - last_pos_offset) ** 0.6
-                    last_pos_offset = current_pos_offset
-                total_pos_offsets += abs(last_pos_offset) ** 0.6
-                curve_change_scale = total_pos_offsets * 1.5
-        geometry_detail = curve_change_scale * 15
+        geometry_detail = connector_curve_detail(
+            ease_type,
+            head_eased,
+            tail_eased,
+            start_ease_frac,
+            end_ease_frac,
+            tail_lane - tail_size - (head_lane - head_size),
+            tail_lane + tail_size - (head_lane + head_size),
+            start_travel,
+            end_travel,
+        )
     quality = get_connector_quality_option(kind)
 
     if (
@@ -1486,94 +1582,135 @@ def draw_connector_default(
         render_cache.prepare_transform(head_transform, tail_transform, constant_transform)
 
     segment_count = connector_segment_count(geometry_detail, alpha_range, quality, path_length)
-    cache_edges = segment_count > 1
-    for i in range(1, segment_count + 1):
-        segment_frac = i / segment_count
-        next_frac = lerp(start_frac, end_frac, segment_frac)
-        next_ease_frac = lerp(start_ease_frac, end_ease_frac, segment_frac)
-        next_interp_frac = get_connector_interp_frac_from_eased_endpoints(
-            ease_type, head_eased, tail_eased, next_ease_frac, next_frac
-        )
-        next_visual_progress = lerp(start_visual_progress, end_visual_progress, segment_frac)
-        next_travel = approach_cache.at(next_visual_progress)
-        next_lane = lerp(head_lane, tail_lane, next_interp_frac)
-        next_size = lerp(head_size, tail_size, next_interp_frac)
-        next_alpha = lerp(head_alpha, tail_alpha, next_frac)
-        next_target_time = lerp(head_target_time, tail_target_time, next_frac)
-
-        opacity = get_alpha((last_target_time + next_target_time) / 2) * alpha_option
-        base_a = clamp((last_alpha + next_alpha) / 2 * opacity, 0, 1)
-
-        segment_mask_enabled = mask_enabled
-        segment_visible = base_a > 0
-        if segment_visible and mask_enabled and same_mask_stage:
-            assert head_mask is not None
-            mask_status = connector_mask_status(
-                last_lane, last_size, next_lane, next_size, head_mask.left, head_mask.right
+    # Sharp eases bend most in a small part of their range, so give each piece its own count when that saves segments.
+    piece_counts = VarArray[int, Dim[CONNECTOR_CURVE_PIECES]].new()
+    geometry_count = ceil(geometry_detail * quality)
+    if (
+        not heterogeneous_endpoints
+        and geometry_count > CONNECTOR_CURVE_PIECE_THRESHOLD
+        and geometry_count >= segment_count
+    ):
+        alpha_count = ceil(connector_segment_count(0.0, alpha_range, quality, path_length) / CONNECTOR_CURVE_PIECES)
+        piece_start_travel = start_travel
+        total = 0
+        for piece in range(CONNECTOR_CURVE_PIECES):
+            piece_end_travel = approach(
+                lerp(start_visual_progress, end_visual_progress, (piece + 1) / CONNECTOR_CURVE_PIECES)
             )
-            segment_visible = mask_status != ConnectorMaskStatus.OUTSIDE
-            segment_mask_enabled = mask_status == ConnectorMaskStatus.NEEDS_CLIPPING
-        if not segment_visible:
-            render_cache.edge_valid = False
-        elif segment_mask_enabled:
-            assert head_mask is not None
-            assert tail_mask is not None
-            draw_connector_masked_segment(
-                visual_state=visual_state,
-                normal_sprite=normal_sprite,
-                active_sprite=active_sprite,
-                z_normal=z_normal,
-                z_active=z_active,
-                base_a=base_a,
-                start_lane=last_lane,
-                start_size=last_size,
-                start_travel=last_travel,
-                start_interp_frac=last_interp_frac,
-                end_lane=next_lane,
-                end_size=next_size,
-                end_travel=next_travel,
-                end_interp_frac=next_interp_frac,
-                has_transform=has_transform,
-                head_transform=head_transform,
-                tail_transform=tail_transform,
-                render_cache=render_cache,
-                head_mask=head_mask,
-                tail_mask=tail_mask,
-                same_mask_stage=same_mask_stage,
+            detail = connector_curve_detail(
+                ease_type,
+                head_eased,
+                tail_eased,
+                lerp(start_ease_frac, end_ease_frac, piece / CONNECTOR_CURVE_PIECES),
+                lerp(start_ease_frac, end_ease_frac, (piece + 1) / CONNECTOR_CURVE_PIECES),
+                tail_lane - tail_size - (head_lane - head_size),
+                tail_lane + tail_size - (head_lane + head_size),
+                piece_start_travel,
+                piece_end_travel,
             )
-        elif last_size > 0 or next_size > 0:
-            # Give a zero-width endpoint a small width so the segment can still be drawn.
-            draw_connector_default_segment(
-                visual_state=visual_state,
-                normal_sprite=normal_sprite,
-                active_sprite=active_sprite,
-                z_normal=z_normal,
-                z_active=z_active,
-                base_a=base_a,
-                start_lane=last_lane,
-                start_size=last_size if last_size > 0 else CONNECTOR_ZERO_SIZE_FALLBACK,
-                start_travel=last_travel,
-                start_interp_frac=last_interp_frac,
-                end_lane=next_lane,
-                end_size=next_size if next_size > 0 else CONNECTOR_ZERO_SIZE_FALLBACK,
-                end_travel=next_travel,
-                end_interp_frac=next_interp_frac,
-                has_transform=has_transform,
-                head_transform=head_transform,
-                tail_transform=tail_transform,
-                render_cache=render_cache,
-                cache_edges=cache_edges,
-            )
-
+            piece_counts.append(max(1, ceil(detail * quality), alpha_count))
+            total += piece_counts[piece]
+            piece_start_travel = piece_end_travel
+        if total < segment_count:
+            segment_count = total
         else:
-            render_cache.edge_valid = False
+            piece_counts.clear()
+    if len(piece_counts) == 0:
+        piece_counts.append(segment_count)
+    cache_edges = segment_count > 1
+    piece_size = 1 / len(piece_counts)
+    for piece in range(len(piece_counts)):
+        piece_start = piece * piece_size
+        segment_size = piece_size / piece_counts[piece]
+        for piece_segment in range(1, piece_counts[piece] + 1):
+            segment_frac = piece_start + piece_segment * segment_size
+            next_frac = lerp(start_frac, end_frac, segment_frac)
+            next_ease_frac = lerp(start_ease_frac, end_ease_frac, segment_frac)
+            next_interp_frac = constant_interp_frac
+            if constant_interp_frac < 0:
+                next_interp_frac = get_connector_interp_frac_from_eased_endpoints(
+                    ease_type, head_eased, tail_eased, next_ease_frac, next_frac
+                )
+            next_visual_progress = lerp(start_visual_progress, end_visual_progress, segment_frac)
+            next_travel = approach_cache.at(next_visual_progress)
+            next_lane = lerp(head_lane, tail_lane, next_interp_frac)
+            next_size = lerp(head_size, tail_size, next_interp_frac)
+            next_alpha = lerp(head_alpha, tail_alpha, next_frac)
+            next_target_time = lerp(head_target_time, tail_target_time, next_frac)
 
-        last_travel = next_travel
-        last_lane = next_lane
-        last_size = next_size
-        last_alpha = next_alpha
-        last_target_time = next_target_time
-        last_interp_frac = next_interp_frac
+            opacity = get_alpha((last_target_time + next_target_time) / 2) * alpha_option
+            base_a = clamp((last_alpha + next_alpha) / 2 * opacity, 0, 1)
+
+            segment_mask_enabled = mask_enabled
+            segment_visible = base_a > 0
+            if segment_visible and mask_enabled and same_mask_stage:
+                assert head_mask is not None
+                mask_status = connector_mask_status(
+                    last_lane, last_size, next_lane, next_size, head_mask.left, head_mask.right
+                )
+                segment_visible = mask_status != ConnectorMaskStatus.OUTSIDE
+                segment_mask_enabled = mask_status == ConnectorMaskStatus.NEEDS_CLIPPING
+            if not segment_visible:
+                render_cache.edge_valid = False
+            elif segment_mask_enabled:
+                assert head_mask is not None
+                assert tail_mask is not None
+                draw_connector_masked_segment(
+                    visual_state=visual_state,
+                    normal_sprite=normal_sprite,
+                    active_sprite=active_sprite,
+                    z_normal=z_normal,
+                    z_active=z_active,
+                    base_a=base_a,
+                    start_lane=last_lane,
+                    start_size=last_size,
+                    start_travel=last_travel,
+                    start_interp_frac=last_interp_frac,
+                    end_lane=next_lane,
+                    end_size=next_size,
+                    end_travel=next_travel,
+                    end_interp_frac=next_interp_frac,
+                    has_transform=has_transform,
+                    head_transform=head_transform,
+                    tail_transform=tail_transform,
+                    render_cache=render_cache,
+                    head_mask=head_mask,
+                    tail_mask=tail_mask,
+                    same_mask_stage=same_mask_stage,
+                )
+            elif last_size > 0 or next_size > 0:
+                # Give a zero-width endpoint a small width so the segment can still be drawn.
+                draw_connector_default_segment(
+                    visual_state=visual_state,
+                    normal_sprite=normal_sprite,
+                    active_sprite=active_sprite,
+                    z_normal=z_normal,
+                    z_active=z_active,
+                    base_a=base_a,
+                    start_lane=last_lane,
+                    start_size=last_size if last_size > 0 else CONNECTOR_ZERO_SIZE_FALLBACK,
+                    start_travel=last_travel,
+                    start_interp_frac=last_interp_frac,
+                    end_lane=next_lane,
+                    end_size=next_size if next_size > 0 else CONNECTOR_ZERO_SIZE_FALLBACK,
+                    end_travel=next_travel,
+                    end_interp_frac=next_interp_frac,
+                    has_transform=has_transform,
+                    head_transform=head_transform,
+                    tail_transform=tail_transform,
+                    render_cache=render_cache,
+                    cache_edges=cache_edges,
+                )
+
+            else:
+                render_cache.edge_valid = False
+
+            last_travel = next_travel
+            last_lane = next_lane
+            last_size = next_size
+            last_alpha = next_alpha
+            last_target_time = next_target_time
+            last_interp_frac = next_interp_frac
 
 
 def draw_connector_full_screen(
