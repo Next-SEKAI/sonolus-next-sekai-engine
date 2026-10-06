@@ -308,7 +308,7 @@ class Connector(PlayArchetype):
                 head_visual_progress = 1.0 - lerp(head.visual_y_offset, tail.visual_y_offset, head_frac)
                 head_target_time = time()
                 head_note_alpha = lerp(head_note_alpha, tail_note_alpha, head_frac)
-                if is_in_step_ease(self.ease_type):
+                if is_in_step_ease(self.ease_type) or head_frac <= 0:
                     head_lane = head.visual_lane
                     head_size = head.size
                     head_ease_frac = head.head_ease_frac
