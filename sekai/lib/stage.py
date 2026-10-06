@@ -17,14 +17,7 @@ from sonolus.script.vec import Vec2
 
 from sekai.lib import archetype_names
 from sekai.lib.baseevent import get_event_as, query_event_list
-from sekai.lib.ease import (
-    EaseType,
-    ease,
-    eased_range,
-    in_out_step_jump_time,
-    is_in_step_ease,
-    sliced_in_out_step_progress,
-)
+from sekai.lib.ease import EaseType, ease, eased_range, is_in_step_ease, sliced_in_out_step_progress
 from sekai.lib.effect import SFX_DISTANCE, Effects
 from sekai.lib.layer import ZIndexes, get_z, get_z_alt, layers
 from sekai.lib.layout import (
@@ -50,6 +43,7 @@ from sekai.lib.layout import (
     layout_stage_cover,
     layout_stage_cover_and_line,
     layout_stage_lane_by_edges,
+    next_event_time_in_list,
     perspective_rect,
     stage_aspect_ratio_locked,
     stage_cover_amount,
@@ -615,19 +609,6 @@ def get_next_event_time(stage: DynamicStageLike, t: float) -> float:
         a_ref, b_ref = query_event_list(stage.first_transform_change_ref, t, lambda e: e.time)
         result = min(result, next_event_time_in_list(a_ref, b_ref, _stage_transform_change_archetype(), t))
     return result
-
-
-def next_event_time_in_list(a_ref: EntityRef, b_ref: EntityRef, archetype: type, t: float) -> float:
-    if b_ref.index <= 0:
-        return 1e8
-    b = get_event_as(b_ref, archetype)
-    if a_ref.index > 0:
-        a = get_event_as(a_ref, archetype)
-        if a.ease == EaseType.IN_OUT_STEP:
-            jump_time = in_out_step_jump_time(a.time, b.time)
-            if jump_time > t:
-                return jump_time
-    return b.time
 
 
 def stage_event_progress(
