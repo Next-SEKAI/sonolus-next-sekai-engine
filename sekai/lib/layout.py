@@ -15,7 +15,7 @@ from sonolus.script.vec import Vec2
 
 from sekai.lib import archetype_names
 from sekai.lib.baseevent import get_event_as, query_event_list
-from sekai.lib.ease import EaseType, ease, eased_range
+from sekai.lib.ease import EaseType, ease, eased_range, in_out_step_jump_time, sliced_in_out_step_progress
 from sekai.lib.level_config import LevelConfig
 from sekai.lib.options import Options, StageCoverNoteSpeedCompensation
 
@@ -475,7 +475,7 @@ def background_camera_zoom(bg: QuadLike) -> float:
     return max((cover_x + margin_x) / bw, (cover_y + margin_y) / bh, 1.0)
 
 
-def get_camera_info(target_time: float | None = None, left_limit: bool = False) -> CameraInfo:
+def get_camera_info(target_time: float | None = None, left_limit: bool = False, sliced: bool = False) -> CameraInfo:
     result = +CameraInfo
     first_camera_ref = _initialization_archetype().at(0).first_camera_ref
     if first_camera_ref.index <= 0:
@@ -511,7 +511,10 @@ def get_camera_info(target_time: float | None = None, left_limit: bool = False) 
             camera_b = get_event_as(camera_b_ref, camera_archetype)
             size_b = max(CAMERA_MIN_SIZE, camera_b.size)
             if camera_b.time > camera_a.time:
-                p = ease(camera_a.ease, unlerp(camera_a.time, camera_b.time, t))
+                if sliced and camera_a.ease == EaseType.IN_OUT_STEP:
+                    p = sliced_in_out_step_progress(t, camera_a.time, camera_b.time, left_limit)
+                else:
+                    p = ease(camera_a.ease, unlerp(camera_a.time, camera_b.time, t))
                 ta = camera_zoom_target_at(
                     camera_a.lane, size_a, camera_a.zoom_target_lane, camera_a.zoom_target_y, camera_a.stage_tilt
                 )
@@ -577,10 +580,22 @@ def get_next_camera_event_time(t: float) -> float:
     result = 1e8
     first_camera_ref = _initialization_archetype().at(0).first_camera_ref
     if first_camera_ref.index > 0:
-        _, b_ref = query_event_list(first_camera_ref, t, lambda e: e.time)
-        if b_ref.index > 0:
-            result = min(result, get_event_as(b_ref, _camera_change_archetype()).time)
+        a_ref, b_ref = query_event_list(first_camera_ref, t, lambda e: e.time)
+        result = min(result, next_event_time_in_list(a_ref, b_ref, _camera_change_archetype(), t))
     return result
+
+
+def next_event_time_in_list(a_ref: EntityRef, b_ref: EntityRef, archetype: type, t: float) -> float:
+    if b_ref.index <= 0:
+        return 1e8
+    b = get_event_as(b_ref, archetype)
+    if a_ref.index > 0:
+        a = get_event_as(a_ref, archetype)
+        if a.ease == EaseType.IN_OUT_STEP:
+            jump_time = in_out_step_jump_time(a.time, b.time)
+            if jump_time > t:
+                return jump_time
+    return b.time
 
 
 def test_aspect_active() -> bool:
