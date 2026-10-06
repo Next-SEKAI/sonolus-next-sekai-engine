@@ -860,6 +860,9 @@ def masked_note_extents_by_limits(
     result_lane = lane
     result_size = size
     if mask_notes:
+        if mask_right < mask_left:
+            mask_left = (mask_left + mask_right) / 2
+            mask_right = mask_left
         left = clamp(lane - size, mask_left, mask_right)
         right = clamp(lane + size, mask_left, mask_right)
         result_lane = (left + right) / 2

@@ -830,6 +830,9 @@ def masked_connector_extents_by_limits(
     mask_right: float,
 ) -> tuple[float, float, float]:
     """Return the masked lane, render size, and masked size for a connector endpoint."""
+    if mask_right < mask_left:
+        mask_left = (mask_left + mask_right) / 2
+        mask_right = mask_left
     masked_left = clamp(lane - size, mask_left, mask_right)
     masked_right = clamp(lane + size, mask_left, mask_right)
     masked_size = (masked_right - masked_left) / 2
