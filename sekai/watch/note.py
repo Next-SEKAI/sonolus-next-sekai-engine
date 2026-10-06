@@ -466,7 +466,7 @@ class WatchBaseNote(WatchArchetype):
                 y_offset=self.visual_y_offset,
                 pivot_lane=self.visual_pivot_lane,
                 half_offset=self.visual_half_offset,
-                lane_particles=self._stage_lane_particles_at(time()),
+                lane_particles=self._stage_lane_particles_at(time(), right_limit=True),
                 transform=self.visual_stage_transform().to_screen_transform(),
                 style=self.style,
             )
@@ -506,17 +506,21 @@ class WatchBaseNote(WatchArchetype):
             result @= self._basic_input_geometry(context)
         return result
 
-    def _basic_visual_lane_at(self, t: float) -> float:
+    def _basic_visual_lane_at(self, t: float, right_limit: bool = False) -> float:
         if self.stage_ref.index <= 0:
             return self.lane
-        return get_stage_pivot_lane(self.stage_ref.get(), t) + self.rel_lane
+        return get_stage_pivot_lane(self.stage_ref.get(), t, right_limit) + self.rel_lane
 
-    def visual_lane_at(self, t: float) -> float:
+    def visual_lane_at(self, t: float, right_limit: bool = False) -> float:
         if self.is_attached:
             head = self.attach_head_ref.get()
             tail = self.attach_tail_ref.get()
-            return lerp(head._basic_visual_lane_at(t), tail._basic_visual_lane_at(t), self.attach_eased_frac)
-        return self._basic_visual_lane_at(t)
+            return lerp(
+                head._basic_visual_lane_at(t, right_limit),
+                tail._basic_visual_lane_at(t, right_limit),
+                self.attach_eased_frac,
+            )
+        return self._basic_visual_lane_at(t, right_limit)
 
     @property
     def _basic_visual_note_alpha(self) -> float:
@@ -642,10 +646,10 @@ class WatchBaseNote(WatchArchetype):
             == JudgeLineStyle.SINGLE_LINE
         )
 
-    def _stage_lane_particles_at(self, t: float) -> bool:
+    def _stage_lane_particles_at(self, t: float, right_limit: bool = False) -> bool:
         if self.stage_ref.index <= 0:
             return True
-        return get_stage_props(self.stage_ref.get(), t).full_width <= 0.0
+        return get_stage_props(self.stage_ref.get(), t, right_limit=right_limit).full_width <= 0.0
 
     @property
     def _basic_visual_lane(self) -> float:
@@ -675,10 +679,10 @@ class WatchBaseNote(WatchArchetype):
                 result.stage_index = self.stage_ref.index
         return result
 
-    def _basic_visual_mask_at(self, t: float) -> VisualMask:
+    def _basic_visual_mask_at(self, t: float, right_limit: bool = False) -> VisualMask:
         result = +VisualMask
         if self.stage_ref.index > 0:
-            props = get_stage_props(self.stage_ref.get(), t)
+            props = get_stage_props(self.stage_ref.get(), t, right_limit=right_limit)
             result.left = props.lane - props.width
             result.right = props.lane + props.width
             result.enabled = props.mask_notes
@@ -686,14 +690,14 @@ class WatchBaseNote(WatchArchetype):
                 result.stage_index = self.stage_ref.index
         return result
 
-    def visual_mask_at(self, t: float) -> VisualMask:
+    def visual_mask_at(self, t: float, right_limit: bool = False) -> VisualMask:
         result = +VisualMask
         if not self.is_attached:
-            result @= self._basic_visual_mask_at(t)
+            result @= self._basic_visual_mask_at(t, right_limit)
             return result
 
-        head_mask = self.attach_head_ref.get()._basic_visual_mask_at(t)
-        tail_mask = self.attach_tail_ref.get()._basic_visual_mask_at(t)
+        head_mask = self.attach_head_ref.get()._basic_visual_mask_at(t, right_limit)
+        tail_mask = self.attach_tail_ref.get()._basic_visual_mask_at(t, right_limit)
         result @= interpolate_visual_masks(head_mask, tail_mask, self.attach_eased_frac)
         return result
 
@@ -709,14 +713,14 @@ class WatchBaseNote(WatchArchetype):
         result @= interpolate_visual_masks(head_mask, tail_mask, self.attach_eased_frac)
         return result
 
-    def visual_extents_at(self, t: float) -> tuple[float, float]:
-        render_lane = self.visual_lane_at(t)
-        mask = self.visual_mask_at(t)
+    def visual_extents_at(self, t: float, right_limit: bool = False) -> tuple[float, float]:
+        render_lane = self.visual_lane_at(t, right_limit)
+        mask = self.visual_mask_at(t, right_limit)
         return masked_note_extents_by_limits(render_lane, self.size, mask.left, mask.right, mask.enabled)
 
     @property
     def visual_extents(self) -> tuple[float, float]:
-        return self.visual_extents_at(time())
+        return self.visual_extents_at(time(), right_limit=True)
 
     @property
     def _basic_visual_y_offset(self) -> float:
