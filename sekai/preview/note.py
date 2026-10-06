@@ -152,32 +152,32 @@ class PreviewBaseNote(PreviewArchetype):
         else:
             return 1.0
 
-    def _basic_visual_lane_at(self, t: float, left_limit: bool = False) -> float:
+    def _basic_visual_lane_at(self, t: float, left_limit: bool = False, sliced: bool = False) -> float:
         if self.stage_ref.index <= 0:
             return self.lane
-        props = get_stage_props(self.stage_ref.get(), t)
+        props = get_stage_props(self.stage_ref.get(), t, sliced=sliced)
         x_lane_translate = props.x_lane_translate
         if left_limit:
-            x_lane_translate = get_stage_props(self.stage_ref.get(), t, left_limit=True).x_lane_translate
+            x_lane_translate = get_stage_props(self.stage_ref.get(), t, left_limit=True, sliced=sliced).x_lane_translate
         return props.pivot_lane + self.rel_lane + x_lane_translate
 
-    def visual_lane_at(self, t: float, left_limit: bool = False) -> float:
+    def visual_lane_at(self, t: float, left_limit: bool = False, sliced: bool = False) -> float:
         if self.is_attached:
             head = self.attach_head_ref.get()
             tail = self.attach_tail_ref.get()
-            head_lane = head._basic_visual_lane_at(t, left_limit=left_limit)
-            tail_lane = tail._basic_visual_lane_at(t, left_limit=left_limit)
+            head_lane = head._basic_visual_lane_at(t, left_limit=left_limit, sliced=sliced)
+            tail_lane = tail._basic_visual_lane_at(t, left_limit=left_limit, sliced=sliced)
             return lerp(
                 head_lane,
                 tail_lane,
                 get_attach_eased_frac(self.connector_ease, head.target_time, tail.target_time, self.target_time),
             )
-        return self._basic_visual_lane_at(t, left_limit=left_limit)
+        return self._basic_visual_lane_at(t, left_limit=left_limit, sliced=sliced)
 
-    def _basic_visual_mask_at(self, t: float, left_limit: bool = False) -> VisualMask:
+    def _basic_visual_mask_at(self, t: float, left_limit: bool = False, sliced: bool = False) -> VisualMask:
         result = +VisualMask
         if self.stage_ref.index > 0:
-            props = get_stage_props(self.stage_ref.get(), t, left_limit=left_limit)
+            props = get_stage_props(self.stage_ref.get(), t, left_limit=left_limit, sliced=sliced)
             result.left = props.lane - props.width + props.x_lane_translate
             result.right = props.lane + props.width + props.x_lane_translate
             result.enabled = props.mask_notes
@@ -185,17 +185,17 @@ class PreviewBaseNote(PreviewArchetype):
                 result.stage_index = self.stage_ref.index
         return result
 
-    def visual_mask_at(self, t: float, left_limit: bool = False) -> VisualMask:
+    def visual_mask_at(self, t: float, left_limit: bool = False, sliced: bool = False) -> VisualMask:
         result = +VisualMask
         if not self.is_attached:
-            result @= self._basic_visual_mask_at(t, left_limit=left_limit)
+            result @= self._basic_visual_mask_at(t, left_limit=left_limit, sliced=sliced)
             return result
 
         head = self.attach_head_ref.get()
         tail = self.attach_tail_ref.get()
         result @= interpolate_visual_masks(
-            head._basic_visual_mask_at(t, left_limit=left_limit),
-            tail._basic_visual_mask_at(t, left_limit=left_limit),
+            head._basic_visual_mask_at(t, left_limit=left_limit, sliced=sliced),
+            tail._basic_visual_mask_at(t, left_limit=left_limit, sliced=sliced),
             get_attach_eased_frac(self.connector_ease, head.target_time, tail.target_time, self.target_time),
         )
         return result

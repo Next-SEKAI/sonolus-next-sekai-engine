@@ -127,6 +127,16 @@ def is_in_step_ease(ease_type: EaseType) -> bool:
     return ease_type in (EaseType.NONE, EaseType.IN_STEP)
 
 
+def in_out_step_jump_time(t_a: float, t_b: float) -> float:
+    return (t_a + t_b) / 2
+
+
+def sliced_in_out_step_progress(t: float, t_a: float, t_b: float, left_limit: bool) -> float:
+    # Jump exactly where preview slices split.
+    jump_time = in_out_step_jump_time(t_a, t_b)
+    return 0.0 if t < jump_time or (left_limit and t == jump_time) else 1.0
+
+
 def ease_overshoot(ease_type: EaseType) -> float:
     """Return an upper bound on easing overshoot."""
     if EaseType.IN_ELASTIC <= ease_type <= EaseType.OUT_IN_ELASTIC:
