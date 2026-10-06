@@ -581,7 +581,7 @@ def test_aspect_active() -> bool:
 def refresh_layout():
     camera = +CameraInfo
     if is_play() or is_watch():
-        camera @= get_camera_info()
+        camera @= get_camera_info(right_limit=True)
     else:
         camera @= CameraInfo(
             lane=0.0,

@@ -140,7 +140,7 @@ class WatchDynamicStage(WatchArchetype):
 
     @callback(order=-2)
     def update_sequential(self):
-        self.props @= get_stage_props(self)
+        self.props @= get_stage_props(self, right_limit=True)
 
     def update_parallel(self):
         t = time()

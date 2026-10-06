@@ -786,9 +786,9 @@ def update_stage_pivot_props(
         result.y_offset = pivot_b.y_offset
 
 
-def get_stage_pivot_lane(stage: DynamicStageLike, t: float) -> float:
+def get_stage_pivot_lane(stage: DynamicStageLike, t: float, right_limit: bool = False) -> float:
     props = +StageProps
-    update_stage_pivot_props(props, stage.first_pivot_change_ref, t)
+    update_stage_pivot_props(props, stage.first_pivot_change_ref, t, right_limit)
     return props.pivot_lane
 
 
