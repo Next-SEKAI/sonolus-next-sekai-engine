@@ -310,7 +310,7 @@ def step_piece_time(
 ) -> float:
     if not is_step_ease(ease_type):
         return t
-    if t < split_time or (left_limit and t == split_time):
+    if t < split_time or (t == split_time and (left_limit or split_time >= tail_target_time)):
         return (head_target_time + split_time) / 2
     return (split_time + tail_target_time) / 2
 
