@@ -28,7 +28,6 @@ from sekai.lib.skin import ArrowRenderType, ArrowSpriteSet, BodyRenderType, Body
 from sekai.lib.stage import (
     VisualMask,
     get_next_event_time,
-    get_stage_pivot_lane,
     get_stage_props,
     interpolate_visual_masks,
     masked_note_extents_by_limits,
@@ -91,7 +90,7 @@ class PreviewBaseNote(PreviewArchetype):
         self.target_time = beat_to_time(self.beat)
 
         if self.stage_ref.index > 0:
-            props = get_stage_props(self.stage_ref.get(), self.target_time)
+            props = get_stage_props(self.stage_ref.get(), self.target_time, left_limit=True)
             self.rel_lane = self.lane
             self.lane += props.pivot_lane + props.x_lane_translate
 
@@ -109,10 +108,10 @@ class PreviewBaseNote(PreviewArchetype):
             self.connector_ease = attach_head.connector_ease
             lane, size = get_attach_params(
                 ease_type=attach_head.connector_ease,
-                head_lane=attach_head._basic_visual_lane_at(self.target_time),
+                head_lane=attach_head._basic_visual_lane_at(self.target_time, left_limit=True),
                 head_size=attach_head.size,
                 head_target_time=attach_head.target_time,
-                tail_lane=attach_tail._basic_visual_lane_at(self.target_time),
+                tail_lane=attach_tail._basic_visual_lane_at(self.target_time, left_limit=True),
                 tail_size=attach_tail.size,
                 tail_target_time=attach_tail.target_time,
                 target_time=self.target_time,
@@ -153,33 +152,29 @@ class PreviewBaseNote(PreviewArchetype):
         else:
             return 1.0
 
-    def _basic_visual_lane_at(self, t: float, left_limit: bool = False, sliced: bool = False) -> float:
+    def _basic_visual_lane_at(self, t: float, left_limit: bool = False) -> float:
         if self.stage_ref.index <= 0:
             return self.lane
-        props = get_stage_props(self.stage_ref.get(), t, left_limit=left_limit, sliced=sliced)
-        pivot_lane = props.pivot_lane
-        if left_limit and not sliced:
-            # Notes at their own time keep play's pivot.
-            pivot_lane = get_stage_pivot_lane(self.stage_ref.get(), t)
-        return pivot_lane + self.rel_lane + props.x_lane_translate
+        props = get_stage_props(self.stage_ref.get(), t, left_limit=left_limit, sliced=True)
+        return props.pivot_lane + self.rel_lane + props.x_lane_translate
 
-    def visual_lane_at(self, t: float, left_limit: bool = False, sliced: bool = False) -> float:
+    def visual_lane_at(self, t: float, left_limit: bool = False) -> float:
         if self.is_attached:
             head = self.attach_head_ref.get()
             tail = self.attach_tail_ref.get()
-            head_lane = head._basic_visual_lane_at(t, left_limit=left_limit, sliced=sliced)
-            tail_lane = tail._basic_visual_lane_at(t, left_limit=left_limit, sliced=sliced)
+            head_lane = head._basic_visual_lane_at(t, left_limit=left_limit)
+            tail_lane = tail._basic_visual_lane_at(t, left_limit=left_limit)
             return lerp(
                 head_lane,
                 tail_lane,
                 get_attach_eased_frac(self.connector_ease, head.target_time, tail.target_time, self.target_time),
             )
-        return self._basic_visual_lane_at(t, left_limit=left_limit, sliced=sliced)
+        return self._basic_visual_lane_at(t, left_limit=left_limit)
 
-    def _basic_visual_mask_at(self, t: float, left_limit: bool = False, sliced: bool = False) -> VisualMask:
+    def _basic_visual_mask_at(self, t: float, left_limit: bool = False) -> VisualMask:
         result = +VisualMask
         if self.stage_ref.index > 0:
-            props = get_stage_props(self.stage_ref.get(), t, left_limit=left_limit, sliced=sliced)
+            props = get_stage_props(self.stage_ref.get(), t, left_limit=left_limit, sliced=True)
             result.left = props.lane - props.width + props.x_lane_translate
             result.right = props.lane + props.width + props.x_lane_translate
             result.enabled = props.mask_notes
@@ -187,17 +182,17 @@ class PreviewBaseNote(PreviewArchetype):
                 result.stage_index = self.stage_ref.index
         return result
 
-    def visual_mask_at(self, t: float, left_limit: bool = False, sliced: bool = False) -> VisualMask:
+    def visual_mask_at(self, t: float, left_limit: bool = False) -> VisualMask:
         result = +VisualMask
         if not self.is_attached:
-            result @= self._basic_visual_mask_at(t, left_limit=left_limit, sliced=sliced)
+            result @= self._basic_visual_mask_at(t, left_limit=left_limit)
             return result
 
         head = self.attach_head_ref.get()
         tail = self.attach_tail_ref.get()
         result @= interpolate_visual_masks(
-            head._basic_visual_mask_at(t, left_limit=left_limit, sliced=sliced),
-            tail._basic_visual_mask_at(t, left_limit=left_limit, sliced=sliced),
+            head._basic_visual_mask_at(t, left_limit=left_limit),
+            tail._basic_visual_mask_at(t, left_limit=left_limit),
             get_attach_eased_frac(self.connector_ease, head.target_time, tail.target_time, self.target_time),
         )
         return result
