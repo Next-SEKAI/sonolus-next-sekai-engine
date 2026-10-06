@@ -339,13 +339,17 @@ def connector_sample_at(
         tail_ease_frac,
         ease_time,
     )
-    head_lane = head.visual_lane_at(target_time, left_limit=left_limit)
-    tail_lane = head_lane if is_in_step_ease(ease_type) else tail.visual_lane_at(target_time, left_limit=left_limit)
+    head_lane = head.visual_lane_at(target_time, left_limit=left_limit, sliced=True)
+    tail_lane = (
+        head_lane
+        if is_in_step_ease(ease_type)
+        else tail.visual_lane_at(target_time, left_limit=left_limit, sliced=True)
+    )
     result.raw_lane = lerp(head_lane, tail_lane, interp_frac)
     result.raw_size = lerp(head_size, tail_size, interp_frac)
     mask = interpolate_visual_masks(
-        head.visual_mask_at(target_time, left_limit=left_limit),
-        tail.visual_mask_at(target_time, left_limit=left_limit),
+        head.visual_mask_at(target_time, left_limit=left_limit, sliced=True),
+        tail.visual_mask_at(target_time, left_limit=left_limit, sliced=True),
         interp_frac,
     )
     result.lane = result.raw_lane

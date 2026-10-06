@@ -17,7 +17,14 @@ from sonolus.script.vec import Vec2
 
 from sekai.lib import archetype_names
 from sekai.lib.baseevent import get_event_as, query_event_list
-from sekai.lib.ease import EaseType, ease, eased_range, is_in_step_ease
+from sekai.lib.ease import (
+    EaseType,
+    ease,
+    eased_range,
+    in_out_step_jump_time,
+    is_in_step_ease,
+    sliced_in_out_step_progress,
+)
 from sekai.lib.effect import SFX_DISTANCE, Effects
 from sekai.lib.layer import ZIndexes, get_z, get_z_alt, layers
 from sekai.lib.layout import (
@@ -623,19 +630,17 @@ def next_event_time_in_list(a_ref: EntityRef, b_ref: EntityRef, archetype: type,
     return b.time
 
 
-def in_out_step_jump_time(t_a: float, t_b: float) -> float:
-    return (t_a + t_b) / 2
-
-
-def stage_event_progress(ease_type: EaseType, t: float, t_a: float, t_b: float, left_limit: bool) -> float:
-    if runtime.is_preview() and ease_type == EaseType.IN_OUT_STEP:
-        # Jump exactly at the time preview slices split at.
-        jump_time = in_out_step_jump_time(t_a, t_b)
-        return 0.0 if t < jump_time or (left_limit and t == jump_time) else 1.0
+def stage_event_progress(
+    ease_type: EaseType, t: float, t_a: float, t_b: float, left_limit: bool, sliced: bool
+) -> float:
+    if sliced and ease_type == EaseType.IN_OUT_STEP:
+        return sliced_in_out_step_progress(t, t_a, t_b, left_limit)
     return ease(ease_type, (t - t_a) / (t_b - t_a))
 
 
-def get_stage_props(stage: DynamicStageLike, target_time: float | None = None, left_limit: bool = False) -> StageProps:
+def get_stage_props(
+    stage: DynamicStageLike, target_time: float | None = None, left_limit: bool = False, sliced: bool = False
+) -> StageProps:
     t = target_time if target_time is not None else runtime.time()
     result = +StageProps
     result.note_alpha = 1.0
@@ -646,18 +651,20 @@ def get_stage_props(stage: DynamicStageLike, target_time: float | None = None, l
     first_style_change_ref = stage.first_style_change_ref
     first_transform_change_ref = stage.first_transform_change_ref
 
-    update_stage_mask_props(result, first_mask_change_ref, t, left_limit)
+    update_stage_mask_props(result, first_mask_change_ref, t, left_limit, sliced)
 
-    update_stage_pivot_props(result, first_pivot_change_ref, t, left_limit)
+    update_stage_pivot_props(result, first_pivot_change_ref, t, left_limit, sliced)
 
-    update_stage_style_props(result, first_style_change_ref, t, left_limit)
+    update_stage_style_props(result, first_style_change_ref, t, left_limit, sliced)
 
-    update_stage_transform_props(result, first_transform_change_ref, t, left_limit)
+    update_stage_transform_props(result, first_transform_change_ref, t, left_limit, sliced)
 
     return result
 
 
-def update_stage_mask_props(result: StageProps, first_mask_change_ref: EntityRef, t: float, left_limit: bool):
+def update_stage_mask_props(
+    result: StageProps, first_mask_change_ref: EntityRef, t: float, left_limit: bool, sliced: bool = False
+):
     mask_a_ref, mask_b_ref = query_event_list(first_mask_change_ref, t, lambda e: e.time)
     if left_limit and mask_a_ref.index > 0:
         mask_curr = get_event_as(mask_a_ref, _stage_mask_change_archetype())
@@ -681,7 +688,7 @@ def update_stage_mask_props(result: StageProps, first_mask_change_ref: EntityRef
             t_a = mask_a.time
             t_b = mask_b.time
             if t_b > t_a:
-                p = stage_event_progress(mask_a.ease, t, t_a, t_b, left_limit)
+                p = stage_event_progress(mask_a.ease, t, t_a, t_b, left_limit, sliced)
                 result.lane = lerp(mask_a.lane, mask_b.lane, p)
                 result.width = max(0.0, lerp(mask_a.size, mask_b.size, p))
     elif mask_b_ref.index > 0:
@@ -691,7 +698,9 @@ def update_stage_mask_props(result: StageProps, first_mask_change_ref: EntityRef
         result.mask_notes = mask_b.mask_notes
 
 
-def update_stage_style_props(result: StageProps, first_style_change_ref: EntityRef, t: float, left_limit: bool):
+def update_stage_style_props(
+    result: StageProps, first_style_change_ref: EntityRef, t: float, left_limit: bool, sliced: bool = False
+):
     style_a_ref, style_b_ref = query_event_list(first_style_change_ref, t, lambda e: e.time)
     if left_limit and style_a_ref.index > 0:
         style_curr = get_event_as(style_a_ref, _stage_style_change_archetype())
@@ -724,7 +733,7 @@ def update_stage_style_props(result: StageProps, first_style_change_ref: EntityR
             t_a = style_a.time
             t_b = style_b.time
             if t_b > t_a:
-                p = stage_event_progress(style_a.ease, t, t_a, t_b, left_limit)
+                p = stage_event_progress(style_a.ease, t, t_a, t_b, left_limit, sliced)
                 result.judge_line_color.end = style_b.judge_line_color
                 result.judge_line_color.progress = p
                 result.judge_line_style.end = style_b.judge_line_style
@@ -759,7 +768,9 @@ def update_stage_style_props(result: StageProps, first_style_change_ref: EntityR
         result.note_alpha = style_b.note_alpha
 
 
-def update_stage_transform_props(result: StageProps, first_transform_change_ref: EntityRef, t: float, left_limit: bool):
+def update_stage_transform_props(
+    result: StageProps, first_transform_change_ref: EntityRef, t: float, left_limit: bool, sliced: bool = False
+):
     transform_a_ref, transform_b_ref = query_event_list(first_transform_change_ref, t, lambda e: e.time)
     if left_limit and transform_a_ref.index > 0:
         transform_curr = get_event_as(transform_a_ref, _stage_transform_change_archetype())
@@ -786,7 +797,7 @@ def update_stage_transform_props(result: StageProps, first_transform_change_ref:
             t_a = transform_a.time
             t_b = transform_b.time
             if t_b > t_a:
-                p = stage_event_progress(transform_a.ease, t, t_a, t_b, left_limit)
+                p = stage_event_progress(transform_a.ease, t, t_a, t_b, left_limit, sliced)
                 result.rotate = lerp(transform_a.rotate, transform_b.rotate, p)
                 result.x_lane_translate = lerp(transform_a.x_lane_translate, transform_b.x_lane_translate, p)
                 result.y_lane_translate = lerp(transform_a.y_lane_translate, transform_b.y_lane_translate, p)
@@ -811,7 +822,9 @@ def get_stage_input_props(stage: DynamicStageLike, t: float) -> StageProps:
     return result
 
 
-def update_stage_pivot_props(result: StageProps, first_pivot_change_ref: EntityRef, t: float, left_limit: bool):
+def update_stage_pivot_props(
+    result: StageProps, first_pivot_change_ref: EntityRef, t: float, left_limit: bool, sliced: bool = False
+):
     pivot_a_ref, pivot_b_ref = query_event_list(first_pivot_change_ref, t, lambda e: e.time)
     if left_limit and pivot_a_ref.index > 0:
         pivot_curr = get_event_as(pivot_a_ref, _stage_pivot_change_archetype())
@@ -836,7 +849,7 @@ def update_stage_pivot_props(result: StageProps, first_pivot_change_ref: EntityR
             t_a = pivot_a.time
             t_b = pivot_b.time
             if t_b > t_a:
-                p = stage_event_progress(pivot_a.ease, t, t_a, t_b, left_limit)
+                p = stage_event_progress(pivot_a.ease, t, t_a, t_b, left_limit, sliced)
                 result.pivot_lane = lerp(pivot_a.lane, pivot_b.lane, p)
                 result.division.end.size = int(pivot_b.division_size)
                 result.division.end.parity = pivot_b.division_parity
