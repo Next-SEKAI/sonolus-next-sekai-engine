@@ -28,6 +28,7 @@ from sekai.lib.skin import ArrowRenderType, ArrowSpriteSet, BodyRenderType, Body
 from sekai.lib.stage import (
     VisualMask,
     get_next_event_time,
+    get_stage_pivot_lane,
     get_stage_props,
     interpolate_visual_masks,
     masked_note_extents_by_limits,
@@ -155,11 +156,12 @@ class PreviewBaseNote(PreviewArchetype):
     def _basic_visual_lane_at(self, t: float, left_limit: bool = False, sliced: bool = False) -> float:
         if self.stage_ref.index <= 0:
             return self.lane
-        props = get_stage_props(self.stage_ref.get(), t, sliced=sliced)
-        x_lane_translate = props.x_lane_translate
-        if left_limit:
-            x_lane_translate = get_stage_props(self.stage_ref.get(), t, left_limit=True, sliced=sliced).x_lane_translate
-        return props.pivot_lane + self.rel_lane + x_lane_translate
+        props = get_stage_props(self.stage_ref.get(), t, left_limit=left_limit, sliced=sliced)
+        pivot_lane = props.pivot_lane
+        if left_limit and not sliced:
+            # Notes at their own time keep play's pivot.
+            pivot_lane = get_stage_pivot_lane(self.stage_ref.get(), t)
+        return pivot_lane + self.rel_lane + props.x_lane_translate
 
     def visual_lane_at(self, t: float, left_limit: bool = False, sliced: bool = False) -> float:
         if self.is_attached:
