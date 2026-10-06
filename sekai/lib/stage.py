@@ -16,8 +16,8 @@ from sonolus.script.values import alloc
 from sonolus.script.vec import Vec2
 
 from sekai.lib import archetype_names
-from sekai.lib.baseevent import get_event_as, query_event_list
-from sekai.lib.ease import EaseType, ease, eased_range, is_in_step_ease, sliced_in_out_step_progress
+from sekai.lib.baseevent import get_event_as, next_event_time_in_list, query_event_list
+from sekai.lib.ease import EaseType, eased_range, event_progress, is_in_step_ease
 from sekai.lib.effect import SFX_DISTANCE, Effects
 from sekai.lib.layer import ZIndexes, get_z, get_z_alt, layers
 from sekai.lib.layout import (
@@ -43,7 +43,6 @@ from sekai.lib.layout import (
     layout_stage_cover,
     layout_stage_cover_and_line,
     layout_stage_lane_by_edges,
-    next_event_time_in_list,
     perspective_rect,
     stage_aspect_ratio_locked,
     stage_cover_amount,
@@ -611,14 +610,6 @@ def get_next_event_time(stage: DynamicStageLike, t: float) -> float:
     return result
 
 
-def stage_event_progress(
-    ease_type: EaseType, t: float, t_a: float, t_b: float, left_limit: bool, sliced: bool
-) -> float:
-    if sliced and ease_type == EaseType.IN_OUT_STEP:
-        return sliced_in_out_step_progress(t, t_a, t_b, left_limit)
-    return ease(ease_type, (t - t_a) / (t_b - t_a))
-
-
 def get_stage_props(
     stage: DynamicStageLike, target_time: float | None = None, left_limit: bool = False, sliced: bool = False
 ) -> StageProps:
@@ -669,7 +660,7 @@ def update_stage_mask_props(
             t_a = mask_a.time
             t_b = mask_b.time
             if t_b > t_a:
-                p = stage_event_progress(mask_a.ease, t, t_a, t_b, left_limit, sliced)
+                p = event_progress(mask_a.ease, t, t_a, t_b, left_limit, sliced)
                 result.lane = lerp(mask_a.lane, mask_b.lane, p)
                 result.width = max(0.0, lerp(mask_a.size, mask_b.size, p))
     elif mask_b_ref.index > 0:
@@ -714,7 +705,7 @@ def update_stage_style_props(
             t_a = style_a.time
             t_b = style_b.time
             if t_b > t_a:
-                p = stage_event_progress(style_a.ease, t, t_a, t_b, left_limit, sliced)
+                p = event_progress(style_a.ease, t, t_a, t_b, left_limit, sliced)
                 result.judge_line_color.end = style_b.judge_line_color
                 result.judge_line_color.progress = p
                 result.judge_line_style.end = style_b.judge_line_style
@@ -778,7 +769,7 @@ def update_stage_transform_props(
             t_a = transform_a.time
             t_b = transform_b.time
             if t_b > t_a:
-                p = stage_event_progress(transform_a.ease, t, t_a, t_b, left_limit, sliced)
+                p = event_progress(transform_a.ease, t, t_a, t_b, left_limit, sliced)
                 result.rotate = lerp(transform_a.rotate, transform_b.rotate, p)
                 result.x_lane_translate = lerp(transform_a.x_lane_translate, transform_b.x_lane_translate, p)
                 result.y_lane_translate = lerp(transform_a.y_lane_translate, transform_b.y_lane_translate, p)
@@ -830,7 +821,7 @@ def update_stage_pivot_props(
             t_a = pivot_a.time
             t_b = pivot_b.time
             if t_b > t_a:
-                p = stage_event_progress(pivot_a.ease, t, t_a, t_b, left_limit, sliced)
+                p = event_progress(pivot_a.ease, t, t_a, t_b, left_limit, sliced)
                 result.pivot_lane = lerp(pivot_a.lane, pivot_b.lane, p)
                 result.division.end.size = int(pivot_b.division_size)
                 result.division.end.parity = pivot_b.division_parity

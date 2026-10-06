@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING, Any, cast
 from sonolus.script.archetype import EntityRef, entity_data
 from sonolus.script.array import Array, Dim
 
+from sekai.lib.ease import EaseType, in_out_step_jump_time
+
 if TYPE_CHECKING:
     from sonolus.script.archetype import _BaseArchetype
 
@@ -78,3 +80,16 @@ def query_event_list[T: BaseEvent, K: float](
         level -= 1
     b.index = a.get().next_ref.index
     return result
+
+
+def next_event_time_in_list(a_ref: EntityRef, b_ref: EntityRef, archetype: type, t: float) -> float:
+    if b_ref.index <= 0:
+        return 1e8
+    b = get_event_as(b_ref, archetype)
+    if a_ref.index > 0:
+        a = get_event_as(a_ref, archetype)
+        if a.ease == EaseType.IN_OUT_STEP:
+            jump_time = in_out_step_jump_time(a.time, b.time)
+            if jump_time > t:
+                return jump_time
+    return b.time
