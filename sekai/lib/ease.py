@@ -138,7 +138,7 @@ def sliced_in_out_step_progress(t: float, t_a: float, t_b: float, left_limit: bo
 
 
 def event_progress(ease_type: EaseType, t: float, t_a: float, t_b: float, left_limit: bool, sliced: bool) -> float:
-    if sliced and ease_type == EaseType.IN_OUT_STEP:
+    if (sliced or left_limit) and ease_type == EaseType.IN_OUT_STEP:
         return sliced_in_out_step_progress(t, t_a, t_b, left_limit)
     return ease(ease_type, (t - t_a) / (t_b - t_a))
 

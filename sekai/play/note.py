@@ -202,7 +202,7 @@ class BaseNote(PlayArchetype):
 
         if self.stage_ref.index > 0:
             self.rel_lane = self.lane
-            self.lane += get_stage_pivot_lane(self.stage_ref.get(), self.target_time)
+            self.lane += get_stage_pivot_lane(self.stage_ref.get(), self.target_time, left_limit=True)
 
         if self.next_ref.index > 0:
             self.next_ref.get().prev_ref = self.ref()
@@ -234,10 +234,10 @@ class BaseNote(PlayArchetype):
             )
             lane, size = get_attach_params(
                 ease_type=attach_head.connector_ease,
-                head_lane=attach_head._basic_visual_lane_at(self.target_time),
+                head_lane=attach_head._basic_visual_lane_at(self.target_time, left_limit=True),
                 head_size=attach_head.size,
                 head_target_time=attach_head.target_time,
-                tail_lane=attach_tail._basic_visual_lane_at(self.target_time),
+                tail_lane=attach_tail._basic_visual_lane_at(self.target_time, left_limit=True),
                 tail_size=attach_tail.size,
                 tail_target_time=attach_tail.target_time,
                 target_time=self.target_time,
@@ -867,17 +867,21 @@ class BaseNote(PlayArchetype):
             result @= self._basic_input_geometry(context)
         return result
 
-    def _basic_visual_lane_at(self, t: float) -> float:
+    def _basic_visual_lane_at(self, t: float, left_limit: bool = False) -> float:
         if self.stage_ref.index <= 0:
             return self.lane
-        return get_stage_pivot_lane(self.stage_ref.get(), t) + self.rel_lane
+        return get_stage_pivot_lane(self.stage_ref.get(), t, left_limit=left_limit) + self.rel_lane
 
-    def visual_lane_at(self, t: float) -> float:
+    def visual_lane_at(self, t: float, left_limit: bool = False) -> float:
         if self.is_attached:
             head = self.attach_head_ref.get()
             tail = self.attach_tail_ref.get()
-            return lerp(head._basic_visual_lane_at(t), tail._basic_visual_lane_at(t), self.attach_eased_frac)
-        return self._basic_visual_lane_at(t)
+            return lerp(
+                head._basic_visual_lane_at(t, left_limit=left_limit),
+                tail._basic_visual_lane_at(t, left_limit=left_limit),
+                self.attach_eased_frac,
+            )
+        return self._basic_visual_lane_at(t, left_limit=left_limit)
 
     @property
     def _basic_visual_lane(self) -> float:
@@ -942,7 +946,7 @@ class BaseNote(PlayArchetype):
         return result
 
     def visual_extents_at(self, t: float, left_limit: bool = False) -> tuple[float, float]:
-        render_lane = self.visual_lane_at(t)
+        render_lane = self.visual_lane_at(t, left_limit=left_limit)
         mask = self.visual_mask_at(t, left_limit=left_limit)
         return masked_note_extents_by_limits(render_lane, self.size, mask.left, mask.right, mask.enabled)
 

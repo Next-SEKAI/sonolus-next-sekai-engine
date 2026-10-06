@@ -511,7 +511,7 @@ def get_camera_info(target_time: float | None = None, left_limit: bool = False, 
             camera_b = get_event_as(camera_b_ref, camera_archetype)
             size_b = max(CAMERA_MIN_SIZE, camera_b.size)
             if camera_b.time > camera_a.time:
-                if sliced and camera_a.ease == EaseType.IN_OUT_STEP:
+                if (sliced or left_limit) and camera_a.ease == EaseType.IN_OUT_STEP:
                     p = sliced_in_out_step_progress(t, camera_a.time, camera_b.time, left_limit)
                 else:
                     p = ease(camera_a.ease, unlerp(camera_a.time, camera_b.time, t))

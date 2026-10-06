@@ -293,8 +293,7 @@ class InputGeometryContext(Record):
                 return result
 
         props = get_stage_input_props(stage, self.time)
-        # Lane includes events at the input timestamp; mask, offset, and transform use the left limit.
-        result.lane = get_stage_pivot_lane(stage, self.time)
+        result.lane = props.pivot_lane
         result.mask.left = props.lane - props.width
         result.mask.right = props.lane + props.width
         result.mask.enabled = props.mask_notes
@@ -836,9 +835,9 @@ def update_stage_pivot_props(
         result.y_offset = pivot_b.y_offset
 
 
-def get_stage_pivot_lane(stage: DynamicStageLike, t: float) -> float:
+def get_stage_pivot_lane(stage: DynamicStageLike, t: float, left_limit: bool = False) -> float:
     props = +StageProps
-    update_stage_pivot_props(props, stage.first_pivot_change_ref, t, False)
+    update_stage_pivot_props(props, stage.first_pivot_change_ref, t, left_limit)
     return props.pivot_lane
 
 

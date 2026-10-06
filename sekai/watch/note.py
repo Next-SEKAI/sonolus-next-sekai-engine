@@ -168,7 +168,7 @@ class WatchBaseNote(WatchArchetype):
 
         if self.stage_ref.index > 0:
             self.rel_lane = self.lane
-            self.lane += get_stage_pivot_lane(self.stage_ref.get(), self.target_time)
+            self.lane += get_stage_pivot_lane(self.stage_ref.get(), self.target_time, left_limit=True)
 
         if self.next_ref.index > 0:
             self.next_ref.get().prev_ref = self.ref()
@@ -198,10 +198,10 @@ class WatchBaseNote(WatchArchetype):
             )
             lane, size = get_attach_params(
                 ease_type=attach_head.connector_ease,
-                head_lane=attach_head._basic_visual_lane_at(self.target_time),
+                head_lane=attach_head._basic_visual_lane_at(self.target_time, left_limit=True),
                 head_size=attach_head.size,
                 head_target_time=attach_head.target_time,
-                tail_lane=attach_tail._basic_visual_lane_at(self.target_time),
+                tail_lane=attach_tail._basic_visual_lane_at(self.target_time, left_limit=True),
                 tail_size=attach_tail.size,
                 tail_target_time=attach_tail.target_time,
                 target_time=self.target_time,
@@ -285,18 +285,18 @@ class WatchBaseNote(WatchArchetype):
     def schedule_slot_effects_at(self, t: float):
         transform = +StageTransform
         if self.stage_ref.index > 0:
-            props = get_stage_props(self.stage_ref.get(), t)
+            props = get_stage_props(self.stage_ref.get(), t, left_limit=True)
             pivot_lane = props.pivot_lane
             y_offset = props.y_offset
             half_offset = props.division.start.parity == DivisionParity.ODD and props.division.start.size % 2 == 1
             single_line = resolve_judge_line_style(props.judge_line_style) == JudgeLineStyle.SINGLE_LINE
             if self.is_attached:
-                visual_lane = self.visual_lane_at(t)
-                transform @= self.stage_transform_at(t)
+                visual_lane = self.visual_lane_at(t, left_limit=True)
+                transform @= self.stage_transform_at(t, left_limit=True)
             else:
                 visual_lane = props.pivot_lane + self.rel_lane
                 transform @= compute_stage_transform(
-                    camera_layout_transform_at_time(t),
+                    camera_layout_transform_at_time(t, left_limit=True),
                     props.rotate,
                     props.x_lane_translate,
                     props.y_lane_translate,
@@ -312,12 +312,12 @@ class WatchBaseNote(WatchArchetype):
             y_offset = 0.0
             half_offset = False
             single_line = False
-            visual_lane = self.visual_lane_at(t)
+            visual_lane = self.visual_lane_at(t, left_limit=True)
             render_size = self.size
-            transform @= self.stage_transform_at(t)
+            transform @= self.stage_transform_at(t, left_limit=True)
         if self.is_attached:
-            visual_lane, render_size = self.visual_extents_at(t)
-            y_offset = self.y_offset_at(t)
+            visual_lane, render_size = self.visual_extents_at(t, left_limit=True)
+            y_offset = self.y_offset_at(t, left_limit=True)
         schedule_note_slot_effects(
             self.kind,
             visual_lane,
@@ -507,17 +507,21 @@ class WatchBaseNote(WatchArchetype):
             result @= self._basic_input_geometry(context)
         return result
 
-    def _basic_visual_lane_at(self, t: float) -> float:
+    def _basic_visual_lane_at(self, t: float, left_limit: bool = False) -> float:
         if self.stage_ref.index <= 0:
             return self.lane
-        return get_stage_pivot_lane(self.stage_ref.get(), t) + self.rel_lane
+        return get_stage_pivot_lane(self.stage_ref.get(), t, left_limit=left_limit) + self.rel_lane
 
-    def visual_lane_at(self, t: float) -> float:
+    def visual_lane_at(self, t: float, left_limit: bool = False) -> float:
         if self.is_attached:
             head = self.attach_head_ref.get()
             tail = self.attach_tail_ref.get()
-            return lerp(head._basic_visual_lane_at(t), tail._basic_visual_lane_at(t), self.attach_eased_frac)
-        return self._basic_visual_lane_at(t)
+            return lerp(
+                head._basic_visual_lane_at(t, left_limit=left_limit),
+                tail._basic_visual_lane_at(t, left_limit=left_limit),
+                self.attach_eased_frac,
+            )
+        return self._basic_visual_lane_at(t, left_limit=left_limit)
 
     @property
     def _basic_visual_note_alpha(self) -> float:
@@ -711,7 +715,7 @@ class WatchBaseNote(WatchArchetype):
         return result
 
     def visual_extents_at(self, t: float, left_limit: bool = False) -> tuple[float, float]:
-        render_lane = self.visual_lane_at(t)
+        render_lane = self.visual_lane_at(t, left_limit=left_limit)
         mask = self.visual_mask_at(t, left_limit=left_limit)
         return masked_note_extents_by_limits(render_lane, self.size, mask.left, mask.right, mask.enabled)
 
