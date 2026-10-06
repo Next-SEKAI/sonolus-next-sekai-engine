@@ -321,6 +321,10 @@ def interpolate_visual_masks(head: VisualMask, tail: VisualMask, frac: float) ->
         return result
     result.left = lerp(head.left, tail.left, frac)
     result.right = lerp(head.right, tail.right, frac)
+    if result.right < result.left:
+        mid = (result.left + result.right) / 2
+        result.left = mid
+        result.right = mid
     result.enabled = True
     if head.stage_index > 0 and head.stage_index == tail.stage_index:
         result.stage_index = head.stage_index
