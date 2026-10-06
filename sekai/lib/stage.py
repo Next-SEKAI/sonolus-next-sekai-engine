@@ -596,22 +596,43 @@ def get_draw_end_time(stage: DynamicStageLike) -> float:
 def get_next_event_time(stage: DynamicStageLike, t: float) -> float:
     result = 1e8
     if stage.first_mask_change_ref.index > 0:
-        _, b_ref = query_event_list(stage.first_mask_change_ref, t, lambda e: e.time)
-        if b_ref.index > 0:
-            result = min(result, get_event_as(b_ref, _stage_mask_change_archetype()).time)
+        a_ref, b_ref = query_event_list(stage.first_mask_change_ref, t, lambda e: e.time)
+        result = min(result, next_event_time_in_list(a_ref, b_ref, _stage_mask_change_archetype(), t))
     if stage.first_pivot_change_ref.index > 0:
-        _, b_ref = query_event_list(stage.first_pivot_change_ref, t, lambda e: e.time)
-        if b_ref.index > 0:
-            result = min(result, get_event_as(b_ref, _stage_pivot_change_archetype()).time)
+        a_ref, b_ref = query_event_list(stage.first_pivot_change_ref, t, lambda e: e.time)
+        result = min(result, next_event_time_in_list(a_ref, b_ref, _stage_pivot_change_archetype(), t))
     if stage.first_style_change_ref.index > 0:
-        _, b_ref = query_event_list(stage.first_style_change_ref, t, lambda e: e.time)
-        if b_ref.index > 0:
-            result = min(result, get_event_as(b_ref, _stage_style_change_archetype()).time)
+        a_ref, b_ref = query_event_list(stage.first_style_change_ref, t, lambda e: e.time)
+        result = min(result, next_event_time_in_list(a_ref, b_ref, _stage_style_change_archetype(), t))
     if stage.first_transform_change_ref.index > 0:
-        _, b_ref = query_event_list(stage.first_transform_change_ref, t, lambda e: e.time)
-        if b_ref.index > 0:
-            result = min(result, get_event_as(b_ref, _stage_transform_change_archetype()).time)
+        a_ref, b_ref = query_event_list(stage.first_transform_change_ref, t, lambda e: e.time)
+        result = min(result, next_event_time_in_list(a_ref, b_ref, _stage_transform_change_archetype(), t))
     return result
+
+
+def next_event_time_in_list(a_ref: EntityRef, b_ref: EntityRef, archetype: type, t: float) -> float:
+    if b_ref.index <= 0:
+        return 1e8
+    b = get_event_as(b_ref, archetype)
+    if a_ref.index > 0:
+        a = get_event_as(a_ref, archetype)
+        if a.ease == EaseType.IN_OUT_STEP:
+            jump_time = in_out_step_jump_time(a.time, b.time)
+            if jump_time > t:
+                return jump_time
+    return b.time
+
+
+def in_out_step_jump_time(t_a: float, t_b: float) -> float:
+    return (t_a + t_b) / 2
+
+
+def stage_event_progress(ease_type: EaseType, t: float, t_a: float, t_b: float, left_limit: bool) -> float:
+    if runtime.is_preview() and ease_type == EaseType.IN_OUT_STEP:
+        # Jump exactly at the time preview slices split at.
+        jump_time = in_out_step_jump_time(t_a, t_b)
+        return 0.0 if t < jump_time or (left_limit and t == jump_time) else 1.0
+    return ease(ease_type, (t - t_a) / (t_b - t_a))
 
 
 def get_stage_props(stage: DynamicStageLike, target_time: float | None = None, left_limit: bool = False) -> StageProps:
@@ -660,7 +681,7 @@ def update_stage_mask_props(result: StageProps, first_mask_change_ref: EntityRef
             t_a = mask_a.time
             t_b = mask_b.time
             if t_b > t_a:
-                p = ease(mask_a.ease, (t - t_a) / (t_b - t_a))
+                p = stage_event_progress(mask_a.ease, t, t_a, t_b, left_limit)
                 result.lane = lerp(mask_a.lane, mask_b.lane, p)
                 result.width = max(0.0, lerp(mask_a.size, mask_b.size, p))
     elif mask_b_ref.index > 0:
@@ -703,7 +724,7 @@ def update_stage_style_props(result: StageProps, first_style_change_ref: EntityR
             t_a = style_a.time
             t_b = style_b.time
             if t_b > t_a:
-                p = ease(style_a.ease, (t - t_a) / (t_b - t_a))
+                p = stage_event_progress(style_a.ease, t, t_a, t_b, left_limit)
                 result.judge_line_color.end = style_b.judge_line_color
                 result.judge_line_color.progress = p
                 result.judge_line_style.end = style_b.judge_line_style
@@ -765,7 +786,7 @@ def update_stage_transform_props(result: StageProps, first_transform_change_ref:
             t_a = transform_a.time
             t_b = transform_b.time
             if t_b > t_a:
-                p = ease(transform_a.ease, (t - t_a) / (t_b - t_a))
+                p = stage_event_progress(transform_a.ease, t, t_a, t_b, left_limit)
                 result.rotate = lerp(transform_a.rotate, transform_b.rotate, p)
                 result.x_lane_translate = lerp(transform_a.x_lane_translate, transform_b.x_lane_translate, p)
                 result.y_lane_translate = lerp(transform_a.y_lane_translate, transform_b.y_lane_translate, p)
@@ -815,7 +836,7 @@ def update_stage_pivot_props(result: StageProps, first_pivot_change_ref: EntityR
             t_a = pivot_a.time
             t_b = pivot_b.time
             if t_b > t_a:
-                p = ease(pivot_a.ease, (t - t_a) / (t_b - t_a))
+                p = stage_event_progress(pivot_a.ease, t, t_a, t_b, left_limit)
                 result.pivot_lane = lerp(pivot_a.lane, pivot_b.lane, p)
                 result.division.end.size = int(pivot_b.division_size)
                 result.division.end.parity = pivot_b.division_parity
