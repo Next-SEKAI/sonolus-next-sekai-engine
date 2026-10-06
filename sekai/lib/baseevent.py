@@ -55,10 +55,17 @@ def init_event_list[T: BaseEvent](first_ref: EntityRef[T]):  # pyright: ignore[r
         first.skip_levels = len(last_refs)
 
 
+def _at_or_before(value: float, key: float, strict: bool) -> bool:
+    if strict:
+        return value < key
+    return value <= key
+
+
 def query_event_list[T: BaseEvent, K: float](
     first_ref: EntityRef[T],  # pyright: ignore[reportInvalidTypeArguments]
     key: K,
     accessor: Callable[[T], K],
+    strict: bool = False,
 ) -> tuple[EntityRef[T], EntityRef[T]]:  # pyright: ignore[reportInvalidTypeArguments]
     ref_type = type(first_ref)
     a = ref_type(0)
@@ -67,14 +74,14 @@ def query_event_list[T: BaseEvent, K: float](
     if first_ref.index <= 0:
         return result
     first = first_ref.get()
-    if accessor(first) > key:
+    if not _at_or_before(accessor(first), key, strict):
         b.index = first_ref.index
         return result
     a.index = first_ref.index
     level = first.skip_levels - 1
     while level >= 0:
         next_skip = +a.get().skip_refs[level].with_archetype(type(first))  # pyright: ignore[reportArgumentType]
-        while next_skip.index > 0 and accessor(next_skip.get()) <= key:
+        while next_skip.index > 0 and _at_or_before(accessor(next_skip.get()), key, strict):
             a.index = next_skip.index
             next_skip.index = a.get().skip_refs[level].index
         level -= 1

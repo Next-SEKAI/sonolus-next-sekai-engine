@@ -17,8 +17,8 @@ class PreviewSimLine(PreviewArchetype):
         if not self.left.is_scored or not self.right.is_scored:
             return
         target_time = self.left.target_time
-        left_lane, left_size = self.left.visual_extents_at(target_time, left_limit=True)
-        right_lane, right_size = self.right.visual_extents_at(self.right.target_time, left_limit=True)
+        left_lane, left_size = self.left.visual_extents_at(target_time)
+        right_lane, right_size = self.right.visual_extents_at(self.right.target_time)
         if left_size <= 0 or right_size <= 0:
             return
         col = time_to_preview_col(target_time)

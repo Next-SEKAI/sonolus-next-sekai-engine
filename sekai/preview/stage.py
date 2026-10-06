@@ -93,12 +93,12 @@ def draw_preview_dynamic_stage(stage: DynamicStageLike, start_time: float, end_t
 
         t_a = col_t_lo
         props_a = +StageProps
-        props_a @= get_stage_props(stage, t_a, sliced=True)
+        props_a @= get_stage_props(stage, t_a, right_limit=True)
         while t_a < col_t_hi:
             next_event = get_next_event_time(stage, t_a)
             t_b = min(t_a + PREVIEW_DYNAMIC_STAGE_TIME_INCREMENT, col_t_hi, next_event)
             at_event = t_b == next_event
-            props_b = get_stage_props(stage, t_b, left_limit=at_event, sliced=True)
+            props_b = get_stage_props(stage, t_b)
 
             draw_dynamic_stage_lane_bg_slice(props_a, props_b, col, t_a, t_b, z_bg)
             draw_dynamic_stage_border_slice(True, props_a, props_b, col, t_a, t_b, z_left_a, z_left_b)
@@ -107,7 +107,7 @@ def draw_preview_dynamic_stage(stage: DynamicStageLike, start_time: float, end_t
 
             t_a = t_b
             if at_event:
-                props_a @= get_stage_props(stage, t_a, sliced=True)
+                props_a @= get_stage_props(stage, t_a, right_limit=True)
             else:
                 props_a @= props_b
 
