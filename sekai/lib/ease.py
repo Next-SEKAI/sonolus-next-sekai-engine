@@ -131,15 +131,15 @@ def in_out_step_jump_time(t_a: float, t_b: float) -> float:
     return (t_a + t_b) / 2
 
 
-def sliced_in_out_step_progress(t: float, t_a: float, t_b: float, left_limit: bool) -> float:
+def in_out_step_progress(t: float, t_a: float, t_b: float, right_limit: bool) -> float:
     # Jump exactly where preview slices split.
     jump_time = in_out_step_jump_time(t_a, t_b)
-    return 0.0 if t < jump_time or (left_limit and t == jump_time) else 1.0
+    return 1.0 if t > jump_time or (right_limit and t == jump_time) else 0.0
 
 
-def event_progress(ease_type: EaseType, t: float, t_a: float, t_b: float, left_limit: bool, sliced: bool) -> float:
-    if (sliced or left_limit) and ease_type == EaseType.IN_OUT_STEP:
-        return sliced_in_out_step_progress(t, t_a, t_b, left_limit)
+def event_progress(ease_type: EaseType, t: float, t_a: float, t_b: float, right_limit: bool) -> float:
+    if ease_type == EaseType.IN_OUT_STEP:
+        return in_out_step_progress(t, t_a, t_b, right_limit)
     return ease(ease_type, (t - t_a) / (t_b - t_a))
 
 

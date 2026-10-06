@@ -15,7 +15,7 @@ from sonolus.script.vec import Vec2
 
 from sekai.lib import archetype_names
 from sekai.lib.baseevent import get_event_as, next_event_time_in_list, query_event_list
-from sekai.lib.ease import EaseType, ease, eased_range, sliced_in_out_step_progress
+from sekai.lib.ease import EaseType, ease, eased_range, in_out_step_progress
 from sekai.lib.level_config import LevelConfig
 from sekai.lib.options import Options, StageCoverNoteSpeedCompensation
 
@@ -475,7 +475,7 @@ def background_camera_zoom(bg: QuadLike) -> float:
     return max((cover_x + margin_x) / bw, (cover_y + margin_y) / bh, 1.0)
 
 
-def get_camera_info(target_time: float | None = None, left_limit: bool = False, sliced: bool = False) -> CameraInfo:
+def get_camera_info(target_time: float | None = None, right_limit: bool = False) -> CameraInfo:
     result = +CameraInfo
     first_camera_ref = _initialization_archetype().at(0).first_camera_ref
     if first_camera_ref.index <= 0:
@@ -491,19 +491,8 @@ def get_camera_info(target_time: float | None = None, left_limit: bool = False, 
         )
         return result
     t = time() if target_time is None else target_time
-    camera_a_ref, camera_b_ref = query_event_list(first_camera_ref, t, lambda e: e.time)
+    camera_a_ref, camera_b_ref = query_event_list(first_camera_ref, t, lambda e: e.time, strict=not right_limit)
     camera_archetype = _camera_change_archetype()
-    if left_limit and camera_a_ref.index > 0:
-        camera_curr = get_event_as(camera_a_ref, camera_archetype)
-        if camera_curr.time == t:
-            camera_probe_ref = +camera_curr.prev_ref
-            while camera_probe_ref.index > 0:
-                if get_event_as(camera_probe_ref, camera_archetype).time != t:
-                    break
-                camera_a_ref.index = camera_probe_ref.index
-                camera_probe_ref.index = get_event_as(camera_probe_ref, camera_archetype).prev_ref.index
-            camera_b_ref.index = camera_a_ref.index
-            camera_a_ref.index = camera_probe_ref.index
     if camera_a_ref.index > 0:
         camera_a = get_event_as(camera_a_ref, camera_archetype)
         size_a = max(CAMERA_MIN_SIZE, camera_a.size)
@@ -511,8 +500,8 @@ def get_camera_info(target_time: float | None = None, left_limit: bool = False, 
             camera_b = get_event_as(camera_b_ref, camera_archetype)
             size_b = max(CAMERA_MIN_SIZE, camera_b.size)
             if camera_b.time > camera_a.time:
-                if (sliced or left_limit) and camera_a.ease == EaseType.IN_OUT_STEP:
-                    p = sliced_in_out_step_progress(t, camera_a.time, camera_b.time, left_limit)
+                if camera_a.ease == EaseType.IN_OUT_STEP:
+                    p = in_out_step_progress(t, camera_a.time, camera_b.time, right_limit)
                 else:
                     p = ease(camera_a.ease, unlerp(camera_a.time, camera_b.time, t))
                 ta = camera_zoom_target_at(
@@ -1554,8 +1543,8 @@ def compute_hitbox(
     )
 
 
-def camera_layout_transform_at_time(target_time: float, left_limit: bool = False) -> LayoutTransform:
-    return apply_test_aspect(layout_transform_at_camera(get_camera_info(target_time, left_limit=left_limit)))
+def camera_layout_transform_at_time(target_time: float) -> LayoutTransform:
+    return apply_test_aspect(layout_transform_at_camera(get_camera_info(target_time)))
 
 
 def compute_hitbox_at_time(
@@ -1566,10 +1555,9 @@ def compute_hitbox_at_time(
     y_offset: float = 0.0,
     *,
     stage_transform: StageScreenTransform,
-    left_limit: bool = False,
 ) -> Hitbox:
     return compute_hitbox(
-        camera_layout_transform_at_time(target_time, left_limit=left_limit),
+        camera_layout_transform_at_time(target_time),
         lane,
         size,
         leniency,

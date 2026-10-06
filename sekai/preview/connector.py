@@ -228,7 +228,7 @@ def draw_connector(
         tail_ease_frac,
         head_target_time,
         step_piece_time(ease_type, head_target_time, split_time, tail_target_time, head_target_time, False),
-        left_limit=False,
+        right_limit=True,
     )
     last_alpha = head_alpha
     last_target_time = head_target_time
@@ -257,7 +257,6 @@ def draw_connector(
                 tail_ease_frac,
                 next_target_time,
                 step_piece_time(ease_type, head_target_time, split_time, tail_target_time, next_target_time, at_event),
-                left_limit=at_event,
             )
             next_alpha = lerp(
                 head_alpha,
@@ -301,7 +300,7 @@ def draw_connector(
                     tail_ease_frac,
                     last_target_time,
                     step_piece_time(ease_type, head_target_time, split_time, tail_target_time, last_target_time, False),
-                    left_limit=False,
+                    right_limit=True,
                 )
 
 
@@ -328,7 +327,7 @@ def connector_sample_at(
     target_time: float,
     ease_time: float,
     *,
-    left_limit: bool,
+    right_limit: bool = False,
 ) -> PreviewConnectorSample:
     result = +PreviewConnectorSample
     _, interp_frac = get_connector_fractions(
@@ -339,13 +338,13 @@ def connector_sample_at(
         tail_ease_frac,
         ease_time,
     )
-    head_lane = head.visual_lane_at(target_time, left_limit=left_limit)
-    tail_lane = head_lane if is_in_step_ease(ease_type) else tail.visual_lane_at(target_time, left_limit=left_limit)
+    head_lane = head.visual_lane_at(target_time, right_limit=right_limit)
+    tail_lane = head_lane if is_in_step_ease(ease_type) else tail.visual_lane_at(target_time, right_limit=right_limit)
     result.raw_lane = lerp(head_lane, tail_lane, interp_frac)
     result.raw_size = lerp(head_size, tail_size, interp_frac)
     mask = interpolate_visual_masks(
-        head.visual_mask_at(target_time, left_limit=left_limit),
-        tail.visual_mask_at(target_time, left_limit=left_limit),
+        head.visual_mask_at(target_time, right_limit=right_limit),
+        tail.visual_mask_at(target_time, right_limit=right_limit),
         interp_frac,
     )
     result.lane = result.raw_lane
