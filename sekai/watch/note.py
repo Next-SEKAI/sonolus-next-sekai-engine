@@ -19,6 +19,7 @@ from sonolus.script.runtime import is_replay, is_skip, time
 from sonolus.script.timing import beat_to_time
 
 from sekai.debug import DISABLE_NOTES
+from sekai.lib import archetype_names
 from sekai.lib.connector import (
     ActiveConnectorInfo,
     ConnectorKind,
@@ -220,8 +221,6 @@ class WatchBaseNote(WatchArchetype):
         start_time = self.visual_start_time
 
         if self.is_scored:
-            # Keep a one-second buffer for hit particles without extending short lifetimes.
-            start_time = min(start_time, max(natural_start_time, self.despawn_time() - 1.0))
             input_start = self.target_time + get_note_window(self.kind).bad.start
             if self.kind == NoteKind.HIDE_DAMAGE_TICK:
                 window_start_beat = damage_tick_input_start_beat(self.beat)
@@ -243,9 +242,6 @@ class WatchBaseNote(WatchArchetype):
 
         if is_replay():
             if self.played_hit_effects:
-                if self.is_scored:
-                    # Spawn before the recorded hit so termination can emit its particles.
-                    start_time = min(start_time, self.end_time - 1.0)
                 if Options.auto_sfx:
                     schedule_note_auto_sfx(self.effect_kind, self.target_time)
                 else:
@@ -259,6 +255,9 @@ class WatchBaseNote(WatchArchetype):
                 self.schedule_slot_effects_at(self.target_time)
 
         self.result.target_time = self.target_time
+
+        if (not is_replay() or self.played_hit_effects) and self.is_scored:
+            WatchHitEffect.spawn(note_ref=self.ref())
 
         if start_time < inf:
             self.extend_stage_windows(start_time - 1.0, end_time + 1.0)
@@ -449,27 +448,22 @@ class WatchBaseNote(WatchArchetype):
             result @= self.hitbox.bounds
         return result
 
-    def terminate(self):
-        if is_skip():
-            return
-        if time() < self.despawn_time():
-            return
-        if (not is_replay() or self.played_hit_effects) and self.is_scored:
-            render_lane, render_size = self.visual_extents
-            play_note_hit_effects(
-                self.kind,
-                self.effect_kind,
-                render_lane,
-                render_size,
-                self.direction,
-                self.judgment,
-                y_offset=self.visual_y_offset,
-                pivot_lane=self.visual_pivot_lane,
-                half_offset=self.visual_half_offset,
-                lane_particles=self._stage_lane_particles_at(time(), right_limit=True),
-                transform=self.visual_stage_transform().to_screen_transform(),
-                style=self.style,
-            )
+    def play_hit_effects(self):
+        render_lane, render_size = self.visual_extents
+        play_note_hit_effects(
+            self.kind,
+            self.effect_kind,
+            render_lane,
+            render_size,
+            self.direction,
+            self.judgment,
+            y_offset=self.visual_y_offset,
+            pivot_lane=self.visual_pivot_lane,
+            half_offset=self.visual_half_offset,
+            lane_particles=self._stage_lane_particles_at(time(), right_limit=True),
+            transform=self.visual_stage_transform().to_screen_transform(),
+            style=self.style,
+        )
 
     def _basic_input_geometry(self, context: InputGeometryContext) -> InputGeometry:
         result = +InputGeometry
@@ -847,6 +841,30 @@ def compute_slide_input_bounds(
         input_y_offset,
         stage_transform=input_transform.to_screen_transform(),
     ).bounds
+
+
+class WatchHitEffect(WatchArchetype):
+    name = archetype_names.HIT_EFFECT
+
+    note_ref: EntityRef[WatchBaseNote] = entity_memory()
+    played: bool = entity_memory()
+
+    def spawn_time(self) -> float:
+        return self.note_ref.get().despawn_time()
+
+    def despawn_time(self) -> float:
+        return self.spawn_time() + 1
+
+    def initialize(self):
+        self.played = False
+
+    def update_parallel(self):
+        if self.played:
+            return
+        self.played = True
+        if is_skip():
+            return
+        self.note_ref.get().play_hit_effects()
 
 
 WATCH_NOTE_ARCHETYPES = derive_note_archetypes(WatchBaseNote)

@@ -15,7 +15,7 @@ from sekai.watch.dynamic_stage import (
     WatchStageTransformChange,
 )
 from sekai.watch.initialization import WatchInitialization
-from sekai.watch.note import WATCH_NOTE_ARCHETYPES
+from sekai.watch.note import WATCH_NOTE_ARCHETYPES, WatchHitEffect
 from sekai.watch.sim_line import WatchSimLine
 from sekai.watch.slot_effect import WATCH_SLOT_EFFECT_ARCHETYPES
 from sekai.watch.static_stage import WatchScheduledLaneEffect, WatchStaticStage
@@ -37,6 +37,7 @@ watch_mode = WatchMode(
         WatchTimescaleGroup,
         WatchTimescaleChange,
         *WATCH_NOTE_ARCHETYPES,
+        WatchHitEffect,
         *WATCH_CONNECTOR_ARCHETYPES,
         *WATCH_SLOT_EFFECT_ARCHETYPES,
         WatchSimLine,
