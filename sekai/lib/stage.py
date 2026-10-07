@@ -463,9 +463,7 @@ def _stage_style_interval_visible(style: StageStyleChangeLike) -> bool:
         return style.note_alpha > 0
     following = get_event_as(style.next_ref, _stage_style_change_archetype())
     _, upper = eased_range(style.note_alpha, following.note_alpha, style.ease)
-    return following.time > style.time and (
-        style.note_alpha > 0 or (not is_in_step_ease(style.ease) and upper > 0)
-    )
+    return following.time > style.time and (style.note_alpha > 0 or (not is_in_step_ease(style.ease) and upper > 0))
 
 
 def initialize_stage_note_visibility(stage: DynamicStageLike) -> float:
