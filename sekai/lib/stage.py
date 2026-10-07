@@ -462,8 +462,9 @@ def _stage_style_interval_visible(style: StageStyleChangeLike) -> bool:
     if style.next_ref.index <= 0:
         return style.note_alpha > 0
     following = get_event_as(style.next_ref, _stage_style_change_archetype())
+    _, upper = eased_range(style.note_alpha, following.note_alpha, style.ease)
     return following.time > style.time and (
-        style.note_alpha > 0 or (not is_in_step_ease(style.ease) and following.note_alpha > 0)
+        style.note_alpha > 0 or (not is_in_step_ease(style.ease) and upper > 0)
     )
 
 
@@ -520,8 +521,8 @@ def stage_note_visibility_end_before(stage: DynamicStageLike, end: float, earlie
 def stage_note_visibility_start(stage: DynamicStageLike, start: float, latest: float = inf) -> float:
     """Return the next time at or after start when stage notes could be visible.
 
-    Return latest if no potentially visible interval begins before it. If either
-    end of a fade has positive alpha, treat the whole fade as potentially visible.
+    Return latest if no potentially visible interval begins before it. Treat the
+    whole fade as potentially visible if its alpha can be positive.
     """
     if start >= latest:
         return latest
