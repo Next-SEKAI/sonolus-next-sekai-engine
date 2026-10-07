@@ -132,9 +132,12 @@ def in_out_step_jump_time(t_a: float, t_b: float) -> float:
 
 
 def in_out_step_progress(t: float, t_a: float, t_b: float, right_limit: bool) -> float:
-    # Jump exactly where preview slices split.
+    # Times within rounding error of the jump count as on it.
     jump_time = in_out_step_jump_time(t_a, t_b)
-    return 1.0 if t > jump_time or (right_limit and t == jump_time) else 0.0
+    tolerance = min(max(1.0, abs(jump_time)) * 2**-21, (t_b - t_a) / 8)
+    if right_limit:
+        return 1.0 if t >= jump_time - tolerance else 0.0
+    return 1.0 if t > jump_time + tolerance else 0.0
 
 
 def event_progress(ease_type: EaseType, t: float, t_a: float, t_b: float, right_limit: bool) -> float:
