@@ -15,7 +15,7 @@ from sonolus.script.vec import Vec2
 
 from sekai.lib import archetype_names
 from sekai.lib.baseevent import get_event_as, next_event_time_in_list, query_event_list
-from sekai.lib.ease import EaseType, ease, eased_range, in_out_step_progress
+from sekai.lib.ease import EaseType, eased_range, event_progress
 from sekai.lib.level_config import LevelConfig
 from sekai.lib.options import Options, StageCoverNoteSpeedCompensation
 
@@ -500,10 +500,7 @@ def get_camera_info(target_time: float | None = None, right_limit: bool = False)
             camera_b = get_event_as(camera_b_ref, camera_archetype)
             size_b = max(CAMERA_MIN_SIZE, camera_b.size)
             if camera_b.time > camera_a.time:
-                if camera_a.ease == EaseType.IN_OUT_STEP:
-                    p = in_out_step_progress(t, camera_a.time, camera_b.time, right_limit)
-                else:
-                    p = ease(camera_a.ease, unlerp(camera_a.time, camera_b.time, t))
+                p = event_progress(camera_a.ease, t, camera_a.time, camera_b.time, right_limit)
                 ta = camera_zoom_target_at(
                     camera_a.lane, size_a, camera_a.zoom_target_lane, camera_a.zoom_target_y, camera_a.stage_tilt
                 )
