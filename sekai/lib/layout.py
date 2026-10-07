@@ -475,7 +475,7 @@ def background_camera_zoom(bg: QuadLike) -> float:
     return max((cover_x + margin_x) / bw, (cover_y + margin_y) / bh, 1.0)
 
 
-def get_camera_info(target_time: float | None = None, right_limit: bool = False) -> CameraInfo:
+def get_camera_info(target_time: float | None = None, right_limit: bool = False, exact: bool = False) -> CameraInfo:
     result = +CameraInfo
     first_camera_ref = _initialization_archetype().at(0).first_camera_ref
     if first_camera_ref.index <= 0:
@@ -499,7 +499,7 @@ def get_camera_info(target_time: float | None = None, right_limit: bool = False)
         if camera_b_ref.index > 0:
             camera_b = get_event_as(camera_b_ref, camera_archetype)
             size_b = max(CAMERA_MIN_SIZE, camera_b.size)
-            p = event_progress(camera_a.ease, t, camera_a.time, camera_b.time, right_limit)
+            p = event_progress(camera_a.ease, t, camera_a.time, camera_b.time, right_limit, exact)
             ta = camera_zoom_target_at(
                 camera_a.lane, size_a, camera_a.zoom_target_lane, camera_a.zoom_target_y, camera_a.stage_tilt
             )

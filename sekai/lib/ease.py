@@ -131,18 +131,22 @@ def in_out_step_jump_time(t_a: float, t_b: float) -> float:
     return (t_a + t_b) / 2
 
 
-def in_out_step_progress(t: float, t_a: float, t_b: float, right_limit: bool) -> float:
-    # Times within rounding error of the jump count as on it.
+def in_out_step_progress(t: float, t_a: float, t_b: float, right_limit: bool, exact: bool = False) -> float:
+    # Times within rounding error of the jump count as on it, unless exact.
     jump_time = in_out_step_jump_time(t_a, t_b)
     tolerance = min(max(1.0, abs(jump_time)) * 2**-21, (t_b - t_a) / 8)
+    if exact:
+        tolerance = 0.0
     if right_limit:
         return 1.0 if t >= jump_time - tolerance else 0.0
     return 1.0 if t > jump_time + tolerance else 0.0
 
 
-def event_progress(ease_type: EaseType, t: float, t_a: float, t_b: float, right_limit: bool) -> float:
+def event_progress(
+    ease_type: EaseType, t: float, t_a: float, t_b: float, right_limit: bool, exact: bool = False
+) -> float:
     if ease_type == EaseType.IN_OUT_STEP:
-        return in_out_step_progress(t, t_a, t_b, right_limit)
+        return in_out_step_progress(t, t_a, t_b, right_limit, exact)
     return ease(ease_type, (t - t_a) / (t_b - t_a))
 
 
