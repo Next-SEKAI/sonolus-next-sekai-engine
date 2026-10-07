@@ -621,25 +621,6 @@ class WatchBaseNote(WatchArchetype):
             result @= self._basic_stage_transform_at(t)
         return result
 
-    def _stage_pivot_lane_at(self, t: float) -> float:
-        if self.stage_ref.index <= 0:
-            return 0.0
-        return get_stage_props(self.stage_ref.get(), t).pivot_lane
-
-    def _stage_half_offset_at(self, t: float) -> bool:
-        if self.stage_ref.index <= 0:
-            return False
-        division = get_stage_props(self.stage_ref.get(), t).division.start
-        return division.parity == DivisionParity.ODD and division.size % 2 == 1
-
-    def _stage_single_line_at(self, t: float) -> bool:
-        if self.stage_ref.index <= 0:
-            return False
-        return (
-            resolve_judge_line_style(get_stage_props(self.stage_ref.get(), t).judge_line_style)
-            == JudgeLineStyle.SINGLE_LINE
-        )
-
     def _stage_lane_particles_at(self, t: float, right_limit: bool = False) -> bool:
         if self.stage_ref.index <= 0:
             return True

@@ -39,7 +39,7 @@ from sekai.lib.connector import (
 )
 from sekai.lib.ease import EaseType, is_in_step_ease, safe_unlerp_clamped
 from sekai.lib.layout import StageTransform, blend_stage_transform
-from sekai.lib.note import NoteKind, draw_connector_hitbox_overlay, draw_slide_note_head, get_attach_params
+from sekai.lib.note import NoteKind, draw_connector_hitbox_overlay, draw_slide_note_head
 from sekai.lib.options import Options
 from sekai.lib.stage import VisualMask, masked_note_extents_by_limits
 from sekai.lib.streams import Streams
@@ -412,20 +412,6 @@ class Connector(PlayArchetype):
             return
         if time() in self.input_active_interval:
             draw_connector_hitbox_overlay(self.active_connector_info.input_bounds, 0.6)
-
-    def get_attached_params(self, target_time: float) -> tuple[float, float]:
-        head = self.head_ref.get().effective_attach_head
-        tail = self.tail_ref.get().effective_attach_tail
-        return get_attach_params(
-            ease_type=self.ease_type,
-            head_lane=head._basic_visual_lane_at(target_time),
-            head_size=head.size,
-            head_target_time=head.target_time,
-            tail_lane=tail._basic_visual_lane_at(target_time),
-            tail_size=tail.size,
-            tail_target_time=tail.target_time,
-            target_time=target_time,
-        )
 
     def current_visual_head_extents(self) -> tuple[float, float]:
         head = self.head
