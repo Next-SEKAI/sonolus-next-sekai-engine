@@ -55,8 +55,10 @@ from sekai.lib.note import (
     get_note_bucket,
     get_note_effect_kind,
     get_note_window,
+    has_note_particles,
     hitbox_draw_alpha,
     hitbox_draw_start,
+    is_avoided_damage,
     is_head,
     map_note_kind,
     mirror_flick_direction,
@@ -256,7 +258,13 @@ class WatchBaseNote(WatchArchetype):
 
         self.result.target_time = self.target_time
 
-        if (not is_replay() or self.played_hit_effects) and self.is_scored:
+        if (
+            (not is_replay() or self.played_hit_effects)
+            and self.is_scored
+            and (Options.note_effect_enabled or Options.lane_effect_enabled)
+            and has_note_particles(self.kind)
+            and not is_avoided_damage(self.kind, self.judgment)
+        ):
             WatchHitEffect.spawn(note_ref=self.ref())
 
         if start_time < inf:

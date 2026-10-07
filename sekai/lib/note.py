@@ -647,11 +647,15 @@ def draw_note_arrow(
             sprites.get_sprite(size, direction).draw(layout, z=z.tuple, a=a)
 
 
+def has_note_particles(kind: NoteKind) -> bool:
+    return kind not in {NoteKind.HIDE_TICK, NoteKind.HIDE_DAMAGE_TICK, NoteKind.ANCHOR}
+
+
 def get_note_particles(
     kind: NoteKind, direction: FlickDirection, style: NoteStyle = NoteStyle.DEFAULT
 ) -> NoteParticleSet:
     result = +NoteParticleSet
-    if kind in {NoteKind.HIDE_TICK, NoteKind.HIDE_DAMAGE_TICK, NoteKind.ANCHOR}:
+    if not has_note_particles(kind):
         result @= EMPTY_NOTE_PARTICLE_SET
     else:
         result @= styled_note_particles(get_note_visual_family(kind, direction), style)
@@ -798,6 +802,10 @@ def get_note_effect(kind: NoteEffectKind, judgment: Judgment):
     return result
 
 
+def is_avoided_damage(kind: NoteKind, judgment: Judgment) -> bool:
+    return kind == NoteKind.DAMAGE and judgment == Judgment.PERFECT
+
+
 def play_note_hit_effects(
     kind: NoteKind,
     effect_kind: NoteEffectKind,
@@ -821,7 +829,7 @@ def play_note_hit_effects(
     sfx = get_note_effect(effect_kind, judgment)
     if Options.sfx_enabled and not Options.auto_sfx and not is_watch() and sfx.is_available:
         sfx.play(SFX_DISTANCE)
-    if kind == NoteKind.DAMAGE and judgment == Judgment.PERFECT:
+    if is_avoided_damage(kind, judgment):
         return
     particles = get_note_particles(kind, direction, style)
     if Options.note_effect_enabled:
