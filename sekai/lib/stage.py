@@ -643,10 +643,9 @@ def update_stage_mask_props(result: StageProps, first_mask_change_ref: EntityRef
             mask_b = get_event_as(mask_b_ref, _stage_mask_change_archetype())
             t_a = mask_a.time
             t_b = mask_b.time
-            if t_b > t_a:
-                p = event_progress(mask_a.ease, t, t_a, t_b, right_limit)
-                result.lane = lerp(mask_a.lane, mask_b.lane, p)
-                result.width = max(0.0, lerp(mask_a.size, mask_b.size, p))
+            p = event_progress(mask_a.ease, t, t_a, t_b, right_limit)
+            result.lane = lerp(mask_a.lane, mask_b.lane, p)
+            result.width = max(0.0, lerp(mask_a.size, mask_b.size, p))
     elif mask_b_ref.index > 0:
         mask_b = get_event_as(mask_b_ref, _stage_mask_change_archetype())
         result.lane = mask_b.lane
@@ -677,25 +676,24 @@ def update_stage_style_props(
             style_b = get_event_as(style_b_ref, _stage_style_change_archetype())
             t_a = style_a.time
             t_b = style_b.time
-            if t_b > t_a:
-                p = event_progress(style_a.ease, t, t_a, t_b, right_limit)
-                result.judge_line_color.end = style_b.judge_line_color
-                result.judge_line_color.progress = p
-                result.judge_line_style.end = style_b.judge_line_style
-                result.judge_line_style.progress = p
-                result.left_border_style.end = style_b.left_border_style
-                result.left_border_style.progress = p
-                result.right_border_style.end = style_b.right_border_style
-                result.right_border_style.progress = p
-                result.lane_alpha = clamp(lerp(style_a.lane_alpha, style_b.lane_alpha, p), 0.0, 1.0)
-                result.judge_line_alpha = clamp(lerp(style_a.judge_line_alpha, style_b.judge_line_alpha, p), 0.0, 1.0)
-                result.full_width = clamp(
-                    lerp(full_width_factor(style_a.full_width), full_width_factor(style_b.full_width), p), 0.0, 1.0
-                )
-                result.division_line_alpha = clamp(
-                    lerp(style_a.division_line_alpha, style_b.division_line_alpha, p), 0.0, 1.0
-                )
-                result.note_alpha = clamp(lerp(style_a.note_alpha, style_b.note_alpha, p), 0.0, 1.0)
+            p = event_progress(style_a.ease, t, t_a, t_b, right_limit)
+            result.judge_line_color.end = style_b.judge_line_color
+            result.judge_line_color.progress = p
+            result.judge_line_style.end = style_b.judge_line_style
+            result.judge_line_style.progress = p
+            result.left_border_style.end = style_b.left_border_style
+            result.left_border_style.progress = p
+            result.right_border_style.end = style_b.right_border_style
+            result.right_border_style.progress = p
+            result.lane_alpha = clamp(lerp(style_a.lane_alpha, style_b.lane_alpha, p), 0.0, 1.0)
+            result.judge_line_alpha = clamp(lerp(style_a.judge_line_alpha, style_b.judge_line_alpha, p), 0.0, 1.0)
+            result.full_width = clamp(
+                lerp(full_width_factor(style_a.full_width), full_width_factor(style_b.full_width), p), 0.0, 1.0
+            )
+            result.division_line_alpha = clamp(
+                lerp(style_a.division_line_alpha, style_b.division_line_alpha, p), 0.0, 1.0
+            )
+            result.note_alpha = clamp(lerp(style_a.note_alpha, style_b.note_alpha, p), 0.0, 1.0)
     elif style_b_ref.index > 0:
         style_b = get_event_as(style_b_ref, _stage_style_change_archetype())
         result.judge_line_color.start = style_b.judge_line_color
@@ -730,15 +728,14 @@ def update_stage_transform_props(
             transform_b = get_event_as(transform_b_ref, _stage_transform_change_archetype())
             t_a = transform_a.time
             t_b = transform_b.time
-            if t_b > t_a:
-                p = event_progress(transform_a.ease, t, t_a, t_b, right_limit)
-                result.rotate = lerp(transform_a.rotate, transform_b.rotate, p)
-                result.x_lane_translate = lerp(transform_a.x_lane_translate, transform_b.x_lane_translate, p)
-                result.y_lane_translate = lerp(transform_a.y_lane_translate, transform_b.y_lane_translate, p)
-                result.elevation = lerp(transform_a.elevation, transform_b.elevation, p)
-                result.center_weight = lerp(
-                    center_anchor_weight(transform_a.anchor), center_anchor_weight(transform_b.anchor), p
-                )
+            p = event_progress(transform_a.ease, t, t_a, t_b, right_limit)
+            result.rotate = lerp(transform_a.rotate, transform_b.rotate, p)
+            result.x_lane_translate = lerp(transform_a.x_lane_translate, transform_b.x_lane_translate, p)
+            result.y_lane_translate = lerp(transform_a.y_lane_translate, transform_b.y_lane_translate, p)
+            result.elevation = lerp(transform_a.elevation, transform_b.elevation, p)
+            result.center_weight = lerp(
+                center_anchor_weight(transform_a.anchor), center_anchor_weight(transform_b.anchor), p
+            )
     elif transform_b_ref.index > 0:
         transform_b = get_event_as(transform_b_ref, _stage_transform_change_archetype())
         result.rotate = transform_b.rotate
@@ -771,13 +768,12 @@ def update_stage_pivot_props(
             pivot_b = get_event_as(pivot_b_ref, _stage_pivot_change_archetype())
             t_a = pivot_a.time
             t_b = pivot_b.time
-            if t_b > t_a:
-                p = event_progress(pivot_a.ease, t, t_a, t_b, right_limit)
-                result.pivot_lane = lerp(pivot_a.lane, pivot_b.lane, p)
-                result.division.end.size = int(pivot_b.division_size)
-                result.division.end.parity = pivot_b.division_parity
-                result.division.progress = p
-                result.y_offset = lerp(pivot_a.y_offset, pivot_b.y_offset, p)
+            p = event_progress(pivot_a.ease, t, t_a, t_b, right_limit)
+            result.pivot_lane = lerp(pivot_a.lane, pivot_b.lane, p)
+            result.division.end.size = int(pivot_b.division_size)
+            result.division.end.parity = pivot_b.division_parity
+            result.division.progress = p
+            result.y_offset = lerp(pivot_a.y_offset, pivot_b.y_offset, p)
     elif pivot_b_ref.index > 0:
         pivot_b = get_event_as(pivot_b_ref, _stage_pivot_change_archetype())
         result.pivot_lane = pivot_b.lane
