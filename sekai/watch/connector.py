@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from math import inf
-from typing import assert_never
+from typing import assert_never, cast
 
 from sonolus.script.archetype import EntityRef, WatchArchetype, callback, entity_data, entity_memory, imported
 from sonolus.script.interval import Interval, lerp
@@ -16,11 +16,15 @@ from sekai.lib.connector import (
     CONNECTOR_THROUGH_JUDGE_LINE_DESPAWN_DELAY,
     CONNECTOR_TRAIL_SPAWN_PERIOD,
     ActiveConnectorInfo,
+    ActiveConnectorKind,
     ConnectorKind,
     ConnectorVisualState,
+    DamageConnectorKind,
+    SlideConnectorKind,
     destroy_looped_particle,
     draw_connector,
     draw_connector_slot_glow_effect,
+    get_connector_alpha_frac,
     get_connector_alpha_option,
     get_connector_base_kind,
     get_connector_fractions,
@@ -219,11 +223,18 @@ class WatchConnector(WatchArchetype):
             head_mask = +VisualMask
             head_mask @= head.visual_mask
             tail_mask = tail.visual_mask
+            head_alpha_frac = -1.0
+            tail_alpha_frac = -1.0
+            if segment_head.beat == segment_tail.beat:
+                head_alpha_frac = get_connector_alpha_frac(head, segment_head, segment_tail)
+                tail_alpha_frac = get_connector_alpha_frac(tail, segment_head, segment_tail)
             if time() >= head.target_time and not segment_head.segment_through_judge_line:
                 head_frac = safe_unlerp_clamped(head.target_time, tail.target_time, time())
                 head_visual_progress = 1.0 - lerp(head.visual_y_offset, tail.visual_y_offset, head_frac)
                 head_target_time = time()
                 head_note_alpha = lerp(head_note_alpha, tail_note_alpha, head_frac)
+                if head_alpha_frac >= 0:
+                    head_alpha_frac = lerp(head_alpha_frac, tail_alpha_frac, head_frac)
                 if is_in_step_ease(self.ease_type) or head_frac <= 0:
                     head_lane = head.visual_lane
                     head_size = head.size
@@ -254,6 +265,21 @@ class WatchConnector(WatchArchetype):
                 )
                 head_target_time = head.target_time
                 head_ease_frac = head.head_ease_frac
+
+            tail_ease_frac = tail.tail_ease_frac
+            if head.beat == tail.beat and (head.has_time_attachment or tail.has_time_attachment):
+                # Same-beat slices of time attachments use their own elevation span.
+                head_ease_frac = 0.0
+                tail_ease_frac = 1.0
+
+            def elevation_transform(interp_frac: float, elevation_frac: float) -> StageTransform:
+                elevation = lerp(head.effective_elevation(), tail.effective_elevation(), elevation_frac)
+                return blend_stage_transform(
+                    head.stage_transform_at_elevation(elevation),
+                    tail.stage_transform_at_elevation(elevation),
+                    interp_frac,
+                )
+
             draw_connector(
                 kind=self.kind,
                 visual_state=visual_state,
@@ -269,7 +295,7 @@ class WatchConnector(WatchArchetype):
                     tail, self.tail_trajectory_first, self.tail_trajectory_second, time()
                 ),
                 tail_target_time=tail.target_time,
-                tail_ease_frac=tail.tail_ease_frac,
+                tail_ease_frac=tail_ease_frac,
                 segment_head_target_time=segment_head.target_time,
                 segment_head_lane=segment_head.lane,
                 segment_head_alpha=segment_head.segment_alpha,
@@ -285,6 +311,10 @@ class WatchConnector(WatchArchetype):
                 tail_note_alpha=tail_note_alpha,
                 head_mask=head_mask,
                 tail_mask=tail_mask,
+                ease_over_elevation=head.beat == tail.beat,
+                elevation_transform=elevation_transform,
+                head_alpha_frac=head_alpha_frac,
+                tail_alpha_frac=tail_alpha_frac,
             )
 
     def draw_fake_damage_head(self):
@@ -311,7 +341,7 @@ class WatchConnector(WatchArchetype):
         transform = blend_stage_transform(head.visual_stage_transform(), tail.visual_stage_transform(), transform_frac)
         draw_slide_note_head(
             self.segment_head.kind,
-            self.kind,
+            cast(DamageConnectorKind, self.kind),
             lane,
             size,
             self.segment_head.target_time,
@@ -376,7 +406,8 @@ class WatchConnector(WatchArchetype):
                 ].iter_items_from(-2):
                     if get_connector_base_kind(next_sfx_kind) == get_connector_base_kind(last_sfx_kind):
                         continue
-                    match get_connector_base_kind(last_sfx_kind):
+                    base_kind = get_connector_base_kind(last_sfx_kind)
+                    match base_kind:
                         case (
                             ConnectorKind.ACTIVE_NORMAL
                             | ConnectorKind.ACTIVE_CRITICAL
@@ -384,7 +415,10 @@ class WatchConnector(WatchArchetype):
                             | ConnectorKind.FAKE_ACTIVE_CRITICAL
                         ):
                             schedule_connector_sfx(
-                                last_sfx_kind, self.segment_head.timescale_group, last_time, next_time
+                                cast(ActiveConnectorKind, last_sfx_kind),
+                                self.segment_head.timescale_group,
+                                last_time,
+                                next_time,
                             )
                         case (
                             ConnectorKind.NONE
@@ -401,11 +435,12 @@ class WatchConnector(WatchArchetype):
                         ):
                             pass
                         case _:
-                            assert_never(last_sfx_kind)
+                            assert_never(base_kind)
                     last_sfx_kind = next_sfx_kind
                     last_time = next_time
         elif self.head_ref.index == self.segment_head_ref.index:
-            match get_connector_base_kind(self.kind):
+            base_kind = get_connector_base_kind(self.kind)
+            match base_kind:
                 case (
                     ConnectorKind.ACTIVE_NORMAL
                     | ConnectorKind.ACTIVE_CRITICAL
@@ -413,7 +448,7 @@ class WatchConnector(WatchArchetype):
                     | ConnectorKind.FAKE_ACTIVE_CRITICAL
                 ):
                     schedule_connector_sfx(
-                        self.kind,
+                        cast(ActiveConnectorKind, self.kind),
                         self.segment_head.timescale_group,
                         self.segment_head.target_time,
                         self.segment_tail.target_time,
@@ -433,7 +468,7 @@ class WatchConnector(WatchArchetype):
                 ):
                     pass
                 case _:
-                    assert_never(self.kind)
+                    assert_never(base_kind)
 
     @property
     def head(self):
@@ -533,7 +568,7 @@ class WatchSlideManager(WatchArchetype):
                 if not skipping:
                     update_circular_connector_particle(
                         self.circular_particle,
-                        connector_kind,
+                        cast(ActiveConnectorKind, connector_kind),
                         self.visual_lane,
                         replace,
                         self.visual_y_offset,
@@ -541,7 +576,7 @@ class WatchSlideManager(WatchArchetype):
                     )
                     update_linear_connector_particle(
                         self.linear_particle,
-                        connector_kind,
+                        cast(ActiveConnectorKind, connector_kind),
                         self.visual_lane,
                         replace,
                         self.visual_y_offset,
@@ -554,7 +589,10 @@ class WatchSlideManager(WatchArchetype):
                             time() + trail_period / 2,
                         )
                         spawn_linear_connector_trail_particle(
-                            connector_kind, self.visual_lane, self.visual_y_offset, transform=head_transform
+                            cast(ActiveConnectorKind, connector_kind),
+                            self.visual_lane,
+                            self.visual_y_offset,
+                            transform=head_transform,
                         )
                     if self.visual_size > 0:
                         slot_period = CONNECTOR_SLOT_SPAWN_PERIOD / Options.effect_animation_speed
@@ -564,14 +602,14 @@ class WatchSlideManager(WatchArchetype):
                                 time() + slot_period / 2,
                             )
                             spawn_connector_slot_particles(
-                                connector_kind,
+                                cast(ActiveConnectorKind, connector_kind),
                                 self.visual_lane,
                                 self.visual_size,
                                 self.visual_y_offset,
                                 transform=head_transform,
                             )
                         draw_connector_slot_glow_effect(
-                            connector_kind,
+                            cast(ActiveConnectorKind, connector_kind),
                             self.active_head.target_time,
                             self.visual_lane,
                             self.visual_size,
@@ -595,7 +633,7 @@ class WatchSlideManager(WatchArchetype):
             ) if self.visual_size > 0:
                 draw_slide_note_head(
                     self.active_head.kind,
-                    info.connector_kind,
+                    cast(SlideConnectorKind, info.connector_kind),
                     self.visual_lane,
                     self.visual_size,
                     self.active_head.target_time,

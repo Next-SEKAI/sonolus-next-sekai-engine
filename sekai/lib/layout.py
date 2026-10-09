@@ -326,6 +326,59 @@ def blend_stage_transform(a: StageTransform, b: StageTransform, frac: float) -> 
     )
 
 
+class StageTransformParams(Record):
+    """Stage parameters with combined note and stage elevation."""
+
+    stage_rotate: float
+    x_lane_translate: float
+    y_lane_translate: float
+    mask_lane: float
+    center_weight: float
+    elevation: float
+
+
+def compute_stage_transform_at_elevation(
+    camera: LayoutTransform, params: StageTransformParams, elevation: float
+) -> StageTransform:
+    return compute_stage_transform(
+        camera,
+        params.stage_rotate,
+        params.x_lane_translate,
+        params.y_lane_translate,
+        params.mask_lane,
+        params.center_weight,
+        elevation,
+    )
+
+
+def blend_stage_transform_at_elevation(
+    camera: LayoutTransform,
+    head: StageTransformParams,
+    tail: StageTransformParams,
+    frac: float,
+    elevation: float,
+) -> StageTransform:
+    """Rebuild pivots and translations at a common elevation before blending."""
+    return blend_stage_transform(
+        compute_stage_transform_at_elevation(camera, head, elevation),
+        compute_stage_transform_at_elevation(camera, tail, elevation),
+        frac,
+    )
+
+
+def blend_stage_transform_over_elevation(
+    camera: LayoutTransform,
+    head: StageTransformParams,
+    tail: StageTransformParams,
+    frac: float,
+    elevation_frac: float,
+) -> StageTransform:
+    """Interpolate elevation before projection clamps it, independently of lateral easing."""
+    return blend_stage_transform_at_elevation(
+        camera, head, tail, frac, lerp(head.elevation, tail.elevation, elevation_frac)
+    )
+
+
 def stage_aspect_ratio_locked() -> bool:
     return Options.lock_stage_aspect_ratio or LevelConfig.has_stage_transforms
 
