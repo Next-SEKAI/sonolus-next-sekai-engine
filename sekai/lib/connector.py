@@ -73,7 +73,7 @@ CONNECTOR_ZERO_SIZE_FALLBACK = 1e-3
 CONNECTOR_ALPHA_ERROR = 1 / 192
 CONNECTOR_ALPHA_SEGMENT_LENGTH = 2 * (32 / 1080)
 CONNECTOR_MIN_SEGMENT_LENGTH = 2 * (4 / 1080)
-CONNECTOR_CURVE_ERROR = 2 * (2.5 / 1080)
+CONNECTOR_CURVE_ERROR = 2 * (2 / 1080)
 CONNECTOR_CURVE_PIECES = 8
 CONNECTOR_CURVE_PIECE_THRESHOLD = 32
 
@@ -1560,19 +1560,21 @@ def connector_curve_detail(
     end_travel: float,
 ) -> float:
     """Estimate segments needed to limit visible curve error."""
+    start_width = tilt_width_factor(start_travel)
+    end_width = tilt_width_factor(end_travel)
     if (
         is_step_ease(ease_type)
         or (left_change == 0 and right_change == 0)
         or abs(tail_eased - head_eased) < 1e-6
-        or min(start_travel, end_travel) <= 0
+        or min(start_width, end_width) <= 0
     ):
         return 0.0
     start = min(start_ease_frac, end_ease_frac)
     end = max(start_ease_frac, end_ease_frac)
     span = end - start
     lane_change = max(abs(left_change), abs(right_change)) / abs(tail_eased - head_eased)
-    approach_rate = abs(log(end_travel / start_travel))
-    width = tilt_width_factor(max(start_travel, end_travel)) * DynamicLayout.w_scale
+    approach_rate = abs(log(end_width / start_width))
+    width = max(start_width, end_width) * DynamicLayout.w_scale
     bend = span * ease_derivative_bound(ease_type, 2, start, end) + approach_rate * ease_derivative_bound(
         ease_type, 1, start, end
     )
