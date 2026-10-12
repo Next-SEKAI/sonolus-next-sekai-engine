@@ -74,6 +74,8 @@ CONNECTOR_ALPHA_ERROR = 1 / 192
 CONNECTOR_ALPHA_SEGMENT_LENGTH = 2 * (32 / 1080)
 CONNECTOR_MIN_SEGMENT_LENGTH = 2 * (4 / 1080)
 CONNECTOR_CURVE_ERROR = 2 * (2.5 / 1080)
+CONNECTOR_MIN_CURVE_ERROR = 2 * (1 / 1080)
+CONNECTOR_CURVE_ERROR_RATIO = 0.01
 CONNECTOR_CURVE_PIECES = 8
 CONNECTOR_CURVE_PIECE_THRESHOLD = 32
 
@@ -1548,6 +1550,10 @@ def ease_derivative_bound(ease_type: EaseType, order: int, start: float, end: fl
     return max(CURVE_DERIVATIVE_BOUNDS[base + first], CURVE_DERIVATIVE_BOUNDS[base + last - run + 1])
 
 
+def connector_curve_error(length: float) -> float:
+    return clamp(length * CONNECTOR_CURVE_ERROR_RATIO, CONNECTOR_MIN_CURVE_ERROR, CONNECTOR_CURVE_ERROR)
+
+
 def connector_curve_detail(
     ease_type: EaseType,
     head_eased: float,
@@ -1558,6 +1564,7 @@ def connector_curve_detail(
     right_change: float,
     start_travel: float,
     end_travel: float,
+    curve_error: float,
 ) -> float:
     """Estimate segments needed to limit visible curve error."""
     if (
@@ -1576,7 +1583,7 @@ def connector_curve_detail(
     bend = span * ease_derivative_bound(ease_type, 2, start, end) + approach_rate * ease_derivative_bound(
         ease_type, 1, start, end
     )
-    return sqrt(width * lane_change * span * bend / (8 * CONNECTOR_CURVE_ERROR))
+    return sqrt(width * lane_change * span * bend / (8 * curve_error))
 
 
 def circular_connector_ease(ease_type: EaseType, frac: float) -> float:
@@ -1598,6 +1605,7 @@ def circular_connector_fracs(
     end_progress: float,
     lane_change: float,
     quality: float,
+    curve_error: float,
 ) -> None:
     """Split circular curves where straight segments differ too much."""
     result.clear()
@@ -1613,7 +1621,7 @@ def circular_connector_fracs(
     travels.append(last_travel)
     positions.append(circular_connector_ease(ease_type, end_ease_frac) * tilt_width_factor(last_travel))
     depths.append(0)
-    tolerance = CONNECTOR_CURVE_ERROR / (2 * quality * quality)
+    tolerance = curve_error / (2 * quality * quality)
     while len(ends) > 0:
         last, last_travel, last_x, depth = ends.pop(), travels.pop(), positions.pop(), depths.pop()
         error = 0.0
@@ -1732,7 +1740,9 @@ def elevation_connector_fracs(
     raw_rights.append(final_raw_right)
     rotations.append(final_rotation)
     depths.append(0)
-    tolerance = CONNECTOR_CURVE_ERROR / (2 * quality * quality)
+    tolerance = connector_curve_error(
+        max((final_raw_left - first_raw_left).magnitude, (final_raw_right - first_raw_right).magnitude)
+    ) / (2 * quality * quality)
     while len(ends) > 0:
         last, last_left, last_right = ends.pop(), lefts.pop(), rights.pop()
         last_raw_left, last_raw_right = raw_lefts.pop(), raw_rights.pop()
@@ -1907,9 +1917,21 @@ def draw_connector_default(
     )
     constant_transform = has_transform and transforms_equal
     heterogeneous_endpoints = (has_transform and not constant_transform) or (mask_enabled and not same_mask_stage)
+    curve_error = CONNECTOR_CURVE_ERROR
     if heterogeneous_endpoints:
         geometry_detail = 20.0
     else:
+        curve_error = connector_curve_error(
+            connector_span_length(
+                head_lane,
+                head_size,
+                approach(clamp(head_visual_progress, DynamicLayout.progress_start, DynamicLayout.progress_cutoff)),
+                tail_lane,
+                tail_size,
+                approach(clamp(tail_visual_progress, DynamicLayout.progress_start, DynamicLayout.progress_cutoff)),
+                has_transform=False,
+            )
+        )
         geometry_detail = connector_curve_detail(
             ease_type,
             head_eased,
@@ -1920,6 +1942,7 @@ def draw_connector_default(
             tail_lane + tail_size - (head_lane + head_size),
             start_travel,
             end_travel,
+            curve_error,
         )
     quality = get_connector_quality_option(kind)
     circular_fracs = VarArray[float, Dim[128]].new()
@@ -1971,6 +1994,7 @@ def draw_connector_default(
             max(abs(tail_lane - tail_size - head_lane + head_size), abs(tail_lane + tail_size - head_lane - head_size))
             / abs(tail_eased - head_eased),
             quality,
+            curve_error,
         )
         if len(circular_fracs) > 0:
             geometry_detail = len(circular_fracs) / quality
@@ -2079,6 +2103,7 @@ def draw_connector_default(
                 tail_lane + tail_size - (head_lane + head_size),
                 piece_start_travel,
                 piece_end_travel,
+                curve_error,
             )
             piece_counts.append(max(1, ceil(detail * quality), alpha_count))
             total += piece_counts[piece]
