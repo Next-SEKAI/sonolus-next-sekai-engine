@@ -20,7 +20,7 @@ from sekai.watch.static_stage import WatchScheduledLaneEffect, WatchStaticStage
 class WatchInitialization(WatchArchetype):
     name = archetype_names.INITIALIZATION
 
-    revision: EngineRevision = imported(name="revision", default=EngineRevision.LATEST)
+    revision: EngineRevision = imported(name="revision", default=EngineRevision.SONOLUS_1_1_0)
     replay_revision: EngineRevision = imported(name="replayRevision", default=EngineRevision.BASE)
     initial_life: int = imported(name="initialLife", default=1000)
     first_camera_ref: EntityRef[WatchCameraChange] = imported(name="firstCamera")
