@@ -89,7 +89,6 @@ from sekai.lib.stage import (
     get_stage_y_offset,
     interpolate_visual_masks,
     masked_note_extents_by_limits,
-    resolve_judge_line_style,
 )
 from sekai.lib.timescale import (
     TargetPosition,
@@ -1014,7 +1013,7 @@ class BaseNote(PlayArchetype):
         result = +StageTransformParams
         result.elevation = self.elevation
         if self.stage_ref.index > 0:
-            props = +self.stage_ref.get().props if t is None else get_stage_props(self.stage_ref.get(), t)
+            props = +self.stage_ref.get().props if t is None else get_stage_props(self.stage_ref.get(), t).shared()
             result.stage_rotate = props.rotate
             result.x_lane_translate = props.x_lane_translate
             result.y_lane_translate = props.y_lane_translate
@@ -1170,7 +1169,7 @@ class BaseNote(PlayArchetype):
     @property
     def visual_half_offset(self) -> bool:
         if self.stage_ref.index > 0:
-            division = self.stage_ref.get().props.division.start
+            division = self.stage_ref.get().props.division_start
             return division.parity == DivisionParity.ODD and division.size % 2 == 1
         else:
             return False
@@ -1178,7 +1177,7 @@ class BaseNote(PlayArchetype):
     @property
     def visual_single_line(self) -> bool:
         if self.stage_ref.index > 0:
-            return resolve_judge_line_style(self.stage_ref.get().props.judge_line_style) == JudgeLineStyle.SINGLE_LINE
+            return self.stage_ref.get().props.resolved_judge_line_style == JudgeLineStyle.SINGLE_LINE
         else:
             return False
 

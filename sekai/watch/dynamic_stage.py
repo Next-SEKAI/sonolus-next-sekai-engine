@@ -8,6 +8,7 @@ from sonolus.script.archetype import (
     WatchArchetype,
     callback,
     entity_data,
+    entity_memory,
     imported,
     shared_memory,
 )
@@ -20,6 +21,7 @@ from sekai.lib.baseevent import BaseEvent, init_event_list
 from sekai.lib.ease import EaseType
 from sekai.lib.layout import StageTransformAnchor, ZoomVerticalAlign, preempt_time
 from sekai.lib.level_config import LevelConfig
+from sekai.lib.note_style import NoteStyle
 from sekai.lib.options import Options
 from sekai.lib.stage import (
     DivisionParity,
@@ -27,6 +29,7 @@ from sekai.lib.stage import (
     JudgeLineStyle,
     StageBorderStyle,
     StageProps,
+    StageSharedProps,
     get_draw_end_time,
     get_draw_start_time,
     get_end_time,
@@ -110,7 +113,8 @@ class WatchDynamicStage(WatchArchetype):
     y_offset_bounds: Interval = entity_data()
     note_visibility_end: float = entity_data()
 
-    props: StageProps = shared_memory()
+    draw_props: StageProps = entity_memory()
+    props: StageSharedProps = shared_memory()
 
     @callback(order=-1)
     def preprocess(self):
@@ -140,13 +144,14 @@ class WatchDynamicStage(WatchArchetype):
 
     @callback(order=-2)
     def update_sequential(self):
-        self.props @= get_stage_props(self, right_limit=True)
+        self.draw_props @= get_stage_props(self, right_limit=True)
+        self.props @= self.draw_props.shared()
 
     def update_parallel(self):
         t = time()
         if t < self.draw_start_time or t > self.draw_end_time:
             return
-        self.props.draw(self.index)
+        self.draw_props.draw(self.index)
 
 
 class WatchStageMaskChange(WatchArchetype, BaseEvent):
@@ -199,6 +204,7 @@ class WatchStageStyleChange(WatchArchetype, BaseEvent):
 
     stage_ref: EntityRef[WatchDynamicStage] = imported(name="stage")
     beat: StandardImport.BEAT
+    lane_color: NoteStyle = imported(name="laneColor", default=NoteStyle.DEFAULT)
     judge_line_color: JudgeLineColor = imported(name="judgeLineColor")
     judge_line_style: JudgeLineStyle = imported(name="judgeLineStyle")
     left_border_style: StageBorderStyle = imported(name="leftBorderStyle")

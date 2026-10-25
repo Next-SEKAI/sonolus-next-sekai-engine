@@ -568,7 +568,7 @@ class WatchBaseNote(WatchArchetype):
         result = +StageTransformParams
         result.elevation = self.elevation
         if self.stage_ref.index > 0:
-            props = +self.stage_ref.get().props if t is None else get_stage_props(self.stage_ref.get(), t)
+            props = +self.stage_ref.get().props if t is None else get_stage_props(self.stage_ref.get(), t).shared()
             result.stage_rotate = props.rotate
             result.x_lane_translate = props.x_lane_translate
             result.y_lane_translate = props.y_lane_translate
@@ -801,7 +801,7 @@ class WatchBaseNote(WatchArchetype):
     @property
     def visual_half_offset(self) -> bool:
         if self.stage_ref.index > 0:
-            division = self.stage_ref.get().props.division.start
+            division = self.stage_ref.get().props.division_start
             return division.parity == DivisionParity.ODD and division.size % 2 == 1
         else:
             return False

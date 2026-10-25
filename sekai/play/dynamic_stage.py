@@ -8,6 +8,7 @@ from sonolus.script.archetype import (
     StandardImport,
     callback,
     entity_data,
+    entity_memory,
     imported,
     shared_memory,
 )
@@ -28,6 +29,7 @@ from sekai.lib.layout import (
     touch_to_lane,
 )
 from sekai.lib.level_config import LevelConfig
+from sekai.lib.note_style import NoteStyle
 from sekai.lib.options import Options
 from sekai.lib.stage import (
     DivisionParity,
@@ -35,6 +37,7 @@ from sekai.lib.stage import (
     JudgeLineStyle,
     StageBorderStyle,
     StageProps,
+    StageSharedProps,
     get_draw_end_time,
     get_draw_start_time,
     get_end_time,
@@ -134,7 +137,8 @@ class DynamicStage(PlayArchetype):
     y_offset_bounds: Interval = entity_data()
     note_visibility_end: float = entity_data()
 
-    props: StageProps = shared_memory()
+    draw_props: StageProps = entity_memory()
+    props: StageSharedProps = shared_memory()
 
     @callback(order=-1)
     def preprocess(self):
@@ -164,7 +168,8 @@ class DynamicStage(PlayArchetype):
 
     @callback(order=-2)
     def update_sequential(self):
-        self.props @= get_stage_props(self, right_limit=True)
+        self.draw_props @= get_stage_props(self, right_limit=True)
+        self.props @= self.draw_props.shared()
         if time() >= self.end_time:
             self.despawn = True
 
@@ -173,7 +178,7 @@ class DynamicStage(PlayArchetype):
         t = time()
         if t < self.draw_start_time or t > self.draw_end_time:
             return
-        p = self.props
+        p = self.draw_props
         if p.lane_alpha * (1 - p.full_width) < 1:
             return
         half_offset = p.division.start.parity == DivisionParity.ODD and p.division.start.size % 2 == 1
@@ -233,7 +238,7 @@ class DynamicStage(PlayArchetype):
         t = time()
         if t < self.draw_start_time or t > self.draw_end_time:
             return
-        self.props.draw(self.index)
+        self.draw_props.draw(self.index)
 
 
 class StageMaskChange(PlayArchetype, BaseEvent):
@@ -298,6 +303,7 @@ class StageStyleChange(PlayArchetype, BaseEvent):
 
     stage_ref: EntityRef[DynamicStage] = imported(name="stage")
     beat: StandardImport.BEAT
+    lane_color: NoteStyle = imported(name="laneColor", default=NoteStyle.DEFAULT)
     judge_line_color: JudgeLineColor = imported(name="judgeLineColor")
     judge_line_style: JudgeLineStyle = imported(name="judgeLineStyle")
     left_border_style: StageBorderStyle = imported(name="leftBorderStyle")
