@@ -50,8 +50,10 @@ from sekai.lib.layout import (
     IDENTITY_STAGE_SCREEN_TRANSFORM,
     FlickDirection,
     Hitbox,
+    NoteStageParams,
     StageScreenTransform,
     approach,
+    current_layout_transform,
     get_alpha,
     hidden_amount,
     iter_slot_lanes,
@@ -877,18 +879,20 @@ def play_note_hit_effects(
     single_line: bool = False,
     lane_particles: bool = True,
     *,
-    transform: StageScreenTransform,
+    stage: NoteStageParams,
     style: NoteStyle = NoteStyle.DEFAULT,
 ):
-    def place(q):
-        return transform.transform_quad(q)
-
     # Damage with overridden sfx can play, so this goes before the damage check
     sfx = get_note_effect(effect_kind, judgment)
     if Options.sfx_enabled and not Options.auto_sfx and not is_watch() and sfx.is_available:
         sfx.play(SFX_DISTANCE)
     if is_avoided_damage(kind, judgment):
         return
+    transform = stage.screen_transform(current_layout_transform())
+
+    def place(q):
+        return transform.transform_quad(q)
+
     particles = get_note_particles(kind, direction, style)
     if Options.note_effect_enabled:
         anchor = transformed_vec_at(lane, approach(1 - y_offset))
@@ -959,7 +963,7 @@ def play_note_hit_effects(
             pivot_lane=pivot_lane,
             half_offset=half_offset,
             single_line=single_line,
-            transform=transform,
+            stage=stage,
             style=style,
         )
 
@@ -1014,7 +1018,7 @@ def schedule_note_slot_effects(
     half_offset: bool = False,
     single_line: bool = False,
     *,
-    transform: StageScreenTransform,
+    stage: NoteStageParams,
     style: NoteStyle = NoteStyle.DEFAULT,
 ):
     if is_tutorial():
@@ -1026,7 +1030,7 @@ def schedule_note_slot_effects(
     if slot_sprite.is_available and not single_line and size > 0:
         for slot_lane in iter_slot_lanes(lane, size, pivot_lane=pivot_lane, half_offset=half_offset):
             get_archetype_by_name(archetype_names.SLOT_EFFECT).spawn(
-                sprite=slot_sprite, start_time=target_time, lane=slot_lane, y_offset=y_offset, transform=transform
+                sprite=slot_sprite, start_time=target_time, lane=slot_lane, y_offset=y_offset, stage=stage
             )
     slot_glow_sprite = sprite_set.slot_glow
     if slot_glow_sprite.is_available and size > 0:
@@ -1036,7 +1040,7 @@ def schedule_note_slot_effects(
             lane=lane,
             size=size,
             y_offset=y_offset,
-            transform=transform,
+            stage=stage,
         )
 
 

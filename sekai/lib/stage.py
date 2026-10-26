@@ -29,6 +29,7 @@ from sekai.lib.layout import (
     StageScreenTransform,
     StageTransform,
     StageTransformAnchor,
+    StageTransformParams,
     approach,
     camera_layout_transform_at_time,
     compute_stage_transform,
@@ -258,6 +259,16 @@ class StageProps(Record):
 
     def stage_transform(self, elevation_offset: float = 0.0) -> StageTransform:
         return _stage_transform(self, elevation_offset)
+
+    def transform_params(self, elevation_offset: float = 0.0) -> StageTransformParams:
+        return StageTransformParams(
+            stage_rotate=self.rotate,
+            x_lane_translate=self.x_lane_translate,
+            y_lane_translate=self.y_lane_translate,
+            mask_lane=self.lane,
+            center_weight=self.center_weight,
+            elevation=self.elevation + elevation_offset,
+        )
 
     def has_transform(self) -> bool:
         return _has_transform(self)

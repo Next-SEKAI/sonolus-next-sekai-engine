@@ -40,6 +40,7 @@ from sekai.lib.layout import (
     FlickDirection,
     Hitbox,
     Layout,
+    NoteStageParams,
     StageTransform,
     StageTransformParams,
     blend_stage_transform,
@@ -500,7 +501,7 @@ class BaseNote(PlayArchetype):
                 half_offset=self.visual_half_offset,
                 single_line=self.visual_single_line,
                 lane_particles=self.visual_lane_particles,
-                transform=self.visual_stage_transform().to_screen_transform(),
+                stage=self.stage_params(),
                 style=self.style,
             )
         if self.is_scored:
@@ -1090,6 +1091,22 @@ class BaseNote(PlayArchetype):
                 )
         else:
             result @= self._basic_visual_stage_transform()
+        return result
+
+    def stage_params(self, t: float | None = None) -> NoteStageParams:
+        result = +NoteStageParams
+        if self.is_attached:
+            head = self.attach_head_ref.get()
+            tail = self.attach_tail_ref.get()
+            result.head @= head._basic_transform_params(t)
+            result.tail @= tail._basic_transform_params(t)
+            result.frac = self.attach_eased_frac
+            if head.beat == tail.beat:
+                elevation = lerp(result.head.elevation, result.tail.elevation, self.head_ease_frac)
+                result.head.elevation = elevation
+                result.tail.elevation = elevation
+        else:
+            result.head @= self._basic_transform_params(t)
         return result
 
     def _basic_has_stage_transform(self) -> bool:
