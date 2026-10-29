@@ -66,6 +66,7 @@ from sekai.lib.note import (
     get_note_bucket,
     get_note_effect_kind,
     get_note_haptic_feedback,
+    get_note_sprite_set,
     get_note_window,
     has_release_input,
     has_tap_input,
@@ -79,6 +80,7 @@ from sekai.lib.note import (
 )
 from sekai.lib.note_style import NoteStyle
 from sekai.lib.options import Options
+from sekai.lib.skin import NoteSpriteSet
 from sekai.lib.stage import (
     DivisionParity,
     InputGeometry,
@@ -166,6 +168,7 @@ class BaseNote(PlayArchetype):
     best_touch_matches_direction: bool = entity_memory()
 
     should_play_hit_effects: bool = entity_memory()
+    sprite_set: NoteSpriteSet = entity_memory()
 
     hitbox: Hitbox = shared_memory()
 
@@ -278,6 +281,7 @@ class BaseNote(PlayArchetype):
             self.extend_stage_windows(start_time - 1.0, end_time + 1.0)
         if self.kind != NoteKind.ANCHOR:
             register_note_group_window(self, start_time, end_time)
+            self.sprite_set = get_note_sprite_set(self.kind, self.direction, self.style)
         # A hidden note can still be an endpoint of a visible connector.
         self.spawn_eligibility_time = min(natural_start_time, start_time)
         self.scheduled_spawn_time = start_time
@@ -427,7 +431,7 @@ class BaseNote(PlayArchetype):
                 self.target_time,
                 transform=self.visual_stage_transform().to_screen_transform(),
                 note_alpha=note_alpha,
-                style=self.style,
+                sprite_set=self.sprite_set,
             )
         else:
             draw_note(
@@ -439,7 +443,7 @@ class BaseNote(PlayArchetype):
                 self.target_time,
                 transform=IDENTITY_STAGE_SCREEN_TRANSFORM,
                 note_alpha=note_alpha,
-                style=self.style,
+                sprite_set=self.sprite_set,
             )
 
     def draw_hitbox(self):

@@ -409,9 +409,12 @@ def draw_note(
     transform: StageScreenTransform,
     note_alpha: float,
     style: NoteStyle = NoteStyle.DEFAULT,
+    *,
+    sprite_set: NoteSpriteSet | None = None,
 ):
     travel = approach(visual_progress)
-    sprite_set = get_note_sprite_set(kind, direction, style)
+    if sprite_set is None:
+        sprite_set = get_note_sprite_set(kind, direction, style)
     draw_note_body(sprite_set.body, kind, lane, size, travel, target_time, transform, note_alpha)
     draw_note_arrow(sprite_set.arrow, kind, lane, size, travel, target_time, direction, transform, note_alpha)
     draw_note_tick(sprite_set.tick, lane, travel, target_time, transform, note_alpha)
