@@ -29,6 +29,7 @@ from sekai.lib.stage import (
     JudgeLineStyle,
     StageBorderStyle,
     StageProps,
+    StageSamplingPlan,
     StageSharedProps,
     get_draw_end_time,
     get_draw_start_time,
@@ -37,6 +38,7 @@ from sekai.lib.stage import (
     get_start_time,
     initialize_stage_note_visibility,
     stage_y_offset_bounds,
+    update_prepared_stage_props,
 )
 
 
@@ -112,6 +114,7 @@ class WatchDynamicStage(WatchArchetype):
     draw_end_time: float = entity_data()
     y_offset_bounds: Interval = entity_data()
     note_visibility_end: float = entity_data()
+    sampling_plan: StageSamplingPlan = entity_data()
 
     draw_props: StageProps = entity_memory()
     props: StageSharedProps = shared_memory()
@@ -135,6 +138,11 @@ class WatchDynamicStage(WatchArchetype):
         self.end_time = get_end_time(self)
         self.draw_start_time = get_draw_start_time(self)
         self.draw_end_time = get_draw_end_time(self)
+        self.sampling_plan @= StageSamplingPlan.prepare(self)
+        # A singleton event applies before its time, so constant tracks are correct at 0.
+        # Animated tracks are resampled before consumers run each frame.
+        self.draw_props @= get_stage_props(self, target_time=0.0, right_limit=True)
+        self.props @= self.draw_props.shared()
 
     def spawn_time(self) -> float:
         return self.start_time
@@ -144,8 +152,9 @@ class WatchDynamicStage(WatchArchetype):
 
     @callback(order=-2)
     def update_sequential(self):
-        self.draw_props @= get_stage_props(self, right_limit=True)
-        self.props @= self.draw_props.shared()
+        if not self.sampling_plan.is_static:
+            update_prepared_stage_props(self.draw_props, self, self.sampling_plan, time())
+            self.props @= self.draw_props.shared()
 
     def update_parallel(self):
         t = time()
