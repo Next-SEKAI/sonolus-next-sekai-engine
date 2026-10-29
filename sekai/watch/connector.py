@@ -82,6 +82,8 @@ class WatchConnector(WatchArchetype):
     scheduled_spawn_time: float = entity_data()
     end_time: float = entity_data()
     visual_active_interval: Interval = entity_data()
+    ease_over_elevation: bool = entity_data()
+    time_attachment_slice: bool = entity_data()
 
     head_trajectory_first: TrajectoryCache = entity_memory()
     head_trajectory_second: TrajectoryCache = entity_memory()
@@ -105,6 +107,10 @@ class WatchConnector(WatchArchetype):
             return
         if self.active_tail_ref.index > 0 and not self.active_tail.preprocess_done:
             return
+        self.ease_over_elevation = head.beat == tail.beat
+        self.time_attachment_slice = self.ease_over_elevation and (
+            head.has_time_attachment or tail.has_time_attachment
+        )
         self.shared_stage_transform = (
             not head.is_attached
             and not tail.is_attached
@@ -267,7 +273,7 @@ class WatchConnector(WatchArchetype):
                 head_ease_frac = head.head_ease_frac
 
             tail_ease_frac = tail.tail_ease_frac
-            if head.beat == tail.beat and (head.has_time_attachment or tail.has_time_attachment):
+            if self.time_attachment_slice:
                 # Same-beat slices of time attachments use their own elevation span.
                 head_ease_frac = 0.0
                 tail_ease_frac = 1.0
@@ -311,7 +317,7 @@ class WatchConnector(WatchArchetype):
                 tail_note_alpha=tail_note_alpha,
                 head_mask=head_mask,
                 tail_mask=tail_mask,
-                ease_over_elevation=head.beat == tail.beat,
+                ease_over_elevation=self.ease_over_elevation,
                 elevation_transform=elevation_transform,
                 head_alpha_frac=head_alpha_frac,
                 tail_alpha_frac=tail_alpha_frac,
