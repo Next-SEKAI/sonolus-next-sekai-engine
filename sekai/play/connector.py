@@ -19,6 +19,7 @@ from sekai.lib.connector import (
     ActiveConnectorInfo,
     ActiveConnectorKind,
     ConnectorKind,
+    ConnectorRenderInfo,
     ConnectorVisualState,
     DamageConnectorKind,
     SlideConnectorKind,
@@ -32,6 +33,7 @@ from sekai.lib.connector import (
     get_connector_fractions,
     get_connector_input_leniency,
     get_connector_interp_frac,
+    get_connector_render_info,
     is_fake_active_connector,
     schedule_connector_sfx,
     should_show_connector_hitbox,
@@ -91,6 +93,7 @@ class Connector(PlayArchetype):
     input_active_interval: Interval = entity_data()
     ease_over_elevation: bool = entity_data()
     time_attachment_slice: bool = entity_data()
+    render_info: ConnectorRenderInfo = entity_data()
 
     last_visual_state: ConnectorVisualState = entity_memory()
 
@@ -111,9 +114,7 @@ class Connector(PlayArchetype):
         if self.active_tail_ref.index > 0 and not self.active_tail.preprocess_done:
             return
         self.ease_over_elevation = head.beat == tail.beat
-        self.time_attachment_slice = self.ease_over_elevation and (
-            head.has_time_attachment or tail.has_time_attachment
-        )
+        self.time_attachment_slice = self.ease_over_elevation and (head.has_time_attachment or tail.has_time_attachment)
         self.shared_stage_transform = (
             not head.is_attached
             and not tail.is_attached
@@ -121,6 +122,7 @@ class Connector(PlayArchetype):
             and head.elevation == tail.elevation
         )
         self.kind = self.segment_head.segment_kind
+        self.render_info = get_connector_render_info(self.kind, self.segment_head.segment_layer)
         self.ease_type = head.connector_ease
         self.visual_active_interval.start = min(head.target_time, tail.target_time)
         self.visual_active_interval.end = max(head.target_time, tail.target_time)
@@ -131,7 +133,7 @@ class Connector(PlayArchetype):
         self.last_visual_state = ConnectorVisualState.WAITING
 
         if Options.auto_sfx and self.head_ref.index == self.segment_head_ref.index:
-            base_kind = get_connector_base_kind(self.kind)
+            base_kind = self.render_info.base_kind
             match base_kind:
                 case (
                     ConnectorKind.ACTIVE_NORMAL
@@ -225,7 +227,7 @@ class Connector(PlayArchetype):
                     self.head,
                     self.tail,
                     offset_adjusted_time(),
-                    get_connector_input_leniency(self.kind),
+                    get_connector_input_leniency(self.kind, base_kind=self.render_info.base_kind),
                 )
                 bounds = self.active_connector_info.input_bounds
                 for touch in input_manager.processed_touches():
@@ -235,7 +237,7 @@ class Connector(PlayArchetype):
                             self.active_connector_info.active_start_time = time()
                         self.active_connector_info.last_active_time = time()
                         break
-                if is_fake_active_connector(self.kind):
+                if is_fake_active_connector(self.kind, base_kind=self.render_info.base_kind):
                     if not self.active_connector_info.is_active:
                         self.active_connector_info.active_start_time = time()
                     self.active_connector_info.last_active_time = time()
@@ -262,7 +264,7 @@ class Connector(PlayArchetype):
             segment_tail = self.segment_tail
             if self.active_head_ref.index > 0:
                 active_head = self.active_head
-                if get_connector_base_kind(self.kind) == ConnectorKind.DAMAGE:
+                if self.render_info.base_kind == ConnectorKind.DAMAGE:
                     # Damage connectors do not get the initial grace period for staying active.
                     if self.active_connector_info.is_active:
                         visual_state = ConnectorVisualState.ACTIVE
@@ -296,7 +298,7 @@ class Connector(PlayArchetype):
                 ):
                     return
             self.draw_fake_damage_head()
-            if get_connector_alpha_option(self.kind) <= 0:
+            if get_connector_alpha_option(self.kind, base_kind=self.render_info.base_kind) <= 0:
                 return
             head_note_alpha = head.visual_note_alpha
             tail_note_alpha = tail.visual_note_alpha
@@ -373,6 +375,7 @@ class Connector(PlayArchetype):
 
             draw_connector(
                 kind=self.kind,
+                render_info=self.render_info,
                 visual_state=visual_state,
                 ease_type=self.ease_type,
                 head_lane=head_lane,
@@ -410,7 +413,7 @@ class Connector(PlayArchetype):
 
     def draw_fake_damage_head(self):
         if (
-            get_connector_base_kind(self.kind) != ConnectorKind.FAKE_DAMAGE
+            self.render_info.base_kind != ConnectorKind.FAKE_DAMAGE
             or self.active_head_ref.index > 0
             or Options.disable_fake_notes
             or not self.visual_active_interval.start <= time() < self.visual_active_interval.end
@@ -445,7 +448,9 @@ class Connector(PlayArchetype):
     def draw_hitbox(self):
         if not Options.allow_debug_options_in_play_mode or not Options.show_hitboxes:
             return
-        if self.active_head_ref.index <= 0 or not should_show_connector_hitbox(self.kind):
+        if self.active_head_ref.index <= 0 or not should_show_connector_hitbox(
+            self.kind, base_kind=self.render_info.base_kind
+        ):
             return
         if time() in self.input_active_interval:
             draw_connector_hitbox_overlay(self.active_connector_info.input_bounds, 0.6)
