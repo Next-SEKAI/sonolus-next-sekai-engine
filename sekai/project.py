@@ -31,7 +31,7 @@ engine = Engine(
 project = Project(
     engine=engine,
     levels=load_levels,
-    resources=load_resources(),
+    resources=load_resources,
     converters={
         "chcy-pjsekai-extended": convert_pjsekai_extended_level_data,
     },
