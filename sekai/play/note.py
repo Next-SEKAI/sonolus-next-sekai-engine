@@ -144,15 +144,15 @@ class BaseNote(PlayArchetype):
     visual_start_time: float = entity_memory()
     visual_end_time: float = entity_memory()
     spawn_eligibility_time: float = entity_data()
-    scheduled_spawn_time: float = shared_memory()
+    scheduled_spawn_time: float = entity_data()
     target_position: TargetPosition = entity_data()
 
     trajectory_first: TrajectoryCache = entity_memory()
     trajectory_second: TrajectoryCache = entity_memory()
     attach_eased_frac: float = entity_data()
 
-    input_interval: Interval = shared_memory()
-    unadjusted_input_interval: Interval = shared_memory()
+    input_interval: Interval = entity_data()
+    unadjusted_input_interval: Interval = entity_data()
 
     # The id of the tap that activated this note, for tap notes and flicks or released the note, for release notes.
     # This is set by the input manager rather than the note itself.

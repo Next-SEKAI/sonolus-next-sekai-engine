@@ -135,11 +135,10 @@ class WatchBaseNote(WatchArchetype):
     rel_lane: float = entity_data()
     target_time: float = entity_data()
     visual_start_time: float = entity_data()
-    visual_end_time: float = shared_memory()
+    visual_end_time: float = entity_data()
     spawn_eligibility_time: float = entity_data()
-    scheduled_spawn_time: float = shared_memory()
-    # Replay imports overwrite entity data, so keep coordinates in shared memory.
-    target_position: TargetPosition = shared_memory()
+    scheduled_spawn_time: float = entity_data()
+    target_position: TargetPosition = entity_data()
 
     trajectory_first: TrajectoryCache = entity_memory()
     trajectory_second: TrajectoryCache = entity_memory()
@@ -147,7 +146,7 @@ class WatchBaseNote(WatchArchetype):
     active_connector_info: ActiveConnectorInfo = shared_memory()
 
     hitbox: Hitbox = entity_memory()
-    attach_eased_frac: float = shared_memory()
+    attach_eased_frac: float = entity_data()
 
     end_time: float = imported()
     played_hit_effects: bool = imported()
