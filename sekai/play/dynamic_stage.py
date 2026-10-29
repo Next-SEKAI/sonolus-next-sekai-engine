@@ -317,9 +317,9 @@ class StageStyleChange(PlayArchetype, BaseEvent):
     ease: EaseType = imported()
     next_ref: EntityRef[StageStyleChange] = imported(name="next")
 
-    time: float = shared_memory()
-    note_visibility_start: float = shared_memory()
-    previous_note_visibility_end: float = shared_memory()
+    time: float = entity_data()
+    note_visibility_start: float = entity_data()
+    previous_note_visibility_end: float = entity_data()
 
     @callback(order=-4)
     def preprocess(self):
