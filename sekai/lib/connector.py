@@ -1653,6 +1653,8 @@ def circular_connector_fracs(
 ) -> None:
     """Approximate circular curves using their rendered screen edges."""
     result.clear()
+    approach_cache = +ApproachCache
+    approach_cache.prepare()
 
     def interp_at(frac: float) -> float:
         return safe_unlerp(
@@ -1671,10 +1673,10 @@ def circular_connector_fracs(
     # Depth-first traversal through depth 16 needs at most 17 pending spans.
     pending = +Array[CircularConnectorSpan, Dim[17]]
     first = 0.0
-    first_travel = approach(start_progress)
+    first_travel = approach_cache.at(start_progress)
     first_left, first_right = edges_at(first_travel, interp_at(0.0))
-    last_travel = approach(end_progress)
-    middle_travel = approach(lerp(start_progress, end_progress, 0.5))
+    last_travel = approach_cache.at(end_progress)
+    middle_travel = approach_cache.at(lerp(start_progress, end_progress, 0.5))
     pending.set_unchecked(
         0,
         CircularConnectorSpan(
@@ -1706,7 +1708,7 @@ def circular_connector_fracs(
         right_middle_interp = 0.0
         for sample in Array(0.25, 0.75):
             frac = lerp(first, last, sample)
-            travel = approach(lerp(start_progress, end_progress, frac))
+            travel = approach_cache.at(lerp(start_progress, end_progress, frac))
             interp = interp_at(frac)
             left, right = edges_at(travel, interp)
             error_squared = max(
@@ -1852,6 +1854,20 @@ def elevation_connector_fracs(
         result.append(1.0)
         return
 
+    mask_enabled = False
+    if head_mask is not None and tail_mask is not None:
+        mask_enabled = head_mask.enabled and tail_mask.enabled
+    constant_progress = start_visual_progress == end_visual_progress
+    fixed_width = 0.0
+    fixed_y = 0.0
+    approach_cache = +ApproachCache
+    if constant_progress:
+        travel = approach(start_visual_progress)
+        fixed_width = tilt_width_factor(travel) * DynamicLayout.w_scale
+        fixed_y = travel * DynamicLayout.h_scale + DynamicLayout.t
+    else:
+        approach_cache.prepare()
+
     def edges_at(frac: float) -> ElevationConnectorSample:
         global_frac = lerp(start_frac, end_frac, frac)
         interp_frac = constant_interp_frac
@@ -1863,29 +1879,37 @@ def elevation_connector_fracs(
         size = lerp(head_size, tail_size, interp_frac)
         if size <= 0:
             size = CONNECTOR_ZERO_SIZE_FALLBACK
-        left_lane = lane - size
-        right_lane = lane + size
-        if head_mask is not None and tail_mask is not None and head_mask.enabled and tail_mask.enabled:
-            mask_left = lerp(head_mask.left, tail_mask.left, interp_frac)
-            mask_right = lerp(head_mask.right, tail_mask.right, interp_frac)
-            left_lane = clamp(left_lane, mask_left, mask_right)
-            right_lane = clamp(right_lane, mask_left, mask_right)
-        travel = approach(lerp(start_visual_progress, end_visual_progress, frac))
-        width = tilt_width_factor(travel) * DynamicLayout.w_scale
-        y = travel * DynamicLayout.h_scale + DynamicLayout.t
-        raw_left = Vec2((lane - size) * width + DynamicLayout.x_translate, y).rotate(-DynamicLayout.rotate)
-        raw_right = Vec2((lane + size) * width + DynamicLayout.x_translate, y).rotate(-DynamicLayout.rotate)
-        left = Vec2(left_lane * width + DynamicLayout.x_translate, y).rotate(-DynamicLayout.rotate)
-        right = Vec2(right_lane * width + DynamicLayout.x_translate, y).rotate(-DynamicLayout.rotate)
+        width = fixed_width
+        y = fixed_y
+        if not constant_progress:
+            travel = approach_cache.at(lerp(start_visual_progress, end_visual_progress, frac))
+            width = tilt_width_factor(travel) * DynamicLayout.w_scale
+            y = travel * DynamicLayout.h_scale + DynamicLayout.t
         stage = elevation_transform(interp_frac, lerp(elevation_start_frac, elevation_end_frac, global_frac))
         transform = stage.to_screen_transform()
-        return ElevationConnectorSample(
-            transform.apply(left),
-            transform.apply(right),
-            transform.apply(raw_left),
-            transform.apply(raw_right),
-            stage.sr,
+        raw_left = transform.apply(
+            Vec2((lane - size) * width + DynamicLayout.x_translate, y).rotate(-DynamicLayout.rotate)
         )
+        raw_right = transform.apply(
+            Vec2((lane + size) * width + DynamicLayout.x_translate, y).rotate(-DynamicLayout.rotate)
+        )
+        left = alloc(Vec2)
+        right = alloc(Vec2)
+        if head_mask is not None and tail_mask is not None and mask_enabled:
+            mask_left = lerp(head_mask.left, tail_mask.left, interp_frac)
+            mask_right = lerp(head_mask.right, tail_mask.right, interp_frac)
+            left_lane = clamp(lane - size, mask_left, mask_right)
+            right_lane = clamp(lane + size, mask_left, mask_right)
+            left @= transform.apply(
+                Vec2(left_lane * width + DynamicLayout.x_translate, y).rotate(-DynamicLayout.rotate)
+            )
+            right @= transform.apply(
+                Vec2(right_lane * width + DynamicLayout.x_translate, y).rotate(-DynamicLayout.rotate)
+            )
+        else:
+            left @= raw_left
+            right @= raw_right
+        return ElevationConnectorSample(left, right, raw_left, raw_right, stage.sr)
 
     turn_first = 0
     turn_end = 0
@@ -1931,7 +1955,6 @@ def elevation_connector_fracs(
             final, middle = span.sample, span.middle
             left_middle = edges_at(lerp(first, last, 0.25))
             right_middle = edges_at(lerp(first, last, 0.75))
-            # Raw edges detect curves entering the mask between samples.
             error_squared = max(
                 elevation_connector_edge_error(
                     first_sample.left, final.left, left_middle.left, middle.left, right_middle.left
@@ -1939,17 +1962,26 @@ def elevation_connector_fracs(
                 elevation_connector_edge_error(
                     first_sample.right, final.right, left_middle.right, middle.right, right_middle.right
                 ),
-                elevation_connector_edge_error(
-                    first_sample.raw_left, final.raw_left, left_middle.raw_left, middle.raw_left, right_middle.raw_left
-                ),
-                elevation_connector_edge_error(
-                    first_sample.raw_right,
-                    final.raw_right,
-                    left_middle.raw_right,
-                    middle.raw_right,
-                    right_middle.raw_right,
-                ),
             )
+            if mask_enabled:
+                # Raw edges detect curves entering the mask between samples.
+                error_squared = max(
+                    error_squared,
+                    elevation_connector_edge_error(
+                        first_sample.raw_left,
+                        final.raw_left,
+                        left_middle.raw_left,
+                        middle.raw_left,
+                        right_middle.raw_left,
+                    ),
+                    elevation_connector_edge_error(
+                        first_sample.raw_right,
+                        final.raw_right,
+                        left_middle.raw_right,
+                        middle.raw_right,
+                        right_middle.raw_right,
+                    ),
+                )
             min_rotation = min(
                 first_sample.rotation, final.rotation, left_middle.rotation, middle.rotation, right_middle.rotation
             )
@@ -2085,20 +2117,7 @@ def draw_connector_default(
     )
     constant_transform = has_transform and transforms_equal
     heterogeneous_endpoints = (has_transform and not constant_transform) or (mask_enabled and not same_mask_stage)
-    if heterogeneous_endpoints:
-        geometry_detail = 20.0
-    else:
-        geometry_detail = connector_curve_detail(
-            ease_type,
-            head_eased,
-            tail_eased,
-            start_ease_frac,
-            end_ease_frac,
-            tail_lane - tail_size - (head_lane - head_size),
-            tail_lane + tail_size - (head_lane + head_size),
-            start_travel,
-            end_travel,
-        )
+    geometry_detail = 20.0
     quality = get_connector_quality_option(kind, base_kind=base_kind)
     circular_fracs = alloc(VarArray[float, Dim[128]])
     circular_fracs.clear()
@@ -2130,7 +2149,6 @@ def draw_connector_default(
             head_mask,
             tail_mask,
         )
-        geometry_detail = len(circular_fracs) / quality
     elif (
         EaseType.IN_CIRC <= ease_type <= EaseType.OUT_IN_CIRC
         and quality > 0
@@ -2159,8 +2177,20 @@ def draw_connector_default(
             tail_eased,
             quality,
         )
-        if len(circular_fracs) > 0:
-            geometry_detail = len(circular_fracs) / quality
+    if len(circular_fracs) > 0:
+        geometry_detail = len(circular_fracs) / quality
+    elif not heterogeneous_endpoints:
+        geometry_detail = connector_curve_detail(
+            ease_type,
+            head_eased,
+            tail_eased,
+            start_ease_frac,
+            end_ease_frac,
+            tail_lane - tail_size - (head_lane - head_size),
+            tail_lane + tail_size - (head_lane + head_size),
+            start_travel,
+            end_travel,
+        )
 
     if (
         geometry_detail * quality <= 1
