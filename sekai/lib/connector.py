@@ -15,6 +15,7 @@ from sonolus.script.record import Record
 from sonolus.script.runtime import screen, time
 from sonolus.script.sprite import Sprite
 from sonolus.script.timing import beat_to_time
+from sonolus.script.values import alloc
 from sonolus.script.vec import Vec2
 
 from sekai.lib.buckets import SLIDE_TICK_JUDGMENT_WINDOW
@@ -1619,10 +1620,19 @@ def circular_connector_ease(ease_type: EaseType, frac: float) -> float:
 class CircularConnectorSpan(Record):
     end: float
     travel: float
-    x: float
+    interp: float
     depth: int
     middle_travel: float
-    middle_x: float
+    middle_interp: float
+
+
+def connector_edge_distance_squared(point: Vec2, start: Vec2, end: Vec2) -> float:
+    delta = end - start
+    offset = point - start
+    length_squared = delta.dot(delta)
+    frac = clamp(offset.dot(delta) / length_squared, 0, 1) if length_squared > 0 else 0.0
+    residual = offset - delta * frac
+    return residual.dot(residual)
 
 
 def circular_connector_fracs(
@@ -1632,16 +1642,36 @@ def circular_connector_fracs(
     end_ease_frac: float,
     start_progress: float,
     end_progress: float,
-    lane_change: float,
+    head_lane: float,
+    head_size: float,
+    tail_lane: float,
+    tail_size: float,
+    head_eased: float,
+    tail_eased: float,
     quality: float,
 ) -> None:
-    """Split circular curves where straight segments differ too much."""
+    """Approximate circular curves using their rendered screen edges."""
     result.clear()
+
+    def interp_at(frac: float) -> float:
+        return safe_unlerp(
+            head_eased, tail_eased, circular_connector_ease(ease_type, lerp(start_ease_frac, end_ease_frac, frac)), frac
+        )
+
+    def edges_at(travel: float, interp: float) -> tuple[Vec2, Vec2]:
+        lane = lerp(head_lane, tail_lane, interp)
+        size = lerp(head_size, tail_size, interp)
+        if size <= 0:
+            size = CONNECTOR_ZERO_SIZE_FALLBACK
+        width = tilt_width_factor(travel) * DynamicLayout.w_scale
+        y = travel * DynamicLayout.h_scale
+        return Vec2((lane - size) * width, y), Vec2((lane + size) * width, y)
+
     # Depth-first traversal through depth 16 needs at most 17 pending spans.
     pending = +Array[CircularConnectorSpan, Dim[17]]
     first = 0.0
     first_travel = approach(start_progress)
-    first_x = circular_connector_ease(ease_type, start_ease_frac) * tilt_width_factor(first_travel)
+    first_left, first_right = edges_at(first_travel, interp_at(0.0))
     last_travel = approach(end_progress)
     middle_travel = approach(lerp(start_progress, end_progress, 0.5))
     pending.set_unchecked(
@@ -1649,11 +1679,10 @@ def circular_connector_fracs(
         CircularConnectorSpan(
             1.0,
             last_travel,
-            circular_connector_ease(ease_type, end_ease_frac) * tilt_width_factor(last_travel),
+            interp_at(1.0),
             0,
             middle_travel,
-            circular_connector_ease(ease_type, lerp(start_ease_frac, end_ease_frac, 0.5))
-            * tilt_width_factor(middle_travel),
+            interp_at(0.5),
         ),
     )
     pending_count = 1
@@ -1662,33 +1691,40 @@ def circular_connector_fracs(
         pending_count -= 1
         # Copy before the child writes reuse this slot.
         span = +pending.get_unchecked(pending_count)
-        last, last_travel, last_x, depth = span.end, span.travel, span.x, span.depth
-        middle_travel, middle_x = span.middle_travel, span.middle_x
-        middle_chord = lerp(first_x, last_x, safe_unlerp(first_travel, last_travel, middle_travel, 0.5))
-        error = abs(middle_x - middle_chord) * lane_change * abs(DynamicLayout.w_scale)
+        last, last_travel, depth = span.end, span.travel, span.depth
+        middle_travel, middle_interp = span.middle_travel, span.middle_interp
+        last_left, last_right = edges_at(last_travel, span.interp)
+        middle_left, middle_right = edges_at(middle_travel, middle_interp)
+        error_squared = max(
+            connector_edge_distance_squared(middle_left, first_left, last_left),
+            connector_edge_distance_squared(middle_right, first_right, last_right),
+        )
         left_middle_travel = 0.0
-        left_middle_x = 0.0
+        left_middle_interp = 0.0
         right_middle_travel = 0.0
-        right_middle_x = 0.0
+        right_middle_interp = 0.0
         for sample in Array(0.25, 0.75):
             frac = lerp(first, last, sample)
             travel = approach(lerp(start_progress, end_progress, frac))
-            x = circular_connector_ease(ease_type, lerp(start_ease_frac, end_ease_frac, frac))
-            x *= tilt_width_factor(travel)
-            chord = lerp(first_x, last_x, safe_unlerp(first_travel, last_travel, travel, sample))
-            error = max(error, abs(x - chord) * lane_change * abs(DynamicLayout.w_scale))
+            interp = interp_at(frac)
+            left, right = edges_at(travel, interp)
+            error_squared = max(
+                error_squared,
+                connector_edge_distance_squared(left, first_left, last_left),
+                connector_edge_distance_squared(right, first_right, last_right),
+            )
             if sample == 0.25:
                 left_middle_travel = travel
-                left_middle_x = x
+                left_middle_interp = interp
             else:
                 right_middle_travel = travel
-                right_middle_x = x
-        if error <= tolerance or depth >= 16:
+                right_middle_interp = interp
+        if error_squared <= tolerance * tolerance or depth >= 16:
             result.append(last)
             # Reuse this endpoint as the next span's start.
             first = last
-            first_travel = last_travel
-            first_x = last_x
+            first_left @= last_left
+            first_right @= last_right
         else:
             if len(result) + pending_count + 2 > 128:
                 result.clear()
@@ -1697,11 +1733,15 @@ def circular_connector_fracs(
             # Parent quarter samples become the children's midpoints.
             pending.set_unchecked(
                 pending_count,
-                CircularConnectorSpan(last, last_travel, last_x, depth + 1, right_middle_travel, right_middle_x),
+                CircularConnectorSpan(
+                    last, last_travel, span.interp, depth + 1, right_middle_travel, right_middle_interp
+                ),
             )
             pending.set_unchecked(
                 pending_count + 1,
-                CircularConnectorSpan(middle, middle_travel, middle_x, depth + 1, left_middle_travel, left_middle_x),
+                CircularConnectorSpan(
+                    middle, middle_travel, middle_interp, depth + 1, left_middle_travel, left_middle_interp
+                ),
             )
             pending_count += 2
 
@@ -1979,7 +2019,8 @@ def draw_connector_default(
             end_travel,
         )
     quality = get_connector_quality_option(kind, base_kind=base_kind)
-    circular_fracs = VarArray[float, Dim[128]].new()
+    circular_fracs = alloc(VarArray[float, Dim[128]])
+    circular_fracs.clear()
     if ease_over_elevation and quality > 0:
         assert elevation_transform is not None
         elevation_connector_fracs(
@@ -2015,8 +2056,12 @@ def draw_connector_default(
         and constant_interp_frac < 0
         and not has_transform
         and not mask_enabled
-        and head_alpha == tail_alpha
         and abs(tail_eased - head_eased) >= 1e-6
+        and (
+            head_alpha == tail_alpha
+            or min(start_alpha, end_alpha) * alpha_option >= 1
+            or abs(end_alpha - start_alpha) * alpha_option * quality <= 2 * CONNECTOR_ALPHA_ERROR
+        )
     ):
         circular_connector_fracs(
             circular_fracs,
@@ -2025,8 +2070,12 @@ def draw_connector_default(
             end_ease_frac,
             start_visual_progress,
             end_visual_progress,
-            max(abs(tail_lane - tail_size - head_lane + head_size), abs(tail_lane + tail_size - head_lane - head_size))
-            / abs(tail_eased - head_eased),
+            head_lane,
+            head_size,
+            tail_lane,
+            tail_size,
+            head_eased,
+            tail_eased,
             quality,
         )
         if len(circular_fracs) > 0:
