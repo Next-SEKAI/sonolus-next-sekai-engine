@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from enum import IntEnum
-from math import ceil, cos, floor, inf, log, pi, sin, sqrt
+from math import atan2, ceil, cos, floor, inf, log, pi, sin, sqrt
+from struct import pack, unpack
 from typing import Any, Literal, Self, assert_never, cast, overload
 
 from sonolus.script.archetype import EntityRef
@@ -1746,6 +1747,50 @@ def circular_connector_fracs(
             pending_count += 2
 
 
+def _connector_ease_turns() -> tuple[Array, Array]:
+    # Derivative zeros of the SDK Back/Elastic curves, with compound joins.
+    def elastic_roots(rate: float, frequency: float, phase: float, lower: float, upper: float) -> list[float]:
+        angle = atan2(-frequency, rate)
+        return [
+            (angle + index * pi - phase) / frequency
+            for index in range(-30, 31)
+            if lower < (angle + index * pi - phase) / frequency < upper
+        ]
+
+    rate = 10 * log(2)
+    c4, c5 = 2 * pi / 3, 2 * pi / 4.5
+    back = 2 * 1.70158 / (3 * 2.70158)
+    back_in_out = 2 * (1.70158 * 1.525) / (3 * (1.70158 * 1.525 + 1))
+    rows = (
+        [back],
+        [1 - back],
+        [back_in_out / 2, 0.5, 1 - back_in_out / 2],
+        [(1 - back) / 2, 0.5, (1 + back) / 2],
+        # Zero crossings expose the small lobes beside pinned endpoints.
+        [0.025, *elastic_roots(rate, 10 * c4, -10.75 * c4, 0, 1)],
+        [*elastic_roots(-rate, 10 * c4, -0.75 * c4, 0, 1), 0.975],
+        [
+            *elastic_roots(2 * rate, 20 * c5, -11.125 * c5, 0, 0.5),
+            0.5,
+            *elastic_roots(-2 * rate, 20 * c5, -11.125 * c5, 0.5, 1),
+        ],
+        [
+            *elastic_roots(-2 * rate, 20 * c4, -0.75 * c4, 0, 0.5),
+            0.5,
+            *elastic_roots(2 * rate, 20 * c4, -20.75 * c4, 0.5, 1),
+        ],
+    )
+    values: list[float] = []
+    offsets = [0]
+    for row in rows:
+        values.extend(unpack("f", pack("f", value))[0] for value in row)
+        offsets.append(len(values))
+    return Array(*values), Array(*offsets)
+
+
+CONNECTOR_EASE_TURNS, CONNECTOR_EASE_TURN_OFFSETS = _connector_ease_turns()
+
+
 class ElevationConnectorSample(Record):
     left: Vec2
     right: Vec2
@@ -1842,63 +1887,98 @@ def elevation_connector_fracs(
             stage.sr,
         )
 
+    turn_first = 0
+    turn_end = 0
+    if (
+        EaseType.IN_BACK <= ease_type <= EaseType.OUT_IN_ELASTIC
+        and constant_interp_frac < 0
+        and abs(tail_eased - head_eased) >= 1e-6
+        and start_ease_frac != end_ease_frac
+    ):
+        index = ease_type - EaseType.IN_BACK
+        turn_first = cast(int, CONNECTOR_EASE_TURN_OFFSETS.get_unchecked(index))
+        turn_end = cast(int, CONNECTOR_EASE_TURN_OFFSETS.get_unchecked(index + 1))
+        lower = min(start_ease_frac, end_ease_frac)
+        upper = max(start_ease_frac, end_ease_frac)
+        while turn_first < turn_end and CONNECTOR_EASE_TURNS.get_unchecked(turn_first) <= lower:
+            turn_first += 1
+        while turn_first < turn_end and CONNECTOR_EASE_TURNS.get_unchecked(turn_end - 1) >= upper:
+            turn_end -= 1
+    turn_index = turn_first
+    turn_step = 1
+    if end_ease_frac < start_ease_frac:
+        turn_index = turn_end - 1
+        turn_step = -1
+    remaining_turns = turn_end - turn_first
     pending = alloc(Array[ElevationConnectorSpan, Dim[17]])
     first = 0.0
     first_sample = edges_at(first)
-    pending.set_unchecked(0, ElevationConnectorSpan(1.0, edges_at(1.0), edges_at(0.5), 0))
-    pending_count = 1
     tolerance = CONNECTOR_CURVE_ERROR / (2 * quality * quality)
-    while pending_count > 0:
-        pending_count -= 1
-        # Copy before the child writes reuse this slot.
-        span = +pending.get_unchecked(pending_count)
-        last, depth = span.end, span.depth
-        final, middle = span.sample, span.middle
-        left_middle = edges_at(lerp(first, last, 0.25))
-        right_middle = edges_at(lerp(first, last, 0.75))
-        # Raw edges detect curves entering the mask between samples.
-        error_squared = max(
-            elevation_connector_edge_error(
-                first_sample.left, final.left, left_middle.left, middle.left, right_middle.left
-            ),
-            elevation_connector_edge_error(
-                first_sample.right, final.right, left_middle.right, middle.right, right_middle.right
-            ),
-            elevation_connector_edge_error(
-                first_sample.raw_left, final.raw_left, left_middle.raw_left, middle.raw_left, right_middle.raw_left
-            ),
-            elevation_connector_edge_error(
-                first_sample.raw_right, final.raw_right, left_middle.raw_right, middle.raw_right, right_middle.raw_right
-            ),
-        )
-        min_rotation = min(
-            first_sample.rotation, final.rotation, left_middle.rotation, middle.rotation, right_middle.rotation
-        )
-        max_rotation = max(
-            first_sample.rotation, final.rotation, left_middle.rotation, middle.rotation, right_middle.rotation
-        )
-        if (
-            error_squared <= tolerance * tolerance
-            # Unwrapped angles prevent full turns from aliasing all samples.
-            and max_rotation - min_rotation <= pi / 4
-            and (last - first) * minimum_detail <= 1
-        ) or depth >= 16:
-            result.append(last)
-            first = last
-            first_sample @= final
-        elif len(result) + pending_count + 2 > 128:
-            # Fall back to uniform sampling across the full curve.
-            result.clear()
-            for index in range(128):
-                result.append((index + 1) / 128)
-            return
-        else:
-            # Parent quarter samples become the children's midpoints.
-            pending.set_unchecked(pending_count, ElevationConnectorSpan(last, final, right_middle, depth + 1))
-            pending.set_unchecked(
-                pending_count + 1, ElevationConnectorSpan((first + last) / 2, middle, left_middle, depth + 1)
+    while remaining_turns >= 0:
+        last = 1.0
+        if remaining_turns > 0:
+            last = (CONNECTOR_EASE_TURNS.get_unchecked(turn_index) - start_ease_frac) / (
+                end_ease_frac - start_ease_frac
             )
-            pending_count += 2
+            turn_index += turn_step
+        pending.set_unchecked(0, ElevationConnectorSpan(last, edges_at(last), edges_at((first + last) / 2), 0))
+        pending_count = 1
+        while pending_count > 0:
+            pending_count -= 1
+            # Copy before the child writes reuse this slot.
+            span = +pending.get_unchecked(pending_count)
+            last, depth = span.end, span.depth
+            final, middle = span.sample, span.middle
+            left_middle = edges_at(lerp(first, last, 0.25))
+            right_middle = edges_at(lerp(first, last, 0.75))
+            # Raw edges detect curves entering the mask between samples.
+            error_squared = max(
+                elevation_connector_edge_error(
+                    first_sample.left, final.left, left_middle.left, middle.left, right_middle.left
+                ),
+                elevation_connector_edge_error(
+                    first_sample.right, final.right, left_middle.right, middle.right, right_middle.right
+                ),
+                elevation_connector_edge_error(
+                    first_sample.raw_left, final.raw_left, left_middle.raw_left, middle.raw_left, right_middle.raw_left
+                ),
+                elevation_connector_edge_error(
+                    first_sample.raw_right,
+                    final.raw_right,
+                    left_middle.raw_right,
+                    middle.raw_right,
+                    right_middle.raw_right,
+                ),
+            )
+            min_rotation = min(
+                first_sample.rotation, final.rotation, left_middle.rotation, middle.rotation, right_middle.rotation
+            )
+            max_rotation = max(
+                first_sample.rotation, final.rotation, left_middle.rotation, middle.rotation, right_middle.rotation
+            )
+            if (
+                error_squared <= tolerance * tolerance
+                # Unwrapped angles prevent full turns from aliasing all samples.
+                and max_rotation - min_rotation <= pi / 4
+                and (last - first) * minimum_detail <= 1
+            ) or depth >= 16:
+                result.append(last)
+                first = last
+                first_sample @= final
+            elif len(result) + pending_count + remaining_turns + 2 > 128:
+                # Fall back to uniform sampling across the full curve.
+                result.clear()
+                for index in range(128):
+                    result.append((index + 1) / 128)
+                return
+            else:
+                # Parent quarter samples become the children's midpoints.
+                pending.set_unchecked(pending_count, ElevationConnectorSpan(last, final, right_middle, depth + 1))
+                pending.set_unchecked(
+                    pending_count + 1, ElevationConnectorSpan((first + last) / 2, middle, left_middle, depth + 1)
+                )
+                pending_count += 2
+        remaining_turns -= 1
 
 
 def draw_connector_default(
