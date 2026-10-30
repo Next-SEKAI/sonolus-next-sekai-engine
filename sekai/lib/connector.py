@@ -1616,6 +1616,15 @@ def circular_connector_ease(ease_type: EaseType, frac: float) -> float:
     return ease_out_in_circ(frac)
 
 
+class CircularConnectorSpan(Record):
+    end: float
+    travel: float
+    x: float
+    depth: int
+    middle_travel: float
+    middle_x: float
+
+
 def circular_connector_fracs(
     result: VarArray[float, Dim[128]],
     ease_type: EaseType,
@@ -1628,34 +1637,52 @@ def circular_connector_fracs(
 ) -> None:
     """Split circular curves where straight segments differ too much."""
     result.clear()
-    ends = VarArray[float, Dim[17]].new()
-    travels = VarArray[float, Dim[17]].new()
-    positions = VarArray[float, Dim[17]].new()
-    depths = VarArray[int, Dim[17]].new()
+    # Depth-first traversal through depth 16 needs at most 17 pending spans.
+    pending = +Array[CircularConnectorSpan, Dim[17]]
     first = 0.0
     first_travel = approach(start_progress)
     first_x = circular_connector_ease(ease_type, start_ease_frac) * tilt_width_factor(first_travel)
     last_travel = approach(end_progress)
-    ends.append(1.0)
-    travels.append(last_travel)
-    positions.append(circular_connector_ease(ease_type, end_ease_frac) * tilt_width_factor(last_travel))
-    depths.append(0)
+    middle_travel = approach(lerp(start_progress, end_progress, 0.5))
+    pending.set_unchecked(
+        0,
+        CircularConnectorSpan(
+            1.0,
+            last_travel,
+            circular_connector_ease(ease_type, end_ease_frac) * tilt_width_factor(last_travel),
+            0,
+            middle_travel,
+            circular_connector_ease(ease_type, lerp(start_ease_frac, end_ease_frac, 0.5))
+            * tilt_width_factor(middle_travel),
+        ),
+    )
+    pending_count = 1
     tolerance = CONNECTOR_CURVE_ERROR / (2 * quality * quality)
-    while len(ends) > 0:
-        last, last_travel, last_x, depth = ends.pop(), travels.pop(), positions.pop(), depths.pop()
-        error = 0.0
-        middle_travel = 0.0
-        middle_x = 0.0
-        for sample in Array(0.25, 0.5, 0.75):
+    while pending_count > 0:
+        pending_count -= 1
+        # Copy before the child writes reuse this slot.
+        span = +pending.get_unchecked(pending_count)
+        last, last_travel, last_x, depth = span.end, span.travel, span.x, span.depth
+        middle_travel, middle_x = span.middle_travel, span.middle_x
+        middle_chord = lerp(first_x, last_x, safe_unlerp(first_travel, last_travel, middle_travel, 0.5))
+        error = abs(middle_x - middle_chord) * lane_change * abs(DynamicLayout.w_scale)
+        left_middle_travel = 0.0
+        left_middle_x = 0.0
+        right_middle_travel = 0.0
+        right_middle_x = 0.0
+        for sample in Array(0.25, 0.75):
             frac = lerp(first, last, sample)
             travel = approach(lerp(start_progress, end_progress, frac))
             x = circular_connector_ease(ease_type, lerp(start_ease_frac, end_ease_frac, frac))
             x *= tilt_width_factor(travel)
             chord = lerp(first_x, last_x, safe_unlerp(first_travel, last_travel, travel, sample))
             error = max(error, abs(x - chord) * lane_change * abs(DynamicLayout.w_scale))
-            if sample == 0.5:
-                middle_travel = travel
-                middle_x = x
+            if sample == 0.25:
+                left_middle_travel = travel
+                left_middle_x = x
+            else:
+                right_middle_travel = travel
+                right_middle_x = x
         if error <= tolerance or depth >= 16:
             result.append(last)
             # Reuse this endpoint as the next span's start.
@@ -1663,18 +1690,20 @@ def circular_connector_fracs(
             first_travel = last_travel
             first_x = last_x
         else:
-            if len(result) + len(ends) + 2 > 128:
+            if len(result) + pending_count + 2 > 128:
                 result.clear()
                 return
             middle = (first + last) / 2
-            ends.append(last)
-            travels.append(last_travel)
-            positions.append(last_x)
-            depths.append(depth + 1)
-            ends.append(middle)
-            travels.append(middle_travel)
-            positions.append(middle_x)
-            depths.append(depth + 1)
+            # Parent quarter samples become the children's midpoints.
+            pending.set_unchecked(
+                pending_count,
+                CircularConnectorSpan(last, last_travel, last_x, depth + 1, right_middle_travel, right_middle_x),
+            )
+            pending.set_unchecked(
+                pending_count + 1,
+                CircularConnectorSpan(middle, middle_travel, middle_x, depth + 1, left_middle_travel, left_middle_x),
+            )
+            pending_count += 2
 
 
 def elevation_connector_fracs(
