@@ -1746,6 +1746,37 @@ def circular_connector_fracs(
             pending_count += 2
 
 
+class ElevationConnectorSample(Record):
+    left: Vec2
+    right: Vec2
+    raw_left: Vec2
+    raw_right: Vec2
+    rotation: float
+
+
+class ElevationConnectorSpan(Record):
+    end: float
+    sample: ElevationConnectorSample
+    middle: ElevationConnectorSample
+    depth: int
+
+
+def elevation_connector_edge_error(first: Vec2, last: Vec2, quarter: Vec2, middle: Vec2, three_quarters: Vec2) -> float:
+    dx, dy = last.x - first.x, last.y - first.y
+    length_squared = dx * dx + dy * dy
+    previous = 0.0
+    error_squared = 0.0
+    for point in Array(quarter, middle, three_quarters):
+        px, py = point.x - first.x, point.y - first.y
+        projection = (px * dx + py * dy) / length_squared if length_squared > 0 else 0.0
+        if projection < previous - 1e-12 or projection > 1 + 1e-12:
+            return inf
+        previous = projection
+        frac = clamp(projection, 0, 1)
+        error_squared = max(error_squared, (px - dx * frac) ** 2 + (py - dy * frac) ** 2)
+    return error_squared
+
+
 def elevation_connector_fracs(
     result: VarArray[float, Dim[128]],
     ease_type: EaseType,
@@ -1776,7 +1807,7 @@ def elevation_connector_fracs(
         result.append(1.0)
         return
 
-    def edges_at(frac: float) -> tuple[Vec2, Vec2, Vec2, Vec2, float]:
+    def edges_at(frac: float) -> ElevationConnectorSample:
         global_frac = lerp(start_frac, end_frac, frac)
         interp_frac = constant_interp_frac
         if interp_frac < 0:
@@ -1803,7 +1834,7 @@ def elevation_connector_fracs(
         right = Vec2(right_lane * width + DynamicLayout.x_translate, y).rotate(-DynamicLayout.rotate)
         stage = elevation_transform(interp_frac, lerp(elevation_start_frac, elevation_end_frac, global_frac))
         transform = stage.to_screen_transform()
-        return (
+        return ElevationConnectorSample(
             transform.apply(left),
             transform.apply(right),
             transform.apply(raw_left),
@@ -1811,58 +1842,41 @@ def elevation_connector_fracs(
             stage.sr,
         )
 
-    ends = VarArray[float, Dim[17]].new()
-    lefts = VarArray[Vec2, Dim[17]].new()
-    rights = VarArray[Vec2, Dim[17]].new()
-    raw_lefts = VarArray[Vec2, Dim[17]].new()
-    raw_rights = VarArray[Vec2, Dim[17]].new()
-    rotations = VarArray[float, Dim[17]].new()
-    depths = VarArray[int, Dim[17]].new()
+    pending = alloc(Array[ElevationConnectorSpan, Dim[17]])
     first = 0.0
-    first_left, first_right, first_raw_left, first_raw_right, first_rotation = edges_at(first)
-    final_left, final_right, final_raw_left, final_raw_right, final_rotation = edges_at(1.0)
-    ends.append(1.0)
-    lefts.append(final_left)
-    rights.append(final_right)
-    raw_lefts.append(final_raw_left)
-    raw_rights.append(final_raw_right)
-    rotations.append(final_rotation)
-    depths.append(0)
+    first_sample = edges_at(first)
+    pending.set_unchecked(0, ElevationConnectorSpan(1.0, edges_at(1.0), edges_at(0.5), 0))
+    pending_count = 1
     tolerance = CONNECTOR_CURVE_ERROR / (2 * quality * quality)
-    while len(ends) > 0:
-        last, last_left, last_right = ends.pop(), lefts.pop(), rights.pop()
-        last_raw_left, last_raw_right = raw_lefts.pop(), raw_rights.pop()
-        last_rotation, depth = rotations.pop(), depths.pop()
-        error_squared = 0.0
-        middle_left = Vec2(0, 0)
-        middle_right = Vec2(0, 0)
-        middle_raw_left = Vec2(0, 0)
-        middle_raw_right = Vec2(0, 0)
-        middle_rotation = 0.0
-        min_rotation = min(first_rotation, last_rotation)
-        max_rotation = max(first_rotation, last_rotation)
-        for sample in Array(0.25, 0.5, 0.75):
-            left, right, raw_left, raw_right, rotation = edges_at(lerp(first, last, sample))
-            min_rotation = min(min_rotation, rotation)
-            max_rotation = max(max_rotation, rotation)
-            left_delta = left - (first_left + (last_left - first_left) * sample)
-            right_delta = right - (first_right + (last_right - first_right) * sample)
-            raw_left_delta = raw_left - (first_raw_left + (last_raw_left - first_raw_left) * sample)
-            raw_right_delta = raw_right - (first_raw_right + (last_raw_right - first_raw_right) * sample)
-            # Include raw edges to detect curves entering the mask between samples.
-            error_squared = max(
-                error_squared,
-                left_delta.x * left_delta.x + left_delta.y * left_delta.y,
-                right_delta.x * right_delta.x + right_delta.y * right_delta.y,
-                raw_left_delta.x * raw_left_delta.x + raw_left_delta.y * raw_left_delta.y,
-                raw_right_delta.x * raw_right_delta.x + raw_right_delta.y * raw_right_delta.y,
-            )
-            if sample == 0.5:
-                middle_left @= left
-                middle_right @= right
-                middle_raw_left @= raw_left
-                middle_raw_right @= raw_right
-                middle_rotation = rotation
+    while pending_count > 0:
+        pending_count -= 1
+        # Copy before the child writes reuse this slot.
+        span = +pending.get_unchecked(pending_count)
+        last, depth = span.end, span.depth
+        final, middle = span.sample, span.middle
+        left_middle = edges_at(lerp(first, last, 0.25))
+        right_middle = edges_at(lerp(first, last, 0.75))
+        # Raw edges detect curves entering the mask between samples.
+        error_squared = max(
+            elevation_connector_edge_error(
+                first_sample.left, final.left, left_middle.left, middle.left, right_middle.left
+            ),
+            elevation_connector_edge_error(
+                first_sample.right, final.right, left_middle.right, middle.right, right_middle.right
+            ),
+            elevation_connector_edge_error(
+                first_sample.raw_left, final.raw_left, left_middle.raw_left, middle.raw_left, right_middle.raw_left
+            ),
+            elevation_connector_edge_error(
+                first_sample.raw_right, final.raw_right, left_middle.raw_right, middle.raw_right, right_middle.raw_right
+            ),
+        )
+        min_rotation = min(
+            first_sample.rotation, final.rotation, left_middle.rotation, middle.rotation, right_middle.rotation
+        )
+        max_rotation = max(
+            first_sample.rotation, final.rotation, left_middle.rotation, middle.rotation, right_middle.rotation
+        )
         if (
             error_squared <= tolerance * tolerance
             # Unwrapped angles prevent full turns from aliasing all samples.
@@ -1871,33 +1885,20 @@ def elevation_connector_fracs(
         ) or depth >= 16:
             result.append(last)
             first = last
-            first_left @= last_left
-            first_right @= last_right
-            first_raw_left @= last_raw_left
-            first_raw_right @= last_raw_right
-            first_rotation = last_rotation
-        elif len(result) + len(ends) + 2 > 128:
+            first_sample @= final
+        elif len(result) + pending_count + 2 > 128:
             # Fall back to uniform sampling across the full curve.
             result.clear()
             for index in range(128):
                 result.append((index + 1) / 128)
             return
         else:
-            middle = (first + last) / 2
-            ends.append(last)
-            lefts.append(last_left)
-            rights.append(last_right)
-            raw_lefts.append(last_raw_left)
-            raw_rights.append(last_raw_right)
-            rotations.append(last_rotation)
-            depths.append(depth + 1)
-            ends.append(middle)
-            lefts.append(middle_left)
-            rights.append(middle_right)
-            raw_lefts.append(middle_raw_left)
-            raw_rights.append(middle_raw_right)
-            rotations.append(middle_rotation)
-            depths.append(depth + 1)
+            # Parent quarter samples become the children's midpoints.
+            pending.set_unchecked(pending_count, ElevationConnectorSpan(last, final, right_middle, depth + 1))
+            pending.set_unchecked(
+                pending_count + 1, ElevationConnectorSpan((first + last) / 2, middle, left_middle, depth + 1)
+            )
+            pending_count += 2
 
 
 def draw_connector_default(
