@@ -292,6 +292,8 @@ class StageProps(Record):
         )
 
     def draw(self, order: int):
+        if self.lane_alpha <= 0 and self.judge_line_alpha <= 0:
+            return
         transform = +StageTransform
         if self.has_transform():
             transform @= self.stage_transform()

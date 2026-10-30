@@ -660,6 +660,8 @@ def draw_note_body(
 def draw_note_tick(
     sprite: Sprite, lane: float, travel: float, target_time: float, transform: StageScreenTransform, note_alpha: float
 ):
+    if sprite.id < 0:
+        return
     a = min(get_alpha(target_time) * note_alpha, 1.0)
     z = get_z(layers.note_tick, time=target_time, lane=lane, elevation=transform.elevation)
     layout = transform.transform_billboard(layout_tick(lane, travel), transformed_vec_at(lane, travel))
